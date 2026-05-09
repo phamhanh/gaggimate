@@ -44,7 +44,6 @@ class Heater {
     float softPwm(uint32_t windowSize);
     void plot(float optimumOutput, float outputScale, uint8_t everyNth);
     float calculateDisturbanceFeedforwardGain();
-    float calculateSafetyScaling(float tempError);
     TemperatureSensor *sensor;
     uint8_t heaterPin;
     xTaskHandle taskHandle;
@@ -78,7 +77,6 @@ class Heater {
     // Thermal feedforward variables
     float *pumpFlowRate = nullptr;
     int *valveStatus = nullptr;
-    float lastSafetyFactor = 1.0f; // For smooth safety scaling transitions
     float incomingWaterTemp = 23.0f;
     float heaterEfficiency = 0.95f; // 95% efficiency (immersion heater)
     float heatLossWatts = 5.0f;     // 5W heat loss (well-insulated boiler)

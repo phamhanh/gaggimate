@@ -1,6 +1,5 @@
 #include "Heater.h"
 #include <Arduino.h>
-#include <algorithm>
 #include <cmath>
 
 Heater::Heater(TemperatureSensor *sensor, uint8_t heaterPin, const heater_error_callback_t &error_callback,
@@ -99,22 +98,9 @@ void Heater::loopPid() {
     // Calculate and set disturbance feedforward BEFORE PID update
     // Only apply thermal feedforward when Kf>0, valve is open, and water is flowing
     if (combinedKff > 0.0f && pumpFlowRate && *pumpFlowRate > 0.01f && valveStatus && *valveStatus != 0) {
-        float currentFlowRate = *pumpFlowRate; // Use raw flow rate for fast response
         float disturbanceGain = calculateDisturbanceFeedforwardGain();
 
-        // Apply smoothed temperature-based safety scaling
-        float tempError = temperature - setpoint;
-        float rawSafetyFactor = calculateSafetyScaling(tempError);
-
-        // Smooth safety factor transitions to reduce oscillations
-        const float safetyAlpha = 0.85f; // Faster response for quicker feedforward
-        float safetyFactor = safetyAlpha * rawSafetyFactor + (1.0f - safetyAlpha) * lastSafetyFactor;
-        lastSafetyFactor = safetyFactor;
-
-        disturbanceGain *= safetyFactor;
-
-        // Set the disturbance feedforward in SimplePID
-        simplePid->setDisturbanceFeedforward(currentFlowRate, disturbanceGain);
+        simplePid->setDisturbanceFeedforward(*pumpFlowRate, disturbanceGain);
 
     } else {
         simplePid->setDisturbanceFeedforward(0.0f, 0.0f);
@@ -270,22 +256,6 @@ float Heater::calculateDisturbanceFeedforwardGain() {
     float gainPerFlowRate = powerPerFlowRate * combinedKff;
 
     return gainPerFlowRate;
-}
-
-float Heater::calculateSafetyScaling(float tempError) {
-    // tempError = temperature - setpoint
-    // Use smoother, less aggressive safety scaling to reduce oscillations
-    if (tempError > 1.0f) {
-        return 0.0f; // No FF if more than 1.0°C above setpoint
-    } else if (tempError >= 0.0f) {
-        // Gradual reduction: 100% at 0°C error, 70% at +1.0°C error
-        return 0.7f + 0.3f * (1.0f - tempError / 1.0f);
-    } else if (tempError > -1.0f) {
-        // Scale from 70% to 100% as temperature drops below setpoint
-        return 0.7f + 0.3f * std::abs(tempError) / 1.0f;
-    } else {
-        return 1.0f; // Full FF when more than 1.0°C below setpoint
-    }
 }
 
 void Heater::loopTask(void *arg) {
