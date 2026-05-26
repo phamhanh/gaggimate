@@ -12,6 +12,7 @@
 #include <scales/felicitaScale.h>
 #include <scales/myscale.h>
 #include <scales/timemore.h>
+#include <scales/dot.h>
 #include <scales/varia.h>
 #include <scales/weighmybru.h>
 
@@ -66,6 +67,7 @@ void BLEScalePlugin::setup(Controller *controller, PluginManager *manager) {
     VariaScalesPlugin::apply();
     WeighMyBrewScalePlugin::apply();
     myscalePlugin::apply();
+    TimemoreDotScalesPlugin::apply();
 
     // Initialize scanner with error handling
     this->scanner = new (std::nothrow) RemoteScalesScanner();
