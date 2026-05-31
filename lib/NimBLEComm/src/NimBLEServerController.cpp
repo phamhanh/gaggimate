@@ -170,7 +170,9 @@ void NimBLEServerController::setInfo(const String infoString) {
     infoChar->setValue(infoString);
 }
 
-void NimBLEServerController::registerPidControlCallback(const pid_control_callback_t &callback) { pidControlCallback = callback; }
+void NimBLEServerController::registerPidSettingsCallback(const pid_settings_callback_t &callback) {
+    pidSettingsCallback = callback;
+}
 
 void NimBLEServerController::registerPumpModelCoeffsCallback(const pump_model_coeffs_callback_t &callback) {
     pumpModelCoeffsCallback = callback;
@@ -252,10 +254,29 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
             Kf = kfToken.toFloat();
         }
 
+        uint32_t pidFreezeGraceMs = 60000;
+        String graceToken = get_token(pid, 4, ',');
+        if (graceToken.length() > 0) {
+            pidFreezeGraceMs = graceToken.toInt();
+        }
+
+        bool kffEnabled = true;
+        String kffEnabledToken = get_token(pid, 5, ',');
+        if (kffEnabledToken.length() > 0) {
+            kffEnabled = kffEnabledToken.toInt() != 0;
+        }
+
+        float incomingWaterTempC = 23.0f;
+        String inletToken = get_token(pid, 6, ',');
+        if (inletToken.length() > 0) {
+            incomingWaterTempC = inletToken.toFloat();
+        }
+
         ESP_LOGI(LOG_TAG, "BLE received PID string: '%s'", pid.c_str());
-        ESP_LOGI(LOG_TAG, "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f (combined)", Kp, Ki, Kd, Kf);
-        if (pidControlCallback != nullptr) {
-            pidControlCallback(Kp, Ki, Kd, Kf);
+        ESP_LOGI(LOG_TAG, "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f", Kp, Ki, Kd,
+                 Kf, static_cast<unsigned long>(pidFreezeGraceMs), kffEnabled ? 1 : 0, incomingWaterTempC);
+        if (pidSettingsCallback != nullptr) {
+            pidSettingsCallback(Kp, Ki, Kd, Kf, pidFreezeGraceMs, kffEnabled, incomingWaterTempC);
         }
     } else if (pCharacteristic->getUUID().equals(NimBLEUUID(PUMP_MODEL_COEFFS_CHAR_UUID))) {
         auto pumpModelCoeffs = String(pCharacteristic->getValue().c_str());

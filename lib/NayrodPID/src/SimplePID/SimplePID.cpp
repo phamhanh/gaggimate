@@ -26,6 +26,7 @@ bool SimplePID::update() {
     if (!isInitialized) {
         initSetPointFilter(*this->sensorOutput);
         resetFeedbackController();
+        prevMeasurement = *sensorOutput; // Seed with current value to avoid derivative kick on first update
         if (gainFF != 0.0f)
             isFeedForwardActive = true; // Activate the feedforward control if gainFF is not zero
         isInitialized = true;
@@ -49,9 +50,13 @@ bool SimplePID::update() {
 
     ESP_LOGV("SimplePID", "%.2f\t %.2f\t %.2f\t %.2f\n", *setpointTarget, setpointFiltered, setpointDerivative, *sensorOutput);
 
+    if (pidFrozen) {
+        *controlerOutput = constrain(frozenPidSum + DistFFOut, ctrlOutputLimits[0], ctrlOutputLimits[1]);
+        return true;
+    }
+
     float deltaTime = 1.0f / ctrl_freq_sampling; // Time step in seconds
 
-    // Feeback terms
     float error = setpointFiltered - *sensorOutput;
 
     float Pout = gainKp * error;
@@ -59,8 +64,11 @@ bool SimplePID::update() {
     feedback_integralState += error * deltaTime;
     float Iout = gainKi * feedback_integralState;
 
-    float derivative = (error - prevError) / deltaTime;
-    float Dout = gainKd * derivative;
+    // Derivative-on-measurement: avoids derivative kick on setpoint changes.
+    // Low-pass filter applied via EMA to attenuate sensor noise before Kd amplifies it.
+    float rawDerivative = -(*sensorOutput - prevMeasurement) / deltaTime;
+    filteredDerivative = derivFilterAlpha * rawDerivative + (1.0f - derivFilterAlpha) * filteredDerivative;
+    float Dout = gainKd * filteredDerivative;
 
     // Calculate the output before antiwindup clamping
     float sumPID = Pout + Iout + Dout + FFOut + DistFFOut;
@@ -84,6 +92,7 @@ bool SimplePID::update() {
     // Serial.printf("Pout: %.2f, Iout: %.2f, Dout: %.2f, FFOut: %.2f, OutputPID: %.2f, SumPID: %.2f\n", Pout, Iout, Dout, FFOut,
     // sumPIDsat, sumPID); Update previous values for next iteration
     prevError = error;
+    prevMeasurement = *sensorOutput;
     prevOutput = sumPIDsat;
 
     *controlerOutput = sumPIDsat;
@@ -117,10 +126,27 @@ void SimplePID::initSetPointFilter(float initialValue) {
     setpointFiltstate1 = 2 * setpointFiltXi * 2 * PI * setpointFilterFreq * initialValue;
 }
 
+void SimplePID::captureFrozenFeedback() {
+    if (isfilterSetpointActive) {
+        setpointFiltering(setpointFilterFreq);
+    } else {
+        setpointFiltered = *setpointTarget;
+    }
+
+    // Freeze only the I term: it represents true steady-state power at this setpoint/environment.
+    // P and D are transient corrections that depend on the exact moment flow starts — locking them
+    // in produces arbitrary shot-to-shot variation. Kff handles the dynamic flow disturbance.
+    frozenPidSum = gainKi * feedback_integralState;
+}
+
 void SimplePID::resetFeedbackController() {
     feedback_integralState = 0.0f; // Reset the integral state
     prevError = 0.0f;              // Reset the previous error for derivative calculation
+    prevMeasurement = 0.0f;        // Reset the previous measurement for derivative-on-measurement
+    filteredDerivative = 0.0f;     // Reset the derivative filter state
     prevOutput = 0.0f;             // Reset the previous output for derivative calculation
+    pidFrozen = false;
+    frozenPidSum = 0.0f;
 }
 
 void SimplePID::reset() {

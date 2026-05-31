@@ -49,6 +49,17 @@ class SimplePID {
     void setDisturbanceGain(float gainDFF) { gainDistFF = gainDFF; };
     float getDisturbanceGain() { return gainDistFF; };
 
+    /** Set EMA alpha for the derivative low-pass filter.
+     *  1.0 = no filtering (default, backward-compatible).
+     *  Lower values = more smoothing, e.g. 0.1 strongly attenuates sample-to-sample noise. */
+    void setDerivativeFilterAlpha(float alpha) { derivFilterAlpha = alpha; }
+
+    /** Snapshot P+I+D at latch time; caller enables freeze via setPidFrozen(). */
+    void captureFrozenFeedback();
+    void setPidFrozen(bool frozen) { pidFrozen = frozen; }
+    bool isPidFrozen() const { return pidFrozen; }
+    float getFrozenPidSum() const { return frozenPidSum; }
+
   private:
     // setpoint filtering
     void setpointFiltering(float freq);
@@ -76,9 +87,14 @@ class SimplePID {
     float gainDistFF = 0.0f;                     // Disturbance feedforward gain
     float currentDisturbance = 0.0f;             // Current disturbance value
     bool isDisturbanceFeedForwardActive = false; // Flag to activate disturbance feedforward
+    bool pidFrozen = false;
+    float frozenPidSum = 0.0f; // Latched P+I+D; held until caller clears freeze
 
-    float feedback_integralState = 0.0f; // Integral state
-    float prevError = 0.0f;              // Previous error for derivative calculation
+    float feedback_integralState = 0.0f;   // Integral state
+    float prevError = 0.0f;               // Previous error for derivative calculation
+    float prevMeasurement = 0.0f;         // Previous measurement for derivative-on-measurement
+    float filteredDerivative = 0.0f;      // Low-pass filtered derivative term
+    float derivFilterAlpha = 1.0f;        // EMA alpha for derivative filter: 1.0 = no filter, lower = smoother
     float prevOutput = 0.0f;             // Previous output for derivative calculation
     Control mode = Control::manual;
     float manualOutput = 0.0f;

@@ -122,20 +122,21 @@ void GaggiMateController::setup() {
             dimmedPump->setValveState(valve);
         });
     _ble.registerAltControlCallback([this](bool state) { this->alt->set(state); });
-    _ble.registerPidControlCallback([this](float Kp, float Ki, float Kd, float Kf) {
-        this->heater->setTunings(Kp, Ki, Kd);
-
-        // Apply thermal feedforward parameters if available
-        this->heater->setFeedforwardScale(Kf);
-    });
+    _ble.registerPidSettingsCallback(
+        [this](float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs, bool kffEnabled, float incomingWaterTempC) {
+            this->heater->setTunings(Kp, Ki, Kd);
+            this->heater->setFeedforwardScale(Kf);
+            this->heater->setPidFreezeGraceMs(pidFreezeGraceMs);
+            this->heater->setKffEnabled(kffEnabled);
+            this->heater->setIncomingWaterTemp(incomingWaterTempC);
+        });
     _ble.registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
         if (_config.capabilites.dimming) {
             auto dimmedPump = static_cast<DimmedPump *>(pump);
-            // Check if this is a flow measurement call (a and b are flow measurements, c and d are nan)
-            if (isnan(c) && isnan(d)) {
-                dimmedPump->setPumpFlowCoeff(a, b); // a = oneBarFlow, b = nineBarFlow
+            if (!isnan(d)) {
+                dimmedPump->setPumpFlowPolyCoeffs(a, b, c, d);
             } else {
-                dimmedPump->setPumpFlowPolyCoeffs(a, b, c, d); // a, b, c, d are polynomial coefficients
+                dimmedPump->setPumpFlowCoeff(a, b);
             }
         }
     });

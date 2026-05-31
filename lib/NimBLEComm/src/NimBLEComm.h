@@ -39,6 +39,8 @@ constexpr size_t ERROR_CODE_AUTOTUNE_TIMEOUT = 6;
 
 using pin_control_callback_t = std::function<void(bool isActive)>;
 using pid_control_callback_t = std::function<void(float Kp, float Ki, float Kd, float Kf)>;
+using pid_settings_callback_t = std::function<void(float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
+                                                   bool kffEnabled, float incomingWaterTempC)>;
 using pump_model_coeffs_callback_t = std::function<void(float a, float b, float c, float d)>;
 using ping_callback_t = std::function<void()>;
 using remote_err_callback_t = std::function<void(int errorCode)>;
@@ -63,6 +65,7 @@ using led_control_callback_t = std::function<void(uint8_t channel, uint8_t brigh
 struct SystemCapabilities {
     bool dimming;
     bool pressure;
+    bool ssrPump;
     bool ledControl;
     bool tof;
 };

@@ -23,6 +23,9 @@ void Heater::setupPid() {
     simplePid->setCtrlOutputLimits(0.0f, TUNER_OUTPUT_SPAN);
     simplePid->activateSetPointFilter(false);
     simplePid->activateFeedForward(false);
+    // Derivative low-pass: alpha=0.1 means 10% new / 90% old each 1 s sample.
+    // Strongly attenuates thermocouple sample-to-sample noise before Kd amplifies it.
+    simplePid->setDerivativeFilterAlpha(0.1f);
     simplePid->reset();
 }
 
@@ -86,6 +89,12 @@ void Heater::setFeedforwardScale(float combinedKff) {
     ESP_LOGI(LOG_TAG, "Combined feedforward gain (Kff) set to: %.3f output units per watt", combinedKff);
 }
 
+void Heater::setPidFreezeGraceMs(uint32_t graceMs) { pidFreezeGraceMs = graceMs; }
+
+void Heater::setKffEnabled(bool enabled) { kffEnabled = enabled; }
+
+void Heater::setIncomingWaterTemp(float tempC) { incomingWaterTemp = tempC; }
+
 void Heater::autotune(int testTimeSec, int windowSize, int heaterWattage) {
     setupAutotune(testTimeSec, windowSize, heaterWattage);
     autotuning = true;
@@ -95,18 +104,55 @@ void Heater::loopPid() {
     softPwm(TUNER_OUTPUT_SPAN);
     temperature = sensor->read();
 
-    // Calculate and set disturbance feedforward BEFORE PID update
-    // Only apply thermal feedforward when Kf>0, valve is open, and water is flowing
-    if (combinedKff > 0.0f && pumpFlowRate && *pumpFlowRate > 0.01f && valveStatus && *valveStatus != 0) {
-        float disturbanceGain = calculateDisturbanceFeedforwardGain();
+    const bool valveOpen = pumpFlowRate && valveStatus && *valveStatus != 0;
+    const bool pumpRunning = pumpFlowRate && *pumpFlowRate > 0.01f;
+    const bool waterFlowing = valveOpen || pumpRunning; // covers steam/hotwater where brew valve stays closed
 
-        simplePid->setDisturbanceFeedforward(*pumpFlowRate, disturbanceGain);
+    const bool kffWouldApply = kffEnabled && combinedKff > 0.0f && waterFlowing && pumpRunning;
 
+    if (waterFlowing && !freezeLatched && !freezeBlocked) {
+        simplePid->captureFrozenFeedback();
+        freezeLatched = true;
+        const float flow = pumpFlowRate ? *pumpFlowRate : 0.0f;
+        ESP_LOGI(LOG_TAG,
+                 "PID freeze latched: T=%.2f SP=%.2f flow=%.2f ml/s frozenPid=%.2f kffEn=%d combinedKff=%.3f",
+                 temperature, setpoint, flow, simplePid->getFrozenPidSum(), kffEnabled ? 1 : 0, combinedKff);
+    } else if (!waterFlowing && wasValveOpen) {
+        if (pidFreezeGraceMs > 0) {
+            pidFreezeGraceUntil = millis() + pidFreezeGraceMs;
+            ESP_LOGI(LOG_TAG,
+                     "PID freeze grace started: duration=%lu ms T=%.2f output=%.2f frozenPid=%.2f",
+                     static_cast<unsigned long>(pidFreezeGraceMs), temperature, output, simplePid->getFrozenPidSum());
+        } else {
+            freezeLatched = false;
+            simplePid->setPidFrozen(false);
+            pidFreezeGraceUntil = 0;
+            freezeBlocked = false;
+            ESP_LOGI(LOG_TAG, "PID freeze ended (no grace): T=%.2f output=%.2f", temperature, output);
+        }
+    }
+    wasValveOpen = waterFlowing;
+
+    if (freezeLatched && pidFreezeGraceUntil != 0 && millis() >= pidFreezeGraceUntil) {
+        freezeLatched = false;
+        simplePid->setPidFrozen(false);
+        pidFreezeGraceUntil = 0;
+        freezeBlocked = false;
+        ESP_LOGI(LOG_TAG, "PID freeze grace ended (timer): T=%.2f output=%.2f", temperature, output);
+    }
+
+    simplePid->setPidFrozen(freezeLatched);
+
+    if (kffWouldApply) {
+        lastKffGainPerFlow = calculateDisturbanceFeedforwardGain();
+        lastKffOutput = lastKffGainPerFlow * *pumpFlowRate;
+        simplePid->setDisturbanceFeedforward(*pumpFlowRate, lastKffGainPerFlow);
     } else {
+        lastKffGainPerFlow = 0.0f;
+        lastKffOutput = 0.0f;
         simplePid->setDisturbanceFeedforward(0.0f, 0.0f);
     }
 
-    // Now run PID with proper feedforward integrated
     bool pidUpdated = simplePid->update();
 
     if (pidUpdated) {
@@ -231,17 +277,24 @@ float Heater::softPwm(uint32_t windowSize) {
 void Heater::plot(float optimumOutput, float outputScale, uint8_t everyNth) {
     if (plotCount >= everyNth) {
         plotCount = 1;
-        ESP_LOGI(LOG_TAG, "PID Plot: output=%.2f, input=%.2f, setpoint=%.2f", optimumOutput * outputScale, temperature, setpoint);
+        const float flow = pumpFlowRate ? *pumpFlowRate : 0.0f;
+        unsigned long graceLeftMs = 0;
+        if (pidFreezeGraceUntil != 0 && millis() < pidFreezeGraceUntil) {
+            graceLeftMs = pidFreezeGraceUntil - millis();
+        }
+        ESP_LOGI(LOG_TAG,
+                 "PID Plot: output=%.2f input=%.2f setpoint=%.2f frozen=%d frozenPid=%.2f kffOut=%.2f "
+                 "flow=%.2f gainPerFlow=%.3f graceLeftMs=%lu",
+                 optimumOutput * outputScale, temperature, setpoint, freezeLatched ? 1 : 0,
+                 simplePid->getFrozenPidSum(), lastKffOutput, flow, lastKffGainPerFlow,
+                 graceLeftMs);
     } else
         plotCount++;
 }
 
 float Heater::calculateDisturbanceFeedforwardGain() {
-    if (combinedKff <= 0.0f || !pumpFlowRate || *pumpFlowRate <= 0.01f) {
+    if (combinedKff <= 0.0f || !pumpFlowRate || *pumpFlowRate <= 0.01f)
         return 0.0f;
-    }
-
-    float currentFlowRate = *pumpFlowRate; // Use raw flow rate for fast response
 
     // Calculate temperature difference (target - incoming water temperature)
     float tempDelta = setpoint - incomingWaterTemp;
@@ -249,7 +302,7 @@ float Heater::calculateDisturbanceFeedforwardGain() {
         return 0.0f;
 
     // Calculate thermal power needed per ml/s of flow (Watts per ml/s)
-    float powerPerFlowRate = WATER_DENSITY * WATER_SPECIFIC_HEAT * tempDelta + (heatLossWatts / currentFlowRate);
+    float powerPerFlowRate = WATER_DENSITY * WATER_SPECIFIC_HEAT * tempDelta + (heatLossWatts / *pumpFlowRate);
     powerPerFlowRate /= heaterEfficiency;
 
     // Apply combined Kff directly (output units per watt)

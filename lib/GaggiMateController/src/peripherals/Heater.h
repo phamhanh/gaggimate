@@ -35,10 +35,14 @@ class Heater {
     // Thermal feedforward control
     void setThermalFeedforward(float *pumpFlowPtr = nullptr, float incomingWaterTemp = 23.0f, int *valveStatusPtr = nullptr);
     void setFeedforwardScale(float combinedKff); // Set combined Kff value (output units per watt)
+    void setPidFreezeGraceMs(uint32_t graceMs);
+    void setKffEnabled(bool enabled);
+    void setIncomingWaterTemp(float tempC);
 
   private:
     void setupPid();
     void setupAutotune(int testTimeSec, int windowSize, int heaterWattage);
+    /** PID + thermal FF; latched P+I+D from first valve open until post-shot grace ends. */
     void loopPid();
     void loopAutotune();
     float softPwm(uint32_t windowSize);
@@ -81,6 +85,14 @@ class Heater {
     float heaterEfficiency = 0.95f; // 95% efficiency (immersion heater)
     float heatLossWatts = 5.0f;     // 5W heat loss (well-insulated boiler)
     float combinedKff = 0.0f;       // Combined feedforward gain (output units per watt) - disabled by default
+    uint32_t pidFreezeGraceMs = 60000;
+    bool kffEnabled = true;
+    unsigned long pidFreezeGraceUntil = 0;
+    bool freezeLatched = false;
+    bool freezeBlocked = false;
+    bool wasValveOpen = false;
+    float lastKffOutput = 0.0f;
+    float lastKffGainPerFlow = 0.0f;
 
     // Thermal model constants
     static constexpr float WATER_DENSITY = 1.0f;        // g/ml
