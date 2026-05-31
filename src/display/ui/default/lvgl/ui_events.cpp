@@ -38,6 +38,10 @@ void onBrewTimeRaise(lv_event_t *e) {
     controller.raiseBrewTarget();
 }
 
+void onInletWaterTempLower(lv_event_t *e) { controller.lowerIncomingWaterTemp(); }
+
+void onInletWaterTempRaise(lv_event_t *e) { controller.raiseIncomingWaterTemp(); }
+
 void onSteamTempLower(lv_event_t *e) { controller.lowerTemp(); }
 
 void onSteamTempRaise(lv_event_t *e) { controller.raiseTemp(); }
@@ -132,6 +136,8 @@ void onBrewScreenLoad(lv_event_t *e) {
     lv_obj_set_ext_click_area(ui_BrewScreen_downDurationButton, 15);
     lv_obj_set_ext_click_area(ui_BrewScreen_upTempButton, 15);
     lv_obj_set_ext_click_area(ui_BrewScreen_downTempButton, 15);
+    lv_obj_set_ext_click_area(ui_BrewScreen_upInletWaterButton, 15);
+    lv_obj_set_ext_click_area(ui_BrewScreen_downInletWaterButton, 15);
 }
 
 void onSimpleProcessScreenLoad(lv_event_t *e) {

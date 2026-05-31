@@ -51,6 +51,7 @@ class DefaultUI {
     void markProfileClean() { profileDirty = false; }
 
     void applyTheme();
+    void setIncomingWaterTempC(int tempC) { incomingWaterTempC = tempC; }
 
     bool isTaskHealthy() const {
         return is_task_healthy(eTaskGetState(taskHandle)) && is_task_healthy(eTaskGetState(profileTaskHandle));
@@ -70,9 +71,9 @@ class DefaultUI {
     void adjustTempTarget(lv_obj_t *dials);
     void adjustTarget(lv_obj_t *obj, double percentage, double start, double range) const;
 
-    int tempHistory[TEMP_HISTORY_LENGTH] = {0};
+    float tempHistory[TEMP_HISTORY_LENGTH] = {0};
     int tempHistoryIndex = 0;
-    int prevTargetTemp = 0;
+    float prevTargetTemp = 0.0f;
     bool isTempHistoryInitialized = false;
     int isTemperatureStable = false;
     unsigned long lastTempLog = 0;
@@ -114,13 +115,17 @@ class DefaultUI {
     unsigned long lastRender = 0;
 
     int mode = MODE_STANDBY;
-    int currentTemp = 0;
-    int targetTemp = 0;
+    float currentTemp = 0.0f;
+    float targetTemp = 0.0f;
     float targetDuration = 0;
     float targetVolume = 0;
     int grindDuration = 0;
     float grindVolume = 0.0f;
     int pressureAvailable = 0;
+    int incomingWaterTempC = 23;
+    int brewIdleVenting = 0;
+    int stableTemp = 0;
+    int pidFreezeGraceActive = 0;
     float pressure = 0.0f;
     int pressureScaling = DEFAULT_PRESSURE_SCALING;
     int heatingFlash = 0;

@@ -33,6 +33,8 @@ void onBrewTempLower(lv_event_t *e);
 void onBrewTempRaise(lv_event_t *e);
 void onBrewTimeRaise(lv_event_t *e);
 void onBrewTimeLower(lv_event_t *e);
+void onInletWaterTempLower(lv_event_t *e);
+void onInletWaterTempRaise(lv_event_t *e);
 void onVolumetricDelete(lv_event_t *e);
 void onProfileSave(lv_event_t *e);
 void onProfileAccept(lv_event_t *e);
