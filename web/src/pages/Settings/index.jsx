@@ -717,8 +717,9 @@ export function Settings() {
                 />
               </label>
               <p className='mt-1 text-xs opacity-70'>
-                When on, applies K<sub>ff</sub> during flow (valve open). Gain is set above; set K
-                <sub>ff</sub> to 0 to disable feedforward entirely.
+                When on, K<sub>ff</sub> adds heat during flow on top of a <strong>latched I baseline</strong>.
+                PID P/D updates are frozen then — PID is not off. Too much K<sub>ff</sub> shows up as a spike
+                after the shot, not as PID overshoot during grace.
               </p>
             </div>
             <div className='form-control mb-4'>
@@ -737,7 +738,10 @@ export function Settings() {
                 onChange={onChange('incomingWaterTempC')}
               />
               <p className='mt-1 text-xs opacity-70'>
-                Estimated tap or cold water temperature used by Kff feedforward (setpoint − inlet).
+                Estimated temperature at the boiler inlet for Kff (setpoint − inlet). On this
+                machine, water pre-heats in the plumbing before the inlet — a fixed value is often
+                wrong until an inlet probe is installed (see docs/thermal-kff-tuning.md in the
+                repo).
               </p>
             </div>
             <div className='form-control mb-4'>
@@ -755,9 +759,10 @@ export function Settings() {
                 onChange={onChange('pidFreezeGraceSec')}
               />
               <p className='mt-1 text-xs opacity-70'>
-                After a shot ends, keeps PID error masked on the controller for this long so the
-                boiler does not chase the probe while the group cools. Brew screen shows &quot;Freeze
-                grace&quot; during this period. Set to 0 to disable.
+                After flow stops: same latched I, no K<sub>ff</sub>, P/D still frozen — so PID cannot
+                over-correct on a lagging probe. A large spike above target usually means K
+                <sub>ff</sub> was too strong <em>during</em> the shot. Set to 0 to release freeze
+                when flow ends.
               </p>
             </div>
             <div className='divider'>Idle vent &amp; boiler stability</div>

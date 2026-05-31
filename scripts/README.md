@@ -45,6 +45,8 @@ Artifacts land in `out/` with OTA-expected names (`display-firmware.bin`, `displ
 
 See `.cursor/skills/gaggimate-release/SKILL.md` for agent-oriented release steps and OTA warnings.
 
+**OTA page (System & Updates):** Save & Refresh runs an immediate GitHub release check. The web UI shows **Latest on GitHub** separately from installed controller/display versions (`githubCheckOk` when Wi‑Fi and the release fetch succeed). See [docs/this-fork.md](../docs/this-fork.md#releases--ota).
+
 ## Deploy (backup → release → OTA)
 
 ### `deploy.sh` / `backup-spiffs-data.sh` / `gaggimate_deploy.py`
@@ -103,6 +105,7 @@ See also `.cursor/skills/gaggimate-profiles/SKILL.md` for agent-oriented recover
 Automated ESP32 core dump analysis for PlatformIO projects.
 
 **Features:**
+
 - Automatically extracts ELF core dump from ESP32 proprietary format
 - Uses ESP-IDF GDB tools for detailed analysis
 - Shows exact crash location with line numbers
@@ -112,6 +115,7 @@ Automated ESP32 core dump analysis for PlatformIO projects.
 - Provides actionable debugging recommendations
 
 **Usage:**
+
 ```bash
 # Python script (direct)
 python3 scripts/analyze_coredump.py <coredump_file> [environment]
@@ -121,6 +125,7 @@ python3 scripts/analyze_coredump.py <coredump_file> [environment]
 ```
 
 **Examples:**
+
 ```bash
 # Analyze core dump with default environment (display)
 python3 scripts/analyze_coredump.py ~/Downloads/coredump.bin
@@ -136,11 +141,13 @@ python3 scripts/analyze_coredump.py ~/Downloads/coredump.bin display-headless
 ```
 
 **Requirements:**
+
 - ESP-IDF tools installed (automatic with VS Code ESP-IDF extension)
 - PlatformIO project with built firmware
 - Python 3.x
 
 **Sample Output:**
+
 ```
 🚀 ESP32 Core Dump Analyzer
 ==================================================
@@ -162,12 +169,14 @@ Environment: display
 ```
 
 **Getting Core Dumps:**
+
 1. **From Web Interface:** Visit `http://your-device-ip/`, go to System & Updates, click "Download Core Dump"
 2. **From Serial Monitor:** Core dumps appear in terminal output after crashes
 3. **From Device Flash:** Use `esptool.py` to read core dump partition
 
 **Interactive Analysis:**
 For deeper debugging, use the extracted ELF file with GDB interactively:
+
 ```bash
 xtensa-esp32s3-elf-gdb .pio/build/display/firmware.elf
 (gdb) core-file /tmp/extracted_coredump.elf

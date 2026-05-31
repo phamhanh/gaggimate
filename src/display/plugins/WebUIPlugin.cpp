@@ -372,10 +372,12 @@ void WebUIPlugin::handleOTASettings(uint32_t clientId, JsonDocument &request) {
         if (!request["channel"].isNull()) {
             controller->getSettings().setOTAChannel(request["channel"].as<String>() == "latest" ? "latest" : "nightly");
             ota->setReleaseUrl(RELEASE_URL + (controller->getSettings().getOTAChannel() == "latest" ? "latest" : "tag/nightly"));
-            lastUpdateCheck = 0;
         }
+        ota->checkForUpdates();
+        lastUpdateCheck = millis();
+        pluginManager->trigger("ota:update:status", "value", ota->isUpdateAvailable());
     }
-    updateOTAStatus("Checking...");
+    updateOTAStatus(ota->getCurrentVersion());
 }
 
 void WebUIPlugin::handleOTAStart(uint32_t clientId, JsonDocument &request) {
@@ -392,8 +394,7 @@ void WebUIPlugin::handleAutotuneStart(uint32_t clientId, JsonDocument &request) 
     int samples = request["samples"].as<int>();
     // Heater wattage drives combinedKff = TUNER_OUTPUT_SPAN / wattage on the
     // controller. 0 = "skip combinedKff derivation" — happens when older Web
-    // UI builds omit the field. WebUI form default is 680 W (Gaggia Classic
-    // Pro 2019 / E24, 230 V boiler).
+    // UI builds omit the field. WebUI form default is 1000 W (Iberital Express).
     int heaterWattage = request["wattage"] | 0;
     controller->autotune(testTime, samples, heaterWattage);
 }
@@ -754,14 +755,15 @@ void WebUIPlugin::updateOTAStatus(const String &version) {
     }
     Settings const &settings = controller->getSettings();
     JsonDocument doc;
-    doc["latestVersion"] = ota->getCurrentVersion();
     doc["tp"] = "res:ota-settings";
+    const String githubLatest = ota->getCurrentVersion();
+    doc["latestVersion"] = githubLatest;
+    doc["githubCheckOk"] = githubLatest.length() > 0;
     doc["displayUpdateAvailable"] = ota->isUpdateAvailable(false);
     doc["controllerUpdateAvailable"] = ota->isUpdateAvailable(true);
     doc["displayVersion"] = BUILD_GIT_VERSION;
     doc["controllerVersion"] = controller->getSystemInfo().version;
     doc["hardware"] = controller->getSystemInfo().hardware;
-    doc["latestVersion"] = ota->getCurrentVersion();
     doc["channel"] = settings.getOTAChannel();
     doc["updating"] = updating;
     // SPIFFS usage metrics

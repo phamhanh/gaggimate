@@ -8,12 +8,14 @@
 [![Sonar Violations][sonar-violations]][sonar-url]
 [![Sonar Tech Debt][sonar-tech-debt]][sonar-url]
 
-
 </p>
 
 This project upgrades a Gaggia espresso machine with smart controls to improve your coffee-making experience. By adding a display and custom electronics, you can monitor and control the machine more easily.
 
 <img src="docs/assets/gaggimate_poster.jpg" alt="Gaggia Classic Installation" width="500" />
+
+> **This is not upstream Gaggimate.** All changes here were made with AI assistance and target my **Iberital Express** only. My gratitude to the Gaggimate team for making their work publicly available. The repo is public so I can **update firmware over Wi‑Fi** instead of USB — not as a general fork for others to use. Profiles and shots survive OTA only when I run **`./scripts/deploy.sh`** (backup from the machine → bake into SPIFFS → release).  
+> **Why it differs from upstream:** [docs/this-fork.md](docs/this-fork.md)
 
 ## Features
 
@@ -41,8 +43,10 @@ The display allows you to control the espresso machine and see live temperature 
 ## Docs
 
 The docs were moved to [https://gaggimate.eu/](https://gaggimate.eu/). You can find all sourcing and assembly information there.
-Additional documentation for the WebSocket API can be found in [docs/websocket-api.yaml](docs/websocket-api.yaml).
 
+**This fork (Iberital Express, OTA, thermal/Kff):** [docs/this-fork.md](docs/this-fork.md) · [docs/thermal-kff-tuning.md](docs/thermal-kff-tuning.md)
+
+Additional documentation for the WebSocket API can be found in [docs/websocket-api.yaml](docs/websocket-api.yaml).
 
 ## License
 

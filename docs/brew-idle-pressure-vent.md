@@ -1,5 +1,7 @@
 # Brew idle pressure vent
 
+**Why on this fork:** Pressure rises from boiler heat and expanding air/water between shots — see [this-fork.md](this-fork.md). This doc covers thresholds and firmware behavior.
+
 ## Purpose
 
 On pressure-capable GaggiMate setups, the puck-line pressure sensor can read non-zero **between shots** while the UI is in **brew mode**. Previously the display firmware always commanded **valve closed** and **pump off** when idle, so residual pressure could not bleed off before the next pull.
@@ -8,13 +10,13 @@ This feature automatically opens the **3-way solenoid** (pump remains off) when 
 
 ## Behavior
 
-| Condition | Action |
-|-----------|--------|
-| `MODE_BREW`, no active process, controller reports pressure capability | Vent logic may run |
-| Measured pressure **>** high threshold | Latch vent **on** (valve open, pump 0) |
-| Measured pressure **<** low threshold while latched | Latch vent **off** (resume normal idle: valve closed, pump 0) |
-| Any active process (brew / steam / water / grind on `currentProcess`) | Normal process output only; vent logic skipped |
-| Mode leaves brew (`standby`, steam, etc.) | Vent latch cleared |
+| Condition                                                              | Action                                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `MODE_BREW`, no active process, controller reports pressure capability | Vent logic may run                                            |
+| Measured pressure **>** high threshold                                 | Latch vent **on** (valve open, pump 0)                        |
+| Measured pressure **<** low threshold while latched                    | Latch vent **off** (resume normal idle: valve closed, pump 0) |
+| Any active process (brew / steam / water / grind on `currentProcess`)  | Normal process output only; vent logic skipped                |
+| Mode leaves brew (`standby`, steam, etc.)                              | Vent latch cleared                                            |
 
 Pressure readings use the same `pressure` value already received over BLE from the controller (`Controller::setupBluetooth` sensor callback).
 
@@ -35,10 +37,10 @@ Opening the valve bleeds the group path: **some hiss is normal**. **Higher** tra
 
 While idle vent is latched, [`DefaultUI::setupReactive()`](src/display/ui/default/DefaultUI.cpp) toggles [`ui_BrewScreen_mainLabel3`](src/display/ui/default/lvgl/screens/ui_BrewScreen.c):
 
-| State | Label text |
-|-------|------------|
-| Normal brew idle (`brewIdleVenting` false or no pressure kit) | **`Brew`** |
-| Idle vent active (`pressureAvailable` + `brewIdleVenting`) | **`Bleeding group pressure`** / **`Valve open — pump off`** (two lines) |
+| State                                                         | Label text                                                              |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Normal brew idle (`brewIdleVenting` false or no pressure kit) | **`Brew`**                                                              |
+| Idle vent active (`pressureAvailable` + `brewIdleVenting`)    | **`Bleeding group pressure`** / **`Valve open — pump off`** (two lines) |
 
 [`Controller::isBrewIdleVenting()`](src/display/core/Controller.h) exposes the latch for UI snapshots (`setupState` + rerender block). **Steam → brew:** entering steam clears the latch via `setMode`; returning to brew shows **`Brew`** until pressure again rises above **HIGH** and vent re-latches—then the title switches to the vent copy like any other idle vent cycle.
 

@@ -180,26 +180,56 @@ export function OTA() {
             </div>
 
             <div className='flex flex-col space-y-4'>
-              <label className='mb-2 block text-sm font-medium'>Controller Version</label>
-              <div className='flex flex-row gap-2 font-light'>
-                <span className='break-all'>{formData.controllerVersion}</span>
-                {formData.controllerUpdateAvailable && (
-                  <span className='text-primary font-bold break-all'>
-                    (Update available: {formData.latestVersion})
+              <label className='mb-2 block text-sm font-medium'>GitHub release (Stable channel)</label>
+              <div className='flex flex-col gap-1 font-light'>
+                {formData.githubCheckOk === false && (
+                  <span className='text-warning'>
+                    Could not read latest release — check Wi‑Fi, then Save &amp; Refresh
                   </span>
                 )}
+                {formData.githubCheckOk !== false && formData.latestVersion && (
+                  <span className='break-all'>
+                    Latest on GitHub:{' '}
+                    <span className='font-medium'>
+                      v{String(formData.latestVersion).replace(/^v/, '')}
+                    </span>
+                  </span>
+                )}
+                {formData.githubCheckOk !== false && !formData.latestVersion && (
+                  <span className='opacity-75'>Click Save &amp; Refresh to check GitHub</span>
+                )}
+                <a
+                  className='link link-primary text-sm'
+                  href='https://github.com/phamhanh/gaggimate/releases/latest'
+                  target='_blank'
+                  rel='noreferrer'
+                >
+                  github.com/phamhanh/gaggimate/releases
+                </a>
+              </div>
+            </div>
+
+            <div className='flex flex-col space-y-4'>
+              <label className='mb-2 block text-sm font-medium'>Controller Version</label>
+              <div className='flex flex-col gap-1 font-light'>
+                <span className='break-all'>{formData.controllerVersion}</span>
+                {formData.controllerUpdateAvailable ? (
+                  <span className='text-primary font-bold'>Update available</span>
+                ) : formData.githubCheckOk ? (
+                  <span className='text-success text-sm'>Up to date</span>
+                ) : null}
               </div>
             </div>
 
             <div className='flex flex-col space-y-4'>
               <label className='mb-2 block text-sm font-medium'>Display Version</label>
-              <div className='flex flex-row gap-2 font-light'>
+              <div className='flex flex-col gap-1 font-light'>
                 <span className='break-all'>{formData.displayVersion}</span>
-                {formData.displayUpdateAvailable && (
-                  <span className='text-primary font-bold break-all'>
-                    (Update available: {formData.latestVersion})
-                  </span>
-                )}
+                {formData.displayUpdateAvailable ? (
+                  <span className='text-primary font-bold'>Update available</span>
+                ) : formData.githubCheckOk ? (
+                  <span className='text-success text-sm'>Up to date</span>
+                ) : null}
               </div>
             </div>
 

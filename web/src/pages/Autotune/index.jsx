@@ -11,11 +11,8 @@ export function Autotune() {
   const [failed, setFailed] = useState(false);
   const [time, setTime] = useState(120);
   const [samples, setSamples] = useState(6);
-  // Default 680 W matches Gaggia Classic Pro 2019 / E24 boiler element on
-  // 230 V. (120 V variant is 570 W; cafeparts.com EF0030-A datasheet.) Used
-  // controller-side as combinedKff = TUNER_OUTPUT_SPAN / wattage so the
-  // Thermal Feedforward Gain is auto-populated on completion.
-  const [wattage, setWattage] = useState(680);
+  // Default 1000 W — Iberital Express boiler element (combinedKff = TUNER_OUTPUT_SPAN / wattage).
+  const [wattage, setWattage] = useState(1000);
 
   const onStart = useCallback(() => {
     apiService.send({
@@ -167,12 +164,12 @@ export function Autotune() {
                     className='input input-bordered w-full'
                     value={wattage}
                     onChange={e => setWattage(Number.parseInt(e.target.value, 10) || 0)}
-                    placeholder='680'
+                    placeholder='1000'
                   />
                   <div className='mb-2 text-xs opacity-70'>
-                    Boiler heating element wattage. Defaults: Gaggia Classic Pro 2019 / E24 = 680 W
-                    (230 V) or 570 W (120 V); Rancilio Silvia ≈ 1100 W. Used to derive Thermal
-                    Feedforward Gain after autotune completes.
+                    Boiler heating element wattage. This fork defaults to 1000 W (Iberital Express).
+                    Used to derive Thermal Feedforward Gain (K<sub>ff</sub>) after autotune completes
+                    (combinedKff = 1000 / wattage).
                   </div>
                 </div>
               </div>

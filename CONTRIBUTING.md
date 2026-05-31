@@ -75,7 +75,6 @@ When building the firmware, the `scripts/build_spiffs.sh` script installs the we
 1. **Fork the repository** and create your branch from `master`.
 
 2. **Install dependencies**:
-
    - Run `npm install` inside the `web/` directory for the web interface.
    - Ensure [PlatformIO](https://platformio.org/install/cli) is available for firmware builds.
 
@@ -98,6 +97,8 @@ When building the firmware, the `scripts/build_spiffs.sh` script installs the we
    **NOTE**: You can omit `-t monitor` if you don't want to immediately attach to the board's serial console.
 
    ### Releasing firmware (this fork)
+
+   See [docs/this-fork.md](docs/this-fork.md) for why this repository differs from upstream and how releases, OTA, and deploy work on this fork.
 
    Releases are built and published from your Mac — not via GitHub Actions.
 

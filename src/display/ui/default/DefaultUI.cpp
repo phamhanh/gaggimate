@@ -508,9 +508,9 @@ void DefaultUI::setupReactive() {
             }
             if (stableTemp == 0) {
                 if (currentTemp > targetTemp) {
-                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_DOWN " Cool down bro");
+                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_DOWN " Stabilizing");
                 } else {
-                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_UP " Spice up bro");
+                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_UP " Stabilizing");
                 }
                 return;
             }
