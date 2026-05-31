@@ -140,7 +140,11 @@ void Controller::setupBluetooth() {
         if (initialized) {
             pluginManager->trigger("controller:bluetooth:disconnect");
             waitingForController = true;
-            setMode(MODE_STANDBY);
+            // Don't immediately go to standby — BLE drops briefly during normal operation.
+            // Record the disconnect time and current mode; loopControl will switch to
+            // standby only if BLE hasn't reconnected within the grace period.
+            bleDisconnectTime = millis();
+            modeBeforeDisconnect = mode;
         }
     });
     clientController.registerSensorCallback(
@@ -209,8 +213,9 @@ void Controller::setupInfos() {
     DeserializationError err = deserializeJson(doc, info);
     if (err) {
         printf("Error deserializing JSON: %s\n", err.c_str());
-        systemInfo = SystemInfo{
-            .hardware = "GaggiMate Standard 1.x", .version = "v1.0.0", .capabilities = {.dimming = false, .pressure = false}};
+        systemInfo = SystemInfo{.hardware = "GaggiMate Standard 1.x",
+                                .version = "v1.0.0",
+                                .capabilities = {.dimming = false, .pressure = false}};
     } else {
         systemInfo = SystemInfo{.hardware = doc["hw"].as<String>(),
                                 .version = doc["v"].as<String>(),
@@ -295,13 +300,28 @@ void Controller::loop() {
         pluginManager->trigger("controller:bluetooth:waiting");
     }
 
+    // If BLE dropped but reconnected within the grace period, cancel the pending standby
+    if (bleDisconnectTime != 0 && clientController.isConnected()) {
+        bleDisconnectTime = 0;
+        modeBeforeDisconnect = -1;
+    }
+
+    // BLE has been disconnected longer than the grace period — now go to standby
+    if (bleDisconnectTime != 0 && (now - bleDisconnectTime) > CONTROLLER_WAITING_TIMEOUT_MS) {
+        bleDisconnectTime = 0;
+        modeBeforeDisconnect = -1;
+        setMode(MODE_STANDBY);
+    }
+
     if (clientController.isReadyForConnection() && clientController.connectToServer()) {
         waitingForController = false;
+        bleDisconnectTime = 0;
+        modeBeforeDisconnect = -1;
         setupInfos();
         ESP_LOGI(LOG_TAG, "setting pressure scale to %.2f\n", settings.getPressureScaling());
         setPressureScale();
-        clientController.sendPidSettings(settings.getPid());
-        clientController.sendPumpModelCoeffs(settings.getPumpModelCoeffs());
+        syncPidToController();
+        syncPumpConfigToController();
         if (!loaded) {
             loaded = true;
             if (settings.getStartupMode() == MODE_STANDBY)
@@ -320,7 +340,9 @@ void Controller::loop() {
         // Check if steam is ready
         if (mode == MODE_STEAM && !steamReady && currentTemp + 5.f > getTargetTemp()) {
             activate();
-            steamReady = true;
+            if (isActive()) {
+                steamReady = true;
+            }
         }
 
         // Handle current process
@@ -433,6 +455,8 @@ float Controller::getTargetTemp() const {
 }
 
 void Controller::setTargetTemp(float temperature) {
+    stableBandSinceMs = 0;
+    stableTemp = false;
     pluginManager->trigger("boiler:targetTemperature:change", "value", temperature);
     switch (mode) {
     case MODE_BREW:
@@ -456,9 +480,12 @@ void Controller::setPressureScale(void) {
     }
 }
 
-void Controller::setPumpModelCoeffs(void) {
+void Controller::syncPumpConfigToController(void) {
+    if (!clientController.isConnected()) {
+        return;
+    }
     if (systemInfo.capabilities.dimming) {
-        clientController.sendPumpModelCoeffs(settings.getPumpModelCoeffs());
+        clientController.sendPumpModelCoeffs(settings.buildPumpModelBlePayload());
     }
 }
 
@@ -504,6 +531,26 @@ void Controller::lowerBrewTarget() {
         profileManager->getSelectedProfile().adjustDuration(-1);
     }
     handleProfileUpdate();
+}
+
+void Controller::raiseIncomingWaterTemp() {
+    settings.setIncomingWaterTempC(settings.getIncomingWaterTempC() + 1);
+    syncPidToController();
+#ifndef GAGGIMATE_HEADLESS
+    if (ui != nullptr) {
+        ui->setIncomingWaterTempC(settings.getIncomingWaterTempC());
+    }
+#endif
+}
+
+void Controller::lowerIncomingWaterTemp() {
+    settings.setIncomingWaterTempC(settings.getIncomingWaterTempC() - 1);
+    syncPidToController();
+#ifndef GAGGIMATE_HEADLESS
+    if (ui != nullptr) {
+        ui->setIncomingWaterTempC(settings.getIncomingWaterTempC());
+    }
+#endif
 }
 
 void Controller::raiseGrindTarget() {
@@ -556,13 +603,15 @@ void Controller::updateControl() {
     }
 
     clientController.sendAltControl(altRelayActive);
+    // Steam pump assist runs continuously in steam mode regardless of process state,
+    // so the boiler is always being topped up even before steam temp is reached.
+    if (mode == MODE_STEAM && systemInfo.capabilities.pressure) {
+        targetPressure = settings.getSteamPumpCutoff();
+        targetFlow = settings.getSteamPumpPercentage() * 0.1f;
+        clientController.sendAdvancedOutputControl(false, targetTemp, false, targetPressure, targetFlow);
+        return;
+    }
     if (active && systemInfo.capabilities.pressure) {
-        if (proc->getType() == MODE_STEAM) {
-            targetPressure = settings.getSteamPumpCutoff();
-            targetFlow = proc->getPumpValue() * 0.1f;
-            clientController.sendAdvancedOutputControl(false, targetTemp, false, targetPressure, targetFlow);
-            return;
-        }
         if (proc->getType() == MODE_BREW) {
             auto *brewProcess = static_cast<BrewProcess *>(proc);
             if (brewProcess->isAdvancedPump()) {
@@ -575,9 +624,31 @@ void Controller::updateControl() {
             }
         }
     }
+
+    // --- Brew idle pressure vent (pressure-capable kits only) ---
+    // Vent only when boiler temp is stable and venting is enabled in settings.
+    // Full notes: docs/brew-idle-pressure-vent.md
+    const float ventHighBar = settings.getVentPressureBar();
+    const float ventLowBar = settings.getVentPressureLowBar();
+    if (!active && mode == MODE_BREW && systemInfo.capabilities.pressure && settings.isVentEnabled() && stableTemp) {
+        if (pressure > ventHighBar) {
+            brewIdleVenting = true;
+        } else if (pressure < ventLowBar) {
+            brewIdleVenting = false;
+        }
+        if (brewIdleVenting) {
+            clientController.sendOutputControl(/* valve */ true, /* pump % */ 0.0f, targetTemp);
+            return;
+        }
+    } else if (!active && mode == MODE_BREW && (!settings.isVentEnabled() || !stableTemp)) {
+        brewIdleVenting = false;
+    }
+
     targetPressure = 0.0f;
     targetFlow = 0.0f;
-    clientController.sendOutputControl(active && proc->isRelayActive(), active ? proc->getPumpValue() : 0, targetTemp);
+    // proc guarded: idle brew vent exits early above with active=false but proc often nullptr here
+    clientController.sendOutputControl(active && proc && proc->isRelayActive(), active && proc ? proc->getPumpValue() : 0,
+                                       targetTemp);
 }
 
 void Controller::activate() {
@@ -626,6 +697,9 @@ void Controller::deactivate() {
     lastProcess = currentProcess;
     currentProcess = nullptr;
     if (lastProcess->getType() == MODE_BREW) {
+        if (settings.getPidFreezeGraceMs() > 0) {
+            pidFreezeGraceUntil = millis() + settings.getPidFreezeGraceMs();
+        }
         pluginManager->trigger("controller:brew:end");
     } else if (lastProcess->getType() == MODE_GRIND) {
         pluginManager->trigger("controller:grind:end");
@@ -689,6 +763,10 @@ void Controller::setMode(int newMode) {
     Event modeEvent = pluginManager->trigger("controller:mode:change", "value", newMode);
     mode = modeEvent.getInt("value");
     steamReady = false;
+    // Idle vent latch only applies in MODE_BREW; reset so standby/steam/water never inherit open-valve intent.
+    if (mode != MODE_BREW) {
+        brewIdleVenting = false;
+    }
 
     updateLastAction();
     setTargetTemp(getTargetTemp());
@@ -698,6 +776,35 @@ void Controller::onTempRead(float temperature) {
     float temp = temperature - static_cast<float>(settings.getTemperatureOffset());
     Event event = pluginManager->trigger("boiler:currentTemperature:change", "value", temp);
     currentTemp = event.getFloat("value");
+    updateStableTemp();
+}
+
+void Controller::updateStableTemp() {
+    const float target = getTargetTemp();
+    if (target <= 0.0f) {
+        stableTemp = false;
+        stableBandSinceMs = 0;
+        return;
+    }
+
+    const float error = fabsf(currentTemp - target);
+    const unsigned long now = millis();
+    if (error < settings.getStableOffsetC()) {
+        if (stableBandSinceMs == 0) {
+            stableBandSinceMs = now;
+        } else if (now - stableBandSinceMs >= settings.getStableDurationMs()) {
+            stableTemp = true;
+        }
+    } else {
+        stableBandSinceMs = 0;
+        stableTemp = false;
+    }
+}
+
+void Controller::syncPidToController() {
+    if (clientController.isConnected()) {
+        clientController.sendPidSettings(settings.buildPidBlePayload());
+    }
 }
 
 void Controller::updateLastAction() { lastAction = millis(); }

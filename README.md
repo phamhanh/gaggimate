@@ -18,6 +18,7 @@ This project upgrades a Gaggia espresso machine with smart controls to improve y
 ## Features
 
 - **Temperature Control**: Monitor the boiler temperature to ensure optimal brewing conditions.
+- **Brew idle pressure vent** (pressure-capable kits): Between shots in brew mode, automatically opens the valve when residual puck-line pressure is high so it can bleed down before the next pull. Details: [docs/brew-idle-pressure-vent.md](docs/brew-idle-pressure-vent.md).
 - **Brew timer**: Set a target duration and run the brewing for the specific time.
 - **Steam and Hot Water mode**: Control the pump and valve to run the respective task.
 - **Safety Features**: Automatic shutoff if the system becomes unresponsive or overheats.

@@ -11,7 +11,7 @@ inline String make_system_info(ControllerConfig config, String version) {
     JsonDocument capabilities;
     capabilities["ps"] = config.capabilites.pressure;
     capabilities["dm"] = config.capabilites.dimming;
-    capabilities["led"] = config.capabilites.ledControls;
+capabilities["led"] = config.capabilites.ledControls;
     capabilities["tof"] = config.capabilites.tof;
     doc["cp"] = capabilities;
     return doc.as<String>();

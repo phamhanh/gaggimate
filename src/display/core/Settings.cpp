@@ -1,5 +1,6 @@
 #include "Settings.h"
 
+#include <NimBLEComm.h>
 #include <algorithm>
 #include <utility>
 
@@ -104,6 +105,14 @@ Settings::Settings() {
     emptyTankDistance = preferences.getInt("sr_ed", 210);
     fullTankDistance = preferences.getInt("sr_fd", 30);
     altRelayFunction = preferences.getInt("alt_relay", ALT_RELAY_GRIND);
+    ventEnabled = preferences.getBool("vent_en", true);
+    ventPressureBar = preferences.getFloat("vent_p", 0.30f);
+    ventPressureLowBar = preferences.getFloat("vent_p_lo", 0.01f);
+    stableOffsetC = preferences.getFloat("stab_off", 0.4f);
+    stableDurationMs = preferences.getULong("stab_dur", 8000);
+    pidFreezeGraceMs = preferences.getULong("pid_grace", 60000);
+    kffEnabled = preferences.getBool("kff_en", true);
+    incomingWaterTempC = preferences.getInt("inlet_tw", 23);
 
     preferences.end();
 
@@ -187,6 +196,7 @@ void Settings::setPumpModelCoeffs(const String &pumpModelCoeffs) {
     this->pumpModelCoeffs = pumpModelCoeffs;
     save();
 }
+
 
 void Settings::setWifiSsid(const String &wifiSsid) {
     this->wifiSsid = wifiSsid;
@@ -421,6 +431,76 @@ void Settings::setAutoWakeupSchedules(const std::vector<AutoWakeupSchedule> &sch
     save();
 }
 
+void Settings::setVentEnabled(const bool enabled) {
+    ventEnabled = enabled;
+    save();
+}
+
+void Settings::setVentPressureBar(const float bar) {
+    ventPressureBar = bar;
+    save();
+}
+
+void Settings::setVentPressureLowBar(const float bar) {
+    ventPressureLowBar = bar;
+    save();
+}
+
+void Settings::setStableOffsetC(const float offsetC) {
+    stableOffsetC = offsetC;
+    save();
+}
+
+void Settings::setStableDurationMs(const unsigned long durationMs) {
+    stableDurationMs = durationMs;
+    save();
+}
+
+void Settings::setPidFreezeGraceMs(const unsigned long graceMs) {
+    pidFreezeGraceMs = graceMs;
+    save();
+}
+
+void Settings::setKffEnabled(const bool enabled) {
+    kffEnabled = enabled;
+    save();
+}
+
+void Settings::setIncomingWaterTempC(const int tempC) {
+    incomingWaterTempC = constrain(tempC, 5, 40);
+    save();
+}
+
+String Settings::buildPumpModelBlePayload() const {
+    const float oneBar = get_token(pumpModelCoeffs, 0, ',').toFloat();
+    const float nineBar = get_token(pumpModelCoeffs, 1, ',').toFloat();
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f", oneBar, nineBar);
+    return String(buffer);
+}
+
+
+String Settings::buildPidBlePayload() const {
+    float Kp = 0.0f;
+    float Ki = 0.0f;
+    float Kd = 0.0f;
+    float Kff = 0.0f;
+    const String kfToken = get_token(pid, 3, ',');
+    Kp = get_token(pid, 0, ',').toFloat();
+    Ki = get_token(pid, 1, ',').toFloat();
+    Kd = get_token(pid, 2, ',').toFloat();
+    if (kfToken.length() > 0) {
+        Kff = kfToken.toFloat();
+    }
+    if (!kffEnabled) {
+        Kff = 0.0f;
+    }
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d", Kp, Ki, Kd, Kff, pidFreezeGraceMs, kffEnabled ? 1 : 0,
+             incomingWaterTempC);
+    return String(buffer);
+}
+
 void Settings::doSave() {
     if (!dirty) {
         return;
@@ -502,6 +582,14 @@ void Settings::doSave() {
     preferences.putInt("sr_ed", emptyTankDistance);
     preferences.putInt("sr_fd", fullTankDistance);
     preferences.putInt("alt_relay", altRelayFunction);
+    preferences.putBool("vent_en", ventEnabled);
+    preferences.putFloat("vent_p", ventPressureBar);
+    preferences.putFloat("vent_p_lo", ventPressureLowBar);
+    preferences.putFloat("stab_off", stableOffsetC);
+    preferences.putULong("stab_dur", stableDurationMs);
+    preferences.putULong("pid_grace", pidFreezeGraceMs);
+    preferences.putBool("kff_en", kffEnabled);
+    preferences.putInt("inlet_tw", incomingWaterTempC);
 
     preferences.end();
 }

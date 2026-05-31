@@ -30,9 +30,10 @@ class Controller {
     void setMode(int newMode);
     void setTargetTemp(float temperature);
     void setPressureScale();
-    void setPumpModelCoeffs();
+    void syncPumpConfigToController();
     void setTargetGrindDuration(int duration);
     void setTargetGrindVolume(double volume);
+    void syncPidToController();
 
     int getMode() const;
 
@@ -51,6 +52,13 @@ class Controller {
     virtual float getCurrentPressure() const { return pressure; }
     virtual float getCurrentPuckFlow() const { return currentPuckFlow; }
     virtual float getCurrentPumpFlow() const { return currentPumpFlow; }
+
+    /// Idle brew-mode pressure vent latch (UI may reflect valve-open bleed between shots).
+    bool isBrewIdleVenting() const { return brewIdleVenting; }
+    bool isStableTemp() const { return stableTemp; }
+    bool isPidFreezeGraceActive() const {
+        return pidFreezeGraceUntil != 0 && millis() < pidFreezeGraceUntil;
+    }
 
     bool isTaskHealthy() const { return is_task_healthy(eTaskGetState(taskHandle)); }
 
@@ -74,6 +82,8 @@ class Controller {
     void lowerBrewTarget();
     void raiseGrindTarget();
     void lowerGrindTarget();
+    void raiseIncomingWaterTemp();
+    void lowerIncomingWaterTemp();
     void activate();
     void deactivate();
     void clear();
@@ -117,6 +127,7 @@ class Controller {
 
     // Functional methods
     void updateControl();
+    void updateStableTemp();
 
     // Event handlers
     void onTempRead(float temperature);
@@ -165,11 +176,20 @@ class Controller {
     bool screenReady = false;
     bool waitingForController = false;
     unsigned long connectStartTime = 0;
+    unsigned long bleDisconnectTime = 0; // millis() when BLE last dropped; 0 = connected
+    int modeBeforeDisconnect = -1;       // mode to restore grace check against; -1 = none pending
     bool volumetricOverride = false;
     bool processCompleted = false;
     bool steamReady = false;
     bool sdcard = false;
     int error = 0;
+
+    /// Latched while brew-mode idle vent is active (valve commanded open, pump 0). Cleared when
+    /// leaving MODE_BREW or when puck pressure drops below LOW threshold—see updateControl().
+    bool brewIdleVenting = false;
+    bool stableTemp = false;
+    unsigned long stableBandSinceMs = 0;
+    unsigned long pidFreezeGraceUntil = 0;
 
     // Bluetooth scale connection monitoring
     VolumetricMeasurementSource currentVolumetricSource = VolumetricMeasurementSource::INACTIVE;

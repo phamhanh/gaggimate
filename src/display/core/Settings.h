@@ -169,6 +169,27 @@ class Settings {
     void setAutoWakeupEnabled(bool enabled);
     void setAutoWakeupSchedules(const std::vector<AutoWakeupSchedule> &schedules);
 
+    bool isVentEnabled() const { return ventEnabled; }
+    float getVentPressureBar() const { return ventPressureBar; }
+    float getVentPressureLowBar() const { return ventPressureLowBar; }
+    float getStableOffsetC() const { return stableOffsetC; }
+    unsigned long getStableDurationMs() const { return stableDurationMs; }
+    unsigned long getPidFreezeGraceMs() const { return pidFreezeGraceMs; }
+    bool isKffEnabled() const { return kffEnabled; }
+    int getIncomingWaterTempC() const { return incomingWaterTempC; }
+    void setVentEnabled(bool enabled);
+    void setVentPressureBar(float bar);
+    void setVentPressureLowBar(float bar);
+    void setStableOffsetC(float offsetC);
+    void setStableDurationMs(unsigned long durationMs);
+    void setPidFreezeGraceMs(unsigned long graceMs);
+    void setKffEnabled(bool enabled);
+    void setIncomingWaterTempC(int tempC);
+    /** BLE PID characteristic payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletWaterTempC). */
+    String buildPidBlePayload() const;
+    /** BLE pump model payload: flow@1bar, flow@9bar (dimmed pump). */
+    String buildPumpModelBlePayload() const;
+
   private:
     Preferences preferences;
     bool dirty = false;
@@ -234,6 +255,15 @@ class Settings {
     int emptyTankDistance = 200;
     int fullTankDistance = 50;
     int altRelayFunction = ALT_RELAY_GRIND; // Default to grind
+
+    bool ventEnabled = true;
+    float ventPressureBar = 0.30f;
+    float ventPressureLowBar = 0.01f;
+    float stableOffsetC = 0.4f;
+    unsigned long stableDurationMs = 8000;
+    unsigned long pidFreezeGraceMs = 60000;
+    bool kffEnabled = true;
+    int incomingWaterTempC = 23;
 
     void doSave();
     xTaskHandle taskHandle;

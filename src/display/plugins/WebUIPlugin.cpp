@@ -482,6 +482,20 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 settings->setPressureScaling(request->arg("pressureScaling").toFloat());
             if (request->hasArg("pid"))
                 settings->setPid(request->arg("pid"));
+            settings->setVentEnabled(request->hasArg("ventEnabled"));
+            if (request->hasArg("ventPressureBar"))
+                settings->setVentPressureBar(request->arg("ventPressureBar").toFloat());
+            if (request->hasArg("ventPressureLowBar"))
+                settings->setVentPressureLowBar(request->arg("ventPressureLowBar").toFloat());
+            if (request->hasArg("stableOffsetC"))
+                settings->setStableOffsetC(request->arg("stableOffsetC").toFloat());
+            if (request->hasArg("stableDurationMs"))
+                settings->setStableDurationMs(request->arg("stableDurationMs").toInt());
+            if (request->hasArg("pidFreezeGraceMs"))
+                settings->setPidFreezeGraceMs(request->arg("pidFreezeGraceMs").toInt());
+            settings->setKffEnabled(request->hasArg("kffEnabled"));
+            if (request->hasArg("incomingWaterTempC"))
+                settings->setIncomingWaterTempC(request->arg("incomingWaterTempC").toInt());
             if (request->hasArg("pumpModelCoeffs"))
                 settings->setPumpModelCoeffs(request->arg("pumpModelCoeffs"));
             if (request->hasArg("wifiSsid"))
@@ -598,7 +612,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
         });
         pluginManager->trigger("settings:changed");
         controller->setTargetTemp(controller->getTargetTemp());
-        controller->setPumpModelCoeffs();
+        controller->syncPumpConfigToController();
+        controller->syncPidToController();
     }
 
     AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -615,6 +630,14 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["haPort"] = settings.getHomeAssistantPort();
     doc["haTopic"] = settings.getHomeAssistantTopic();
     doc["pid"] = settings.getPid();
+    doc["ventEnabled"] = settings.isVentEnabled();
+    doc["ventPressureBar"] = settings.getVentPressureBar();
+    doc["ventPressureLowBar"] = settings.getVentPressureLowBar();
+    doc["stableOffsetC"] = settings.getStableOffsetC();
+    doc["stableDurationMs"] = settings.getStableDurationMs();
+    doc["pidFreezeGraceMs"] = settings.getPidFreezeGraceMs();
+    doc["kffEnabled"] = settings.isKffEnabled();
+    doc["incomingWaterTempC"] = settings.getIncomingWaterTempC();
     doc["pumpModelCoeffs"] = settings.getPumpModelCoeffs();
     doc["wifiSsid"] = settings.getWifiSsid();
     doc["wifiPassword"] = apMode ? "---unchanged---" : settings.getWifiPassword();

@@ -20,6 +20,9 @@ import { faCrosshairs } from '@fortawesome/free-solid-svg-icons/faCrosshairs';
 
 const ledControl = computed(() => machine.value.capabilities.ledControl);
 const pressureAvailable = computed(() => machine.value.capabilities.pressure);
+const dimmingAvailable = computed(() => machine.value.capabilities.dimming);
+const showPumpFlowCoeffs = computed(() => dimmingAvailable.value);
+const showPumpConfig = computed(() => showPumpFlowCoeffs.value);
 const tofDistance = computed(() => machine.value.status.tofDistance);
 
 /**
@@ -45,6 +48,17 @@ function splitPidString(pidString) {
     return { pid: parts.slice(0, 3).join(','), kf: parts[3] };
   }
   return { pid: pidString, kf: '0.000' };
+}
+
+function splitPumpModelCoeffs(coeffs) {
+  if (!coeffs) {
+    return { pumpFlow1Bar: '10.205', pumpFlow9Bar: '5.521' };
+  }
+  const parts = coeffs.split(',');
+  return {
+    pumpFlow1Bar: parts[0] ?? '',
+    pumpFlow9Bar: parts[1] ?? '',
+  };
 }
 
 export function Settings() {
@@ -86,6 +100,15 @@ export function Settings() {
         settingsWithToggle.kf = split.kf;
       }
 
+      const graceMs = fetchedSettings.pidFreezeGraceMs ?? 60000;
+      settingsWithToggle.pidFreezeGraceSec = Math.round(graceMs / 1000);
+      settingsWithToggle.incomingWaterTempC = fetchedSettings.incomingWaterTempC ?? 23;
+      const stableMs = fetchedSettings.stableDurationMs ?? 8000;
+      settingsWithToggle.stableDurationSec = Math.round(stableMs / 1000);
+
+      const pumpSplit = splitPumpModelCoeffs(fetchedSettings.pumpModelCoeffs);
+      settingsWithToggle.pumpFlow1Bar = pumpSplit.pumpFlow1Bar;
+      settingsWithToggle.pumpFlow9Bar = pumpSplit.pumpFlow9Bar;
       // Initialize auto-wakeup schedules
       if (fetchedSettings.autowakeupSchedules) {
         // Parse new schedule format: "time1|days1;time2|days2"
@@ -154,6 +177,12 @@ export function Settings() {
       }
       if (key === 'autowakeupEnabled') {
         value = !formData.autowakeupEnabled;
+      }
+      if (key === 'kffEnabled') {
+        value = formData.kffEnabled === false;
+      }
+      if (key === 'ventEnabled') {
+        value = formData.ventEnabled === false;
       }
       if (key === 'standbyDisplayEnabled') {
         value = !formData.standbyDisplayEnabled;
@@ -231,6 +260,26 @@ export function Settings() {
         .join(';');
       formDataToSubmit.set('autowakeupSchedules', schedulesStr);
 
+      const graceSec = Number(formData.pidFreezeGraceSec ?? 60);
+      formDataToSubmit.set('pidFreezeGraceMs', String(Math.max(0, Math.round(graceSec * 1000))));
+      if (formData.incomingWaterTempC !== undefined) {
+        const inlet = Math.min(40, Math.max(5, Math.round(Number(formData.incomingWaterTempC))));
+        formDataToSubmit.set('incomingWaterTempC', String(inlet));
+      }
+      const stableSec = Number(formData.stableDurationSec ?? 8);
+      formDataToSubmit.set('stableDurationMs', String(Math.max(0, Math.round(stableSec * 1000))));
+
+      const flow1Bar = formDataToSubmit.get('pumpFlow1Bar');
+      const flow9Bar = formDataToSubmit.get('pumpFlow9Bar');
+      if (flow1Bar !== null && flow9Bar !== null) {
+        formDataToSubmit.set('pumpModelCoeffs', `${flow1Bar},${flow9Bar}`);
+      } else if (formData.pumpFlow1Bar !== undefined && formData.pumpFlow9Bar !== undefined) {
+        // Fallback to React state if inputs aren't in the DOM (e.g. section hidden)
+        formDataToSubmit.set('pumpModelCoeffs', `${formData.pumpFlow1Bar},${formData.pumpFlow9Bar}`);
+      }
+      formDataToSubmit.delete('pumpFlow1Bar');
+      formDataToSubmit.delete('pumpFlow9Bar');
+
       // Ensure standbyBrightness is included even when the field is disabled
       if (!formData.standbyDisplayEnabled) {
         formDataToSubmit.set('standbyBrightness', '0');
@@ -257,6 +306,9 @@ export function Settings() {
       const updatedData = {
         ...data,
         ...(splitPid !== null ? { pid: splitPid.pid, kf: splitPid.kf } : {}),
+        pidFreezeGraceSec: Math.round((data.pidFreezeGraceMs ?? 60000) / 1000),
+        stableDurationSec: Math.round((data.stableDurationMs ?? 8000) / 1000),
+        ...splitPumpModelCoeffs(data.pumpModelCoeffs),
         standbyDisplayEnabled: data.standbyBrightness > 0 ? formData.standbyDisplayEnabled : false,
       };
 
@@ -651,23 +703,225 @@ export function Settings() {
                 Set to 0 to disable feedforward control.
               </div>
             </div>
+            <div className='divider'>Thermal feedforward (Kff)</div>
             <div className='form-control mb-4'>
-              <label htmlFor='pumpModelCoeffs' className='mb-2 block text-sm font-medium'>
+              <label className='label cursor-pointer'>
+                <span className='label-text'>Enable disturbance feedforward (Kff)</span>
+                <input
+                  id='kffEnabled'
+                  name='kffEnabled'
+                  type='checkbox'
+                  className='toggle toggle-primary'
+                  checked={formData.kffEnabled !== false}
+                  onChange={onChange('kffEnabled')}
+                />
+              </label>
+              <p className='mt-1 text-xs opacity-70'>
+                When on, applies K<sub>ff</sub> during flow (valve open). Gain is set above; set K
+                <sub>ff</sub> to 0 to disable feedforward entirely.
+              </p>
+            </div>
+            <div className='form-control mb-4'>
+              <label htmlFor='incomingWaterTempC' className='mb-2 block text-sm font-medium'>
+                Water inlet temperature (°C)
+              </label>
+              <input
+                id='incomingWaterTempC'
+                name='incomingWaterTempC'
+                type='number'
+                step='1'
+                min='5'
+                max='40'
+                className='input input-bordered w-full'
+                value={formData.incomingWaterTempC ?? 23}
+                onChange={onChange('incomingWaterTempC')}
+              />
+              <p className='mt-1 text-xs opacity-70'>
+                Estimated tap or cold water temperature used by Kff feedforward (setpoint − inlet).
+              </p>
+            </div>
+            <div className='form-control mb-4'>
+              <label htmlFor='pidFreezeGraceSec' className='mb-2 block text-sm font-medium'>
+                Post-shot Kff PID freeze grace (seconds)
+              </label>
+              <input
+                id='pidFreezeGraceSec'
+                name='pidFreezeGraceSec'
+                type='number'
+                step='1'
+                min='0'
+                className='input input-bordered w-full'
+                value={formData.pidFreezeGraceSec ?? 60}
+                onChange={onChange('pidFreezeGraceSec')}
+              />
+              <p className='mt-1 text-xs opacity-70'>
+                After a shot ends, keeps PID error masked on the controller for this long so the
+                boiler does not chase the probe while the group cools. Brew screen shows &quot;Freeze
+                grace&quot; during this period. Set to 0 to disable.
+              </p>
+            </div>
+            <div className='divider'>Idle vent &amp; boiler stability</div>
+            <p className='mb-4 text-xs opacity-70'>
+              Idle pressure vent runs only when the boiler is considered stable (settings below).
+              While heating, the brew screen shows &quot;Stabilizing temperature&quot; and the valve
+              stays closed.
+            </p>
+
+            <div className='mb-4 space-y-4 rounded-lg border border-base-300 p-4'>
+              <p className='text-sm font-medium'>Boiler stability</p>
+              <p className='text-xs opacity-70'>
+                Temperature must stay within the band of the setpoint for the hold time before the
+                machine is &quot;stable&quot; and idle vent is allowed.
+              </p>
+              <div className='form-control'>
+                <label htmlFor='stableOffsetC' className='mb-2 block text-sm font-medium'>
+                  Stable temperature band (°C)
+                </label>
+                <input
+                  id='stableOffsetC'
+                  name='stableOffsetC'
+                  type='number'
+                  step='0.1'
+                  min='0'
+                  className='input input-bordered w-full'
+                  value={formData.stableOffsetC ?? 0.4}
+                  onChange={onChange('stableOffsetC')}
+                />
+                <p className='mt-1 text-xs opacity-70'>
+                  Max |temperature − setpoint| while counting toward stable.
+                </p>
+              </div>
+              <div className='form-control'>
+                <label htmlFor='stableDurationSec' className='mb-2 block text-sm font-medium'>
+                  Stable hold time (seconds)
+                </label>
+                <input
+                  id='stableDurationSec'
+                  name='stableDurationSec'
+                  type='number'
+                  step='1'
+                  min='0'
+                  className='input input-bordered w-full'
+                  value={formData.stableDurationSec ?? 8}
+                  onChange={onChange('stableDurationSec')}
+                />
+                <p className='mt-1 text-xs opacity-70'>
+                  How long temperature must stay inside the band before stable is declared.
+                </p>
+              </div>
+            </div>
+
+            <div className='mb-4 space-y-4 rounded-lg border border-base-300 p-4'>
+              <p className='text-sm font-medium'>Idle pressure vent</p>
+              <p className='text-xs opacity-70'>
+                Between shots, opens the valve (pump off) to bleed trapped puck-line pressure when
+                stable and pressure is high enough.
+              </p>
+              <div className='form-control'>
+                <label className='label cursor-pointer px-0'>
+                  <span className='label-text'>Enable idle pressure vent</span>
+                  <input
+                    id='ventEnabled'
+                    name='ventEnabled'
+                    type='checkbox'
+                    className='toggle toggle-primary'
+                    checked={formData.ventEnabled !== false}
+                    onChange={onChange('ventEnabled')}
+                  />
+                </label>
+              </div>
+              <div className='form-control'>
+                <label htmlFor='ventPressureBar' className='mb-2 block text-sm font-medium'>
+                  Vent start pressure (bar)
+                </label>
+                <input
+                  id='ventPressureBar'
+                  name='ventPressureBar'
+                  type='number'
+                  step='0.01'
+                  min='0'
+                  className='input input-bordered w-full'
+                  value={formData.ventPressureBar ?? 0.3}
+                  onChange={onChange('ventPressureBar')}
+                />
+                <p className='mt-1 text-xs opacity-70'>
+                  Latch vent on when idle pressure rises above this (pump stays off).
+                </p>
+              </div>
+              <div className='form-control'>
+                <label htmlFor='ventPressureLowBar' className='mb-2 block text-sm font-medium'>
+                  Vent clear pressure (bar)
+                </label>
+                <input
+                  id='ventPressureLowBar'
+                  name='ventPressureLowBar'
+                  type='number'
+                  step='0.01'
+                  min='0'
+                  className='input input-bordered w-full'
+                  value={formData.ventPressureLowBar ?? 0.01}
+                  onChange={onChange('ventPressureLowBar')}
+                />
+                <p className='mt-1 text-xs opacity-70'>
+                  Close the valve when pressure drops below this. Default 0.01 bleeds almost to
+                  zero; try 0.10–0.20 bar for a shorter hiss if venting feels too long. Must be
+                  lower than vent start pressure.
+                </p>
+              </div>
+            </div>
+            {showPumpConfig.value && (
+              <>
+                <div className='divider'>Pump configuration</div>
+                <label htmlFor='pumpFlow1Bar' className='mb-2 block text-sm font-medium'>
                 Pump Flow Coefficients
               </label>
               <div className='mb-2 text-xs opacity-70'>
-                Enter 2 values (flow at 1 bar, flow at 9 bar)
+                Enter 2 values (flow at 1 bar (10.205 default), flow at 9 bar (5.521 default))
               </div>
-              <input
-                id='pumpModelCoeffs'
-                name='pumpModelCoeffs'
-                type='text'
-                className='input input-bordered w-full'
-                placeholder='10.205,5.521'
-                value={formData.pumpModelCoeffs}
-                onChange={onChange('pumpModelCoeffs')}
-              />
-            </div>
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                <div className='form-control'>
+                  <label htmlFor='pumpFlow1Bar' className='mb-2 block text-sm font-medium'>
+                    Flow at 1 bar
+                  </label>
+                  <div className='input-group'>
+                    <label htmlFor='pumpFlow1Bar' className='input w-full'>
+                      <input
+                        id='pumpFlow1Bar'
+                        name='pumpFlow1Bar'
+                        type='number'
+                        step='0.001'
+                        className='grow'
+                        placeholder='10.205'
+                        value={formData.pumpFlow1Bar}
+                        onChange={onChange('pumpFlow1Bar')}
+                      />
+                      <span>ml/s</span>
+                    </label>
+                  </div>
+                </div>
+                <div className='form-control'>
+                  <label htmlFor='pumpFlow9Bar' className='mb-2 block text-sm font-medium'>
+                    Flow at 9 bar
+                  </label>
+                  <div className='input-group'>
+                    <label htmlFor='pumpFlow9Bar' className='input w-full'>
+                      <input
+                        id='pumpFlow9Bar'
+                        name='pumpFlow9Bar'
+                        type='number'
+                        step='0.001'
+                        className='grow'
+                        placeholder='5.521'
+                        value={formData.pumpFlow9Bar}
+                        onChange={onChange('pumpFlow9Bar')}
+                      />
+                      <span>ml/s</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              </>
+            )}
             <div className='form-control mb-4'>
               <label htmlFor='temperatureOffset' className='mb-2 block text-sm font-medium'>
                 Temperature Offset (°C)
