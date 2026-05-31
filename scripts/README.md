@@ -2,6 +2,27 @@
 
 This directory contains various utility scripts for development and debugging.
 
+## Profile maintenance (device WebSocket)
+
+### `gaggimate_profiles.py` / `gaggimate-profiles.sh`
+
+List, inspect, and delete profiles on a running Gaggimate when the web UI profiles page fails (corrupt JSON, invalid `type`, empty phases, etc.). Uses the firmware WebSocket API; no extra Python packages.
+
+```bash
+./scripts/gaggimate-profiles.sh list
+./scripts/gaggimate-profiles.sh list --broken-only
+./scripts/gaggimate-profiles.sh show <profile-id>
+./scripts/gaggimate-profiles.sh delete <id> [<id> ...]
+./scripts/gaggimate-profiles.sh delete-broken --dry-run
+./scripts/gaggimate-profiles.sh delete-broken --yes
+
+# AP mode or custom IP
+./scripts/gaggimate-profiles.sh list --host 4.4.4.1
+GAGGIMATE_HOST=192.168.1.50 ./scripts/gaggimate-profiles.sh list
+```
+
+See also `.cursor/skills/gaggimate-profiles/SKILL.md` for agent-oriented recovery steps.
+
 ## Core Dump Analysis
 
 ### `analyze_coredump.py` / `analyze_coredump.sh`
