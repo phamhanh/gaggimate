@@ -13,12 +13,12 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from device_http import http_base_url, http_get_bytes, resolve_host
 from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
+from shot_index import ShotIndexEntry, fetch_active_shots
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_P = ROOT / "data" / "p"
@@ -28,20 +28,6 @@ SNAPSHOT_ROOT = ROOT / "device-data" / "snapshots"
 
 def pad_shot_id(shot_id: str) -> str:
     return str(shot_id).zfill(6)
-
-
-def http_get_bytes(url: str, timeout: float) -> bytes | None:
-    try:
-        with urlopen(url, timeout=timeout) as response:
-            if response.status != 200:
-                return None
-            return response.read()
-    except HTTPError as error:
-        if error.code == 404:
-            return None
-        raise
-    except URLError:
-        raise
 
 
 def wipe_dir(path: Path) -> None:
@@ -83,61 +69,85 @@ def pull_profiles(
     for profile in profiles:
         body = client.load_profile(profile.id)
         write_json(dest / f"{profile.id}.json", body)
-        print(f"  profile {profile.id} ({profile.label!r})")
+        print(f"  profile {profile.id} ({profile.label!r})", flush=True)
 
     return len(profiles), selected_id
 
 
+def list_shots(
+    history_url: str,
+    client: GaggimateWsClient | None,
+    http_timeout: float,
+) -> tuple[list[ShotIndexEntry], str]:
+    """Prefer HTTP index.bin (fast); fall back to WebSocket directory scan."""
+    shots = fetch_active_shots(history_url, http_timeout)
+    if shots is not None:
+        return shots, "index.bin"
+
+    if client is None:
+        raise RuntimeError("index.bin missing and no WebSocket client for fallback")
+
+    print("  (no index.bin — falling back to req:history:list, may be slow)", file=sys.stderr)
+    ws_shots = client.list_history()
+    entries = [
+        ShotIndexEntry(
+            id=int(shot.get("id", 0)),
+            timestamp=int(shot.get("timestamp", 0)),
+            duration=int(shot.get("duration", 0)),
+            deleted=False,
+            has_notes=False,
+        )
+        for shot in ws_shots
+    ]
+    return entries, "websocket"
+
+
 def pull_history(
-    host: str,
-    client: GaggimateWsClient,
+    history_url: str,
+    shots: list[ShotIndexEntry],
+    source: str,
     dest: Path,
     *,
     dry_run: bool,
     http_timeout: float,
 ) -> int:
-    shots = client.list_history()
-    base_url = f"http://{host}/api/history"
+    print(f"  {len(shots)} shot(s) from {source}", flush=True)
 
     if dry_run:
         print(f"Would pull {len(shots)} shot(s) + index.bin to {dest}")
         for shot in shots[:20]:
-            shot_id = str(shot.get("id", ""))
-            print(f"  {pad_shot_id(shot_id)}.slog")
+            print(f"  {pad_shot_id(shot.id)}.slog")
         if len(shots) > 20:
             print(f"  ... and {len(shots) - 20} more")
-        print(f"  GET {base_url}/index.bin")
         return len(shots)
 
     wipe_dir(dest)
 
+    index_bytes = http_get_bytes(f"{history_url.rstrip('/')}/index.bin", http_timeout)
+    if index_bytes is not None:
+        (dest / "index.bin").write_bytes(index_bytes)
+        print(f"  index.bin ({len(index_bytes)} bytes)", flush=True)
+
     for index, shot in enumerate(shots, start=1):
-        shot_id = str(shot.get("id", ""))
+        shot_id = str(shot.id)
         padded = pad_shot_id(shot_id)
-        slog_url = f"{base_url}/{padded}.slog"
-        slog_bytes = http_get_bytes(slog_url, http_timeout)
+        print(f"  downloading {padded}.slog ({index}/{len(shots)})...", flush=True)
+        slog_bytes = http_get_bytes(f"{history_url.rstrip('/')}/{padded}.slog", http_timeout)
         if slog_bytes is None:
             print(f"  WARN: missing {padded}.slog", file=sys.stderr)
         else:
             (dest / f"{padded}.slog").write_bytes(slog_bytes)
 
-        notes_url = f"{base_url}/{shot_id}.json"
-        notes_bytes = http_get_bytes(notes_url, http_timeout)
-        if notes_bytes is None:
-            notes_url = f"{base_url}/{padded}.json"
+        if shot.has_notes:
+            notes_url = f"{history_url.rstrip('/')}/{shot_id}.json"
             notes_bytes = http_get_bytes(notes_url, http_timeout)
-        if notes_bytes is not None:
-            (dest / f"{padded}.json").write_bytes(notes_bytes)
+            if notes_bytes is None:
+                notes_bytes = http_get_bytes(f"{history_url.rstrip('/')}/{padded}.json", http_timeout)
+            if notes_bytes is not None:
+                (dest / f"{padded}.json").write_bytes(notes_bytes)
 
-        if index % 10 == 0 or index == len(shots):
-            print(f"  shots {index}/{len(shots)}")
-
-    index_bytes = http_get_bytes(f"{base_url}/index.bin", http_timeout)
     if index_bytes is None:
         print("  WARN: index.bin not found on device", file=sys.stderr)
-    else:
-        (dest / "index.bin").write_bytes(index_bytes)
-        print(f"  index.bin ({len(index_bytes)} bytes)")
 
     return len(shots)
 
@@ -175,43 +185,65 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--host",
         default=os.environ.get("GAGGIMATE_HOST", DEFAULT_HOST),
-        help=f"Device hostname (default: {DEFAULT_HOST})",
+        help=f"Hostname or IP (default: {DEFAULT_HOST} or $GAGGIMATE_HOST)",
     )
     parser.add_argument("--dry-run", action="store_true", help="List counts only; do not write files")
     parser.add_argument("--no-snapshot", action="store_true", help="Skip device-data/snapshots archive")
     parser.add_argument("--timeout", type=float, default=15.0, help="WebSocket connect timeout (seconds)")
-    parser.add_argument("--http-timeout", type=float, default=60.0, help="HTTP download timeout (seconds)")
+    parser.add_argument("--http-timeout", type=float, default=30.0, help="HTTP download timeout per file (seconds)")
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     host, port = parse_host(args.host)
-    http_host = host if port == 80 else f"{host}:{port}"
 
-    print(f"Pulling SPIFFS user data from {http_host}...")
+    try:
+        ip = resolve_host(host, port)
+    except OSError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 2
+
+    history_url = f"{http_base_url(host, port)}/api/history"
+    print(f"Pulling SPIFFS user data from {host} ({ip})...")
+
+    device_version = "unknown"
+    profile_count = 0
+    shot_count = 0
+    selected_id: str | None = None
 
     try:
         with GaggimateWsClient(host, port, timeout=args.timeout) as client:
-            ota = client.fetch_ota_settings()
-            device_version = str(ota.get("displayVersion") or "unknown")
-
-            print("Profiles:")
+            print("Profiles:", flush=True)
             profile_count, selected_id = pull_profiles(client, DATA_P, dry_run=args.dry_run)
+            try:
+                ota = client.fetch_ota_settings()
+                device_version = str(ota.get("displayVersion") or "unknown")
+            except TimeoutError:
+                print("  WARN: could not read device version", file=sys.stderr)
+        # WebSocket closed before HTTP bulk transfer (reduces ESP32 contention)
 
-            print("Shot history:")
-            shot_count = pull_history(
-                http_host,
-                client,
-                DATA_H,
-                dry_run=args.dry_run,
-                http_timeout=args.http_timeout,
-            )
-    except (TimeoutError, ConnectionError, OSError, URLError) as error:
+        print("Shot history:", flush=True)
+        print("  reading shot list from index.bin...", flush=True)
+        shots = fetch_active_shots(history_url, args.http_timeout)
+        if shots is None:
+            with GaggimateWsClient(host, port, timeout=args.timeout) as fallback_client:
+                shots, source = list_shots(history_url, fallback_client, args.http_timeout)
+        else:
+            source = "index.bin"
+        shot_count = pull_history(
+            history_url,
+            shots,
+            source,
+            DATA_H,
+            dry_run=args.dry_run,
+            http_timeout=args.http_timeout,
+        )
+    except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)
         print(
-            f"Could not reach Gaggimate at {host}:{port}. "
-            "Check Wi‑Fi or pass --host with the device IP.",
+            f"Could not reach Gaggimate at {host} ({ip}). "
+            "Try --host with the device IP if mDNS is slow.",
             file=sys.stderr,
         )
         return 2
@@ -227,7 +259,7 @@ def main() -> int:
     if not args.no_snapshot:
         snapshot_dir = snapshot_pull(
             device_version=device_version,
-            host=http_host,
+            host=f"{host} ({ip})",
             profile_count=profile_count,
             shot_count=shot_count,
             selected_profile_id=selected_id,

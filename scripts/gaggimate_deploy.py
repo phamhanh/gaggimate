@@ -54,11 +54,20 @@ def confirm_deploy(plan: str, *, assume_yes: bool, dry_run: bool) -> bool:
     return reply in ("y", "yes")
 
 
-def dry_run_counts(host: str, port: int, timeout: float) -> tuple[int, int]:
+def dry_run_counts(host: str, port: int, timeout: float, http_timeout: float) -> tuple[int, int]:
+    from device_http import http_base_url
+    from shot_index import fetch_active_shots
+
+    history_url = f"{http_base_url(host, port)}/api/history"
     with GaggimateWsClient(host, port, timeout=timeout) as client:
         profiles = client.list_profiles()
-        shots = client.list_history()
-    return len(profiles), len(shots)
+        shots = fetch_active_shots(history_url, http_timeout)
+        if shots is None:
+            shots = client.list_history()
+            shot_count = len(shots)
+        else:
+            shot_count = len(shots)
+    return len(profiles), shot_count
 
 
 def wait_for_reboot(host: str, port: int, connect_timeout: float, wait_timeout: float) -> None:
@@ -147,6 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
     parser.add_argument("--timeout", type=float, default=600.0, help="OTA wait timeout (seconds)")
     parser.add_argument("--timeout-connect", type=float, default=15.0, help="WebSocket connect timeout")
+    parser.add_argument("--http-timeout", type=float, default=60.0, help="HTTP pull timeout (seconds)")
     parser.add_argument(
         "release_args",
         nargs=argparse.REMAINDER,
@@ -185,7 +195,9 @@ def main() -> int:
     if do_pull:
         if args.dry_run:
             try:
-                profile_count, shot_count = dry_run_counts(host, port, args.timeout_connect)
+                profile_count, shot_count = dry_run_counts(
+                    host, port, args.timeout_connect, args.http_timeout
+                )
             except (TimeoutError, ConnectionError, OSError) as error:
                 print(f"Error: {error}", file=sys.stderr)
                 return 2
@@ -195,7 +207,9 @@ def main() -> int:
                 return 1
         else:
             try:
-                profile_count, shot_count = dry_run_counts(host, port, args.timeout_connect)
+                profile_count, shot_count = dry_run_counts(
+                    host, port, args.timeout_connect, args.http_timeout
+                )
             except (TimeoutError, ConnectionError, OSError) as error:
                 print(f"Error: {error}", file=sys.stderr)
                 return 2
@@ -203,7 +217,7 @@ def main() -> int:
                 print("Aborted.")
                 return 1
 
-        pull_args = ["--host", host]
+        pull_args = ["--host", host, "--http-timeout", str(args.http_timeout)]
         if args.dry_run:
             pull_args.append("--dry-run")
         run_script("pull-spiffs-data.sh", pull_args, dry_run=args.dry_run)

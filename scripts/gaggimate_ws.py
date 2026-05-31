@@ -151,13 +151,21 @@ class GaggimateWsClient:
             remaining -= len(chunk)
         return b"".join(chunks)
 
+    def _set_recv_timeout(self, seconds: float) -> None:
+        if self._sock is not None:
+            self._sock.settimeout(max(0.1, seconds))
+
     def request(self, message_type: str, timeout: float = 60.0, **payload: Any) -> dict[str, Any]:
         request_id = f"r{time.time_ns()}"
         body = {"tp": message_type, "rid": request_id, **payload}
         self._send_text(json.dumps(body))
         deadline = time.time() + timeout
         while time.time() < deadline:
-            message = json.loads(self._recv_text())
+            self._set_recv_timeout(deadline - time.time())
+            try:
+                message = json.loads(self._recv_text())
+            except socket.timeout:
+                continue
             if message.get("rid") == request_id:
                 return message
         raise TimeoutError(f"Timed out waiting for response to {message_type}")
@@ -238,7 +246,11 @@ class GaggimateWsClient:
         self._send_text(json.dumps(payload))
         deadline = time.time() + 120.0
         while time.time() < deadline:
-            message = json.loads(self._recv_text())
+            self._set_recv_timeout(deadline - time.time())
+            try:
+                message = json.loads(self._recv_text())
+            except socket.timeout:
+                continue
             if message.get("tp") == "res:ota-settings":
                 return message
         raise TimeoutError("Timed out waiting for res:ota-settings")
