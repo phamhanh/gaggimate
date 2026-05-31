@@ -1,18 +1,22 @@
 ---
 name: gaggimate-deploy
 description: >-
-  Back up profiles and shots from gaggimate.local, bake into SPIFFS, release locally,
-  and OTA-update the machine. Use when user says deploy, release and update,
-  or push firmware to the device without losing profiles or shot history.
+  Default release workflow: scripts/deploy.sh backs up from gaggimate.local, publishes
+  to GitHub, and OTA-updates the machine. Use when user says deploy, release, release
+  and update, or push firmware without losing profiles or shot history.
 ---
 
-# Gaggimate deploy (backup → release → OTA)
+# Gaggimate deploy
 
-One workflow preserves profiles and shot history by **baking device data into `display-filesystem.bin`** before OTA. No post-OTA WebSocket restore is required.
+**This is the default workshop.** `./scripts/deploy.sh` does all three steps:
 
-**Backup** copies profiles and shots from your Gaggimate on the LAN (`gaggimate.local`). **Release** builds firmware and uploads to GitHub. **OTA** lets the machine download that release.
+1. **Backup** — profiles and shots from `gaggimate.local`
+2. **Release** — build firmware, bake SPIFFS, publish to GitHub
+3. **OTA** — update the machine from that release
 
-Depends on [`gaggimate-release`](gaggimate-release/SKILL.md) for release semantics.
+Profiles and shot history survive because device data is **baked into `display-filesystem.bin`** before OTA. No post-OTA WebSocket restore is required.
+
+Semver, build order, and offline exceptions: [`gaggimate-release`](gaggimate-release/SKILL.md).
 
 ## Tool location
 
@@ -87,11 +91,11 @@ Partition budget: **3,538,944 bytes** (`0x360000` on `default_16MB.csv`), with 1
 
 ## Agent workflow
 
-1. Run `./scripts/deploy.sh --dry-run` (or `backup-spiffs-data.sh --dry-run`) to confirm device reachability and counts.
-2. Ensure working tree is clean before a full release (see gaggimate-release skill).
-3. Full deploy: `./scripts/deploy.sh` with any release flags the user requested after `--`.
-4. **Skip backup (CI):** `./scripts/deploy.sh --no-backup --release-only -- --build-only`
-5. After OTA, verify profiles page and shot history on `http://gaggimate.local`.
+1. Run `./scripts/deploy.sh --dry-run` to confirm device reachability, backup counts, and next version.
+2. Ensure working tree is clean; stop and ask user to commit/stash if not.
+3. Run `./scripts/deploy.sh -- --yes` (backup + publish + OTA). Add `--patch` / `--minor` / `--major` after `--` if requested.
+4. Use `--release-only` only when user explicitly does not want OTA.
+5. After deploy, verify profiles and shot history on `http://gaggimate.local`.
 
 ## OTA warnings
 
@@ -103,6 +107,6 @@ Display OTA **replaces the entire SPIFFS image**. With deploy, that image **incl
 
 | Skill | Role |
 |-------|------|
-| `gaggimate-release` | Build + publish only |
+| `gaggimate-release` | Release semantics; bare `release.sh` only without device |
 | `gaggimate-profiles` | Manual profile repair |
 | **gaggimate-deploy** | Backup → bake → release → OTA |
