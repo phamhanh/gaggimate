@@ -23,8 +23,8 @@ lv_obj_t *ui_dials_create(lv_obj_t *comp_parent) {
     lv_obj_set_height(cui_tempGauge, 480);
     lv_obj_set_align(cui_tempGauge, LV_ALIGN_CENTER);
     lv_obj_add_state(cui_tempGauge, LV_STATE_DISABLED); /// States
-    lv_arc_set_range(cui_tempGauge, 0, 160);
-    lv_arc_set_value(cui_tempGauge, 80);
+    lv_arc_set_range(cui_tempGauge, 0, 1600);
+    lv_arc_set_value(cui_tempGauge, 800);
     lv_arc_set_bg_angles(cui_tempGauge, 118, 242);
     lv_obj_set_style_arc_width(cui_tempGauge, 35, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_rounded(cui_tempGauge, false, LV_PART_MAIN | LV_STATE_DEFAULT);
