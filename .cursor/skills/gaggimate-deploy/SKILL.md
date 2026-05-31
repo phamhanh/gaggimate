@@ -30,7 +30,7 @@ Depends on [`gaggimate-release`](gaggimate-release/SKILL.md) for release semanti
 git status                    # must be clean — deploy stops immediately if dirty
 git commit -am "..."          # commit firmware changes before deploy
 ./scripts/deploy.sh --dry-run # preview (no clean-tree check in dry-run)
-./scripts/deploy.sh --yes     # backup from device → release → OTA (~10–15 min)
+./scripts/deploy.sh           # backup from device → release → OTA (~10–15 min)
 ```
 
 ## CLI reference
@@ -39,7 +39,6 @@ git commit -am "..."          # commit firmware changes before deploy
 ./scripts/deploy.sh [OPTIONS] [-- RELEASE_ARGS...]
 
 --host HOST           Default: gaggimate.local (or $GAGGIMATE_HOST)
---yes                 Skip confirmation prompts
 --release-only        Back up + release; skip OTA
 --update-only         OTA only (uses existing out/)
 --no-backup           Skip device backup (use existing data/p or profiles/seed fallback)
@@ -47,7 +46,7 @@ git commit -am "..."          # commit firmware changes before deploy
 --timeout SEC         OTA wait (default 600)
 
 Pass-through to release.sh after --:
-  ./scripts/deploy.sh --yes -- --patch --display-only
+  ./scripts/deploy.sh -- --patch --display-only
 ```
 
 **Backup only:**
@@ -89,8 +88,8 @@ Partition budget: **3,538,944 bytes** (`0x360000` on `default_16MB.csv`), with 1
 
 1. Run `./scripts/deploy.sh --dry-run` (or `backup-spiffs-data.sh --dry-run`) to confirm device reachability and counts.
 2. Ensure working tree is clean before a full release (see gaggimate-release skill).
-3. Full deploy: `./scripts/deploy.sh --yes` with any release flags the user requested after `--`.
-4. **Skip backup (CI):** `./scripts/deploy.sh --no-backup --release-only --yes -- --build-only`
+3. Full deploy: `./scripts/deploy.sh` with any release flags the user requested after `--`.
+4. **Skip backup (CI):** `./scripts/deploy.sh --no-backup --release-only -- --build-only`
 5. After OTA, verify profiles page and shot history on `http://gaggimate.local`.
 
 ## OTA warnings

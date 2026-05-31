@@ -52,39 +52,6 @@ def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
-def confirm_backup(profile_count: int, shot_count: int, host: str, *, assume_yes: bool) -> bool:
-    if assume_yes:
-        return True
-    reply = input(
-        f"\nBack up {profile_count} profile(s) and {shot_count} shot(s) from {host} "
-        "and bake them into the next SPIFFS build? [y/N] "
-    ).strip().lower()
-    return reply in ("y", "yes")
-
-
-def confirm_deploy(plan: str, *, assume_yes: bool, dry_run: bool) -> bool:
-    print(plan)
-    if dry_run or assume_yes:
-        return True
-    reply = input("\nProceed with deploy? [y/N] ").strip().lower()
-    return reply in ("y", "yes")
-
-
-def preview_backup_counts(host: str, port: int, timeout: float, http_timeout: float) -> tuple[int, int]:
-    from device_http import http_base_url
-    from shot_index import load_active_shots_from_index
-
-    history_url = f"{http_base_url(host, port)}/api/history"
-    with GaggimateWsClient(host, port, timeout=timeout) as client:
-        profiles = client.list_profiles()
-        shots = load_active_shots_from_index(history_url, http_timeout)
-        if shots is None:
-            shot_count = len(client.list_history())
-        else:
-            shot_count = len(shots)
-    return len(profiles), shot_count
-
-
 def wait_for_reboot(host: str, port: int, connect_timeout: float, wait_timeout: float) -> None:
     deadline = time.time() + wait_timeout
     while time.time() < deadline:
@@ -164,7 +131,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Back up device data, release firmware, and OTA-update the machine.",
     )
     parser.add_argument("--host", default=os.environ.get("GAGGIMATE_HOST", DEFAULT_HOST))
-    parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompts")
     parser.add_argument("--release-only", action="store_true", help="Back up + release; skip OTA")
     parser.add_argument("--update-only", action="store_true", help="OTA only (use existing out/)")
     parser.add_argument("--no-backup", action="store_true", help="Skip device backup (use existing data/p, data/h)")
@@ -206,25 +172,9 @@ def main() -> int:
     if do_ota:
         plan_lines.append("3. Intelligent OTA")
 
-    if not confirm_deploy("\n".join(plan_lines), assume_yes=args.yes, dry_run=args.dry_run):
-        print("Aborted.")
-        return 1
+    print("\n".join(plan_lines))
 
     if do_backup:
-        try:
-            profile_count, shot_count = preview_backup_counts(
-                host, port, args.timeout_connect, args.http_timeout
-            )
-        except (TimeoutError, ConnectionError, OSError) as error:
-            print(f"Error: {error}", file=sys.stderr)
-            return 2
-
-        if args.dry_run:
-            print(f"\nBackup preview: {profile_count} profile(s), {shot_count} shot(s)")
-        if not confirm_backup(profile_count, shot_count, host, assume_yes=args.yes):
-            print("Aborted.")
-            return 1
-
         backup_args = ["--host", host, "--http-timeout", str(args.http_timeout)]
         if args.dry_run:
             backup_args.append("--dry-run")
@@ -232,7 +182,7 @@ def main() -> int:
 
     if do_release:
         release_args = list(args.release_args)
-        if args.yes and "--yes" not in release_args:
+        if "--yes" not in release_args:
             release_args = ["--yes", *release_args]
         if args.dry_run and "--dry-run" not in release_args:
             release_args = ["--dry-run", *release_args]

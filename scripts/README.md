@@ -55,15 +55,15 @@ Back up profiles and shot history from the machine into `data/p/` and `data/h/`,
 
 ```bash
 ./scripts/deploy.sh --dry-run
-./scripts/deploy.sh --yes
+./scripts/deploy.sh
 ```
 
 **Options:**
 
 ```bash
-./scripts/deploy.sh --release-only --yes            # backup + release, no OTA
-./scripts/deploy.sh --update-only --yes             # OTA from existing out/
-./scripts/deploy.sh --no-backup --yes -- --build-only
+./scripts/deploy.sh --release-only                  # backup + release, no OTA
+./scripts/deploy.sh --update-only                   # OTA from existing out/
+./scripts/deploy.sh --no-backup -- --build-only
 ./scripts/backup-spiffs-data.sh --dry-run           # preview counts only
 ```
 
