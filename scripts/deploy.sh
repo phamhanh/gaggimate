@@ -5,9 +5,10 @@
 #   ./scripts/deploy.sh [OPTIONS] [-- RELEASE_ARGS...]
 #
 # Examples:
-#   ./scripts/deploy.sh
+#   ./scripts/deploy.sh                              # backup + release + OTA
+#   ./scripts/deploy.sh --no-backup                  # release + OTA (keep data/p, data/h)
+#   ./scripts/deploy.sh --no-backup --release-only   # release only
 #   ./scripts/deploy.sh --dry-run
-#   ./scripts/deploy.sh --release-only -- --patch
 #   ./scripts/deploy.sh --update-only
 #   ./scripts/deploy.sh --no-backup -- --build-only
 #

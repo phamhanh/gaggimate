@@ -129,6 +129,15 @@ def run_ota(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Back up device data, release firmware, and OTA-update the machine.",
+        epilog=(
+            "Examples:\n"
+            "  ./scripts/deploy.sh\n"
+            "  ./scripts/deploy.sh --no-backup\n"
+            "  ./scripts/deploy.sh --no-backup --release-only\n"
+            "  ./scripts/deploy.sh --update-only\n"
+            "  ./scripts/deploy.sh --no-backup -- --build-only"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--host", default=os.environ.get("GAGGIMATE_HOST", DEFAULT_HOST))
     parser.add_argument("--release-only", action="store_true", help="Back up + release; skip OTA")
@@ -159,18 +168,27 @@ def main() -> int:
         assert_clean_git_tree()
 
     host, port = parse_host(args.host)
-    plan_lines = ["Deploy plan", "==========="]
 
     do_backup = not args.no_backup and not args.update_only
     do_release = not args.update_only
     do_ota = not args.release_only
 
+    plan_lines = ["Deploy plan", "==========="]
+    step = 1
     if do_backup:
-        plan_lines.append(f"1. Back up profiles + shots from Gaggimate at {host}")
+        plan_lines.append(f"{step}. Back up profiles + shots from Gaggimate at {host}")
+        step += 1
+    elif not args.update_only and args.no_backup:
+        plan_lines.append(
+            f"{step}. Skip device backup — use existing data/p and data/h "
+            "(or profiles/seed at build time if empty)"
+        )
+        step += 1
     if do_release:
-        plan_lines.append(f"2. Release ({' '.join(args.release_args) or 'default flags'})")
+        plan_lines.append(f"{step}. Release ({' '.join(args.release_args) or 'default flags'})")
+        step += 1
     if do_ota:
-        plan_lines.append("3. Intelligent OTA")
+        plan_lines.append(f"{step}. Intelligent OTA")
 
     print("\n".join(plan_lines))
 
