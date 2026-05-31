@@ -1,5 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashCan } from '@fortawesome/free-solid-svg-icons/faTrashCan';
+import { useEffect, useState } from 'preact/hooks';
 
 export const TargetTypes = [
   {
@@ -41,9 +42,39 @@ export const TargetTypes = [
 ];
 
 export function ExtendedPhaseTarget({ onChange, target, index, onRemove }) {
+  const [draft, setDraft] = useState(null);
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) {
+      setDraft(null);
+    }
+  }, [focused, target.value, target.type, target.operator]);
+
   const targetType =
     TargetTypes.find(tt => tt.type === target.type && tt.operator === (target.operator || 'gte')) ||
     TargetTypes[0];
+
+  const displayValue = draft !== null ? draft : target.value ?? 0;
+
+  const commitDraft = () => {
+    const raw = draft ?? '';
+    const trimmed = String(raw).trim();
+    let n = trimmed === '' ? NaN : parseFloat(trimmed);
+    if (!Number.isFinite(n)) {
+      n = 0;
+    }
+    n = Math.max(0, n);
+    setDraft(null);
+    setFocused(false);
+    if (n !== target.value) {
+      onChange({
+        ...target,
+        value: n,
+      });
+    }
+  };
+
   return (
     <>
       <div className='grid grid-cols-1 gap-4'>
@@ -58,13 +89,13 @@ export function ExtendedPhaseTarget({ onChange, target, index, onRemove }) {
                   id={`phase-${index}-target-value`}
                   className='grow'
                   type='number'
-                  value={target.value || 0}
-                  onChange={e =>
-                    onChange({
-                      ...target,
-                      value: parseFloat(e.target.value),
-                    })
-                  }
+                  value={displayValue}
+                  onFocus={() => {
+                    setFocused(true);
+                    setDraft(String(target.value ?? 0));
+                  }}
+                  onChange={e => setDraft(e.target.value)}
+                  onBlur={() => commitDraft()}
                   aria-label={`Target value in ${targetType.unit}`}
                   min='0'
                   step='0.1'

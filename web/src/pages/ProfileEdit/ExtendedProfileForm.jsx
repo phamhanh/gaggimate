@@ -29,26 +29,27 @@ export function ExtendedProfileForm(props) {
   };
 
   const onPhaseAdd = () => {
-    onChange({
-      ...data,
-      phases: [
-        ...data.phases,
-        {
-          phase: 'brew',
-          name: 'New Phase',
-          pump: 100,
-          valve: 1,
-          duration: 0,
-          transition: {
-            type: 'instant',
-            duration: 0,
-            adaptive: true,
-          },
-          targets: [],
-        },
-      ],
-    });
-    setCurrentPhaseIndex(data.phases.length);
+    const newPhase = {
+      phase: 'brew',
+      name: 'New Phase',
+      pump: 100,
+      valve: 1,
+      duration: 0,
+      transition: {
+        type: 'instant',
+        duration: 0,
+        adaptive: true,
+      },
+      targets: [],
+    };
+    const insertAt = currentPhaseIndex + 1;
+    const newPhases = [
+      ...data.phases.slice(0, insertAt),
+      newPhase,
+      ...data.phases.slice(insertAt),
+    ];
+    onChange({ ...data, phases: newPhases });
+    setCurrentPhaseIndex(insertAt);
   };
 
   const onPhaseRemove = index => {
