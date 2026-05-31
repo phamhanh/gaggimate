@@ -243,7 +243,20 @@ publish_release() {
 
 push_refs() {
   git push origin "$DEFAULT_BRANCH"
-  git push origin "$VERSION"
+  if [[ "$FORCE" -eq 1 ]]; then
+    git push --force origin "$VERSION"
+    return
+  fi
+  if git push origin "$VERSION" 2>/dev/null; then
+    return
+  fi
+  local remote_sha local_sha
+  remote_sha="$(git ls-remote origin "refs/tags/$VERSION" | awk '{print $1}')"
+  local_sha="$(git rev-parse "$VERSION^{commit}")"
+  if [[ -n "$remote_sha" && "$remote_sha" != "$local_sha" ]]; then
+    die "Tag $VERSION on remote ($remote_sha) differs from local ($local_sha). Re-run with --force to move the tag, or bump the version."
+  fi
+  die "Failed to push tag $VERSION"
 }
 
 rollback_hint() {
