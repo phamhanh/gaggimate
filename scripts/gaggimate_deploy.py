@@ -21,7 +21,7 @@ from gaggimate_ota import (
     normalize_version,
     ota_flash_plan,
     run_ota_sequence,
-    verify_device_versions,
+    wait_for_device_versions,
     wait_for_github_latest,
 )
 from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
@@ -29,7 +29,6 @@ from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "out" / "release-manifest.json"
 GITHUB_RELEASES = "https://github.com/phamhanh/gaggimate/releases"
-GITHUB_POLL_TIMEOUT = 60.0
 
 
 def print_device_links(host: str, port: int) -> None:
@@ -138,7 +137,7 @@ def main() -> int:
         print("Error: --release-only and --update-only are mutually exclusive", file=sys.stderr)
         return 1
 
-    if not args.dry_run:
+    if not args.dry_run and not args.update_only:
         assert_clean_git_tree()
 
     host, port = parse_host(args.host)
@@ -221,7 +220,7 @@ def main() -> int:
                 settings_before = wait_for_github_latest(
                     client,
                     target_version,
-                    timeout=GITHUB_POLL_TIMEOUT,
+                    timeout=args.timeout,
                 )
     except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)
@@ -262,17 +261,15 @@ def main() -> int:
 
     try:
         with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
-            settings_after = client.fetch_ota_settings(refresh=True)
+            print("\nWaiting for device OTA versions to match release...")
+            settings_after = wait_for_device_versions(
+                client,
+                target_version,
+                timeout=args.timeout,
+            )
     except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: post-OTA verify failed to connect: {error}", file=sys.stderr)
         return 1
-
-    print(
-        f"\nDevice after OTA:  display={settings_after.get('displayVersion')!r} "
-        f"controller={settings_after.get('controllerVersion')!r}"
-    )
-    try:
-        verify_device_versions(settings_after, target_version)
     except RuntimeError as error:
         print(f"Error: {error}", file=sys.stderr)
         print(
@@ -280,6 +277,11 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    print(
+        f"\nDevice after OTA:  display={settings_after.get('displayVersion')!r} "
+        f"controller={settings_after.get('controllerVersion')!r}"
+    )
 
     print(f"\nOTA verify OK — display and controller on {target_version}.")
     return 0

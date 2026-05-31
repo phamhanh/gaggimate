@@ -109,7 +109,7 @@ When building the firmware, the `scripts/build_spiffs.sh` script installs the we
 
    One-time setup: `brew install gh && gh auth login`
 
-   See `scripts/README.md` and `.cursor/skills/gaggimate-release/SKILL.md` for flags, OTA notes, and troubleshooting.
+   See `scripts/README.md` and `.cursor/skills/gaggimate-deploy/SKILL.md` for flags, OTA notes, and troubleshooting.
 
 ## Code Style
 

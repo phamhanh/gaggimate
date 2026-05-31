@@ -27,7 +27,7 @@ def wait_for_github_latest(
     client: GaggimateWsClient,
     expected: str,
     *,
-    timeout: float = 60.0,
+    timeout: float = 600.0,
     poll_interval: float = 3.0,
 ) -> dict:
     """Poll OTA settings until device latestVersion matches expected release."""
@@ -42,12 +42,50 @@ def wait_for_github_latest(
         latest = normalize_version(str(last.get("latestVersion") or ""))
         if latest and version_equal(latest, target):
             return last
+        print(
+            f"  Waiting for GitHub latest on device: {latest or '(unknown)'} "
+            f"(want {target})..."
+        )
         time.sleep(poll_interval)
 
     latest = normalize_version(str(last.get("latestVersion") or ""))
     raise TimeoutError(
         f"Device GitHub latest is {latest or '(unknown)'} after {timeout:.0f}s; "
         f"expected {target}. Wait and retry, or open /ota and Save & Refresh."
+    )
+
+
+def wait_for_device_versions(
+    client: GaggimateWsClient,
+    target: str,
+    *,
+    timeout: float = 600.0,
+    poll_interval: float = 3.0,
+) -> dict:
+    """Poll OTA settings until display and controller both match target."""
+    target_norm = normalize_version(target)
+    if not target_norm:
+        raise ValueError("target version is empty")
+
+    deadline = time.time() + timeout
+    last: dict = {}
+    while time.time() < deadline:
+        last = client.fetch_ota_settings(refresh=True)
+        display = normalize_version(str(last.get("displayVersion") or ""))
+        controller = normalize_version(str(last.get("controllerVersion") or ""))
+        if display == target_norm and controller == target_norm:
+            return last
+        print(
+            f"  Waiting for OTA versions: display={last.get('displayVersion')!r} "
+            f"controller={last.get('controllerVersion')!r} (want {target_norm})..."
+        )
+        time.sleep(poll_interval)
+
+    raise RuntimeError(
+        "OTA verify failed: "
+        f"display={last.get('displayVersion')!r} "
+        f"controller={last.get('controllerVersion')!r} "
+        f"(expected {target_norm} after {timeout:.0f}s)"
     )
 
 
@@ -197,8 +235,6 @@ def run_ota_sequence(
     if dry_run:
         return
 
-    per_component_timeout = timeout / max(len(components), 1)
-
     for index, component in enumerate(components):
         if index > 0:
             print("Waiting for device reboot...")
@@ -206,14 +242,14 @@ def run_ota_sequence(
                 host,
                 port,
                 connect_timeout,
-                per_component_timeout,
+                timeout,
                 client_cls=client_cls,
             )
         run_single_ota(
             host,
             port,
             component,
-            per_component_timeout,
+            timeout,
             connect_timeout,
             client_cls=client_cls,
         )

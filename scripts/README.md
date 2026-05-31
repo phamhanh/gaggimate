@@ -34,7 +34,7 @@ gh auth login
 
 Deploy requires a **clean working tree** (commit or stash first). After OTA, check `http://gaggimate.local/ota` — both **Display** and **Controller** must show the new tag.
 
-See `.cursor/skills/gaggimate-deploy/SKILL.md` and `.cursor/skills/gaggimate-release/SKILL.md`.
+See `.cursor/skills/gaggimate-deploy/SKILL.md`.
 
 ### `update-device.sh` — GitHub latest → OTA (no build)
 

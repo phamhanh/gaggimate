@@ -16,15 +16,14 @@ from device_http import device_web_urls
 from gaggimate_ota import (
     normalize_version,
     run_ota_sequence,
-    verify_device_versions,
     versions_behind,
+    wait_for_device_versions,
     wait_for_github_latest,
 )
 from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
 
 ROOT = Path(__file__).resolve().parent.parent
 GITHUB_RELEASES = "https://github.com/phamhanh/gaggimate/releases"
-GITHUB_POLL_TIMEOUT = 60.0
 SEMVER_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 
 
@@ -111,7 +110,7 @@ def main() -> int:
                 settings_before = wait_for_github_latest(
                     client,
                     target,
-                    timeout=GITHUB_POLL_TIMEOUT,
+                    timeout=args.timeout,
                 )
     except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)
@@ -149,21 +148,24 @@ def main() -> int:
 
     try:
         with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
-            settings_after = client.fetch_ota_settings(refresh=True)
+            print("\nWaiting for device OTA versions to match release...")
+            settings_after = wait_for_device_versions(
+                client,
+                target,
+                timeout=args.timeout,
+            )
     except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: post-OTA verify failed to connect: {error}", file=sys.stderr)
+        return 1
+    except RuntimeError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        print(f"Check {ota_url} and retry.", file=sys.stderr)
         return 1
 
     print(
         f"\nDevice after OTA:  display={settings_after.get('displayVersion')!r} "
         f"controller={settings_after.get('controllerVersion')!r}"
     )
-    try:
-        verify_device_versions(settings_after, target)
-    except RuntimeError as error:
-        print(f"Error: {error}", file=sys.stderr)
-        print(f"Check {ota_url} and retry.", file=sys.stderr)
-        return 1
 
     print(f"\nOTA verify OK — display and controller on {target}.")
     return 0

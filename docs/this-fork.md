@@ -34,6 +34,18 @@ Display OTA **wipes SPIFFS** — profiles and shot history live on the display f
 
 **`gaggimate-profiles.sh`** is for when corrupt profile JSON breaks the web profiles page — list and delete over WebSocket without USB.
 
+## WiFi and connectivity
+
+I rely on Wi‑Fi for OTA and daily use at `gaggimate.local`. My machine would drop off home Wi‑Fi, get stuck in AP mode, and mDNS would stop resolving after reconnect — so I could not reach the web UI or ship updates without USB.
+
+Firmware changes vs upstream:
+
+- Longer boot connect timeout before giving up on saved credentials
+- Retry home SSID from AP fallback instead of staying trapped in AP mode
+- Debounce runtime disconnects before falling back to AP
+- Restart mDNS when Wi‑Fi reconnects
+- Wi‑Fi status on **Settings** and in `evt:status` so I can see what the display thinks is happening
+
 ## Temperature during shots (the big firmware change)
 
 ### Why the probe placement matters on this machine
