@@ -1,0 +1,27 @@
+---
+description: Hardware, thermal, and Kff constraints for this Gaggimate espresso setup
+alwaysApply: true
+---
+
+# Espresso Project Constraints
+
+## Hardware
+
+- **Grinder logic:** Base-5 scale (e.g. 5.3 → 5.4 → … → 6.0).
+- **Grinder resolution:** 8 µm per tick.
+- **Dose limit:** 16 g absolute maximum (18 g contacts the group head).
+
+## Thermal Dynamics & Sensor Bias
+
+- **Sensor location:** Top-left of boiler, near the cold-water inlet (localized cold spot).
+- **Heater compensation:** The probe sees incoming cold water early; Kff heating is driven by flow rate.
+- **Exit heat:** While Kff compensates for the inlet cold spot, exit water temperature is unknown—it depends on mixing with cold inlet water.
+- **Lag rule:** To lower *actual* water temperature by end of shot, drop target temp (`tt`) significantly at the very start of pre-infusion / the drop phase (e.g. to 88 °C).
+
+## Kff Logic During Shots
+
+- **Heater control:** PID is disabled during the shot. Heating is strictly open-loop Kff.
+- **Kff inputs:** Flow speed, target temp (`tt`), and a **fixed inlet temp** (manually set to room temp—not a live sensor).
+- **Kff flash:** Fixed inlet temp means Kff cannot adapt to real-time thermal changes; it may over- or under-deliver, flash-heating the stream beyond target during extraction.
+- **Astringency fix:** `tt` is the only lever. Drop to ~88 °C at "The Drop" phase to reduce Kff output during main extraction and prevent scorching.
+- **Sensor observation (`ct`):** Post-hoc only. A ~94 °C spike after the shot is leftover Kff energy reaching the probe once flow stops. The stabilized final temperature is the best indication of temperature *during* the shot.
