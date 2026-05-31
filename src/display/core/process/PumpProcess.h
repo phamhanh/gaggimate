@@ -8,10 +8,14 @@ class PumpProcess : public Process {
   public:
     int duration;
     unsigned long started;
+    bool valveOpen = false;
 
-    explicit PumpProcess(int duration = HOT_WATER_SAFETY_DURATION_MS) : duration(duration) { started = millis(); }
+    explicit PumpProcess(int duration = HOT_WATER_SAFETY_DURATION_MS, bool valveOpen = false)
+        : duration(duration), valveOpen(valveOpen) {
+        started = millis();
+    }
 
-    bool isRelayActive() override { return false; };
+    bool isRelayActive() override { return valveOpen; };
 
     bool isAltRelayActive() override { return false; };
 
