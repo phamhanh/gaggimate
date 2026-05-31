@@ -525,7 +525,8 @@ void ShotHistoryPlugin::handleRequest(JsonDocument &request, JsonDocument &respo
 }
 
 void ShotHistoryPlugin::saveNotes(const String &id, const JsonDocument &notes) {
-    File file = fs->open("/h/" + id + ".json", FILE_WRITE);
+    const String notesId = padId(id);
+    File file = fs->open("/h/" + notesId + ".json", FILE_WRITE);
     if (file) {
         String notesStr;
         serializeJson(notes, notesStr);
@@ -535,7 +536,11 @@ void ShotHistoryPlugin::saveNotes(const String &id, const JsonDocument &notes) {
 }
 
 void ShotHistoryPlugin::loadNotes(const String &id, JsonDocument &notes) {
-    File file = fs->open("/h/" + id + ".json", "r");
+    const String paddedId = padId(id);
+    File file = fs->open("/h/" + paddedId + ".json", "r");
+    if (!file && paddedId != id) {
+        file = fs->open("/h/" + id + ".json", "r");
+    }
     if (file) {
         String notesStr = file.readString();
         file.close();
@@ -669,9 +674,7 @@ void ShotHistoryPlugin::updateIndexMetadata(uint32_t shotId, uint8_t rating, uin
             if (volume > 0) {
                 entry.volume = volume;
             }
-            if (rating > 0) {
-                entry.flags |= SHOT_FLAG_HAS_NOTES;
-            }
+            entry.flags |= SHOT_FLAG_HAS_NOTES;
 
             if (writeEntryAtPosition(indexFile, entryPos, entry)) {
                 ESP_LOGD("ShotHistoryPlugin", "Updated metadata for shot %u: rating=%u, volume=%u", shotId, rating, volume);
@@ -864,7 +867,7 @@ void ShotHistoryPlugin::rebuildIndex() {
         }
 
         // Check for notes and extract rating and volume override
-        String notesPath = "/h/" + String(shotId, 10) + ".json";
+        const String notesPath = "/h/" + padId(String(shotId)) + ".json";
         if (fs->exists(notesPath)) {
             entry.flags |= SHOT_FLAG_HAS_NOTES;
 

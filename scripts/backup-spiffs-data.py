@@ -30,6 +30,35 @@ def pad_shot_id(shot_id: str) -> str:
     return str(shot_id).zfill(6)
 
 
+def note_url_candidates(history_url: str, shot_id: str) -> list[str]:
+    """Device notes may be stored unpadded or zero-padded to 6 digits."""
+    base = history_url.rstrip("/")
+    padded = pad_shot_id(shot_id)
+    raw = str(shot_id)
+    urls = [f"{base}/{padded}.json"]
+    if raw != padded:
+        urls.append(f"{base}/{raw}.json")
+    return urls
+
+
+def download_shot_notes(
+    history_url: str,
+    shot_id: str,
+    dest: Path,
+    *,
+    http_timeout: float,
+) -> bool:
+    """Download notes JSON if present; always store as 6-digit padded filename."""
+    from device_http import http_get_bytes
+
+    for notes_url in note_url_candidates(history_url, shot_id):
+        notes_bytes = http_get_bytes(notes_url, http_timeout)
+        if notes_bytes is not None:
+            (dest / f"{pad_shot_id(shot_id)}.json").write_bytes(notes_bytes)
+            return True
+    return False
+
+
 def wipe_dir(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
@@ -114,7 +143,7 @@ def backup_shot_history(
     print(f"  {len(shots)} shot(s) from {source}", flush=True)
 
     if dry_run:
-        print(f"Would back up {len(shots)} shot(s) + index.bin to {dest}")
+        print(f"Would back up {len(shots)} shot(s) + index.bin (+ notes .json when present) to {dest}")
         for shot in shots[:20]:
             print(f"  {pad_shot_id(shot.id)}.slog")
         if len(shots) > 20:
@@ -138,13 +167,8 @@ def backup_shot_history(
         else:
             (dest / f"{padded}.slog").write_bytes(slog_bytes)
 
-        if shot.has_notes:
-            notes_url = f"{history_url.rstrip('/')}/{shot_id}.json"
-            notes_bytes = http_get_bytes(notes_url, http_timeout)
-            if notes_bytes is None:
-                notes_bytes = http_get_bytes(f"{history_url.rstrip('/')}/{padded}.json", http_timeout)
-            if notes_bytes is not None:
-                (dest / f"{padded}.json").write_bytes(notes_bytes)
+        if download_shot_notes(history_url, shot_id, dest, http_timeout=http_timeout):
+            print(f"    notes {padded}.json", flush=True)
 
     if index_bytes is None:
         print("  WARN: index.bin not found on device", file=sys.stderr)
