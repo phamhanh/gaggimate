@@ -73,6 +73,8 @@ LV_IMG_DECLARE(ui_img_979979123);     // assets/mug-hot-alt-80x80.png
 LV_IMG_DECLARE(ui_img_783005998);     // assets/wind-80x80.png
 LV_IMG_DECLARE(ui_img_545340440);     // assets/raindrops-80x80.png
 LV_IMG_DECLARE(ui_img_363557387);     // assets/coffee-bean-80x80.png
+LV_IMG_DECLARE(ui_img_steamcup);      // generated: espresso cup for brew stabilizing animation
+LV_IMG_DECLARE(ui_img_steamwisp);     // generated: steam wisp for brew stabilizing animation
 LV_IMG_DECLARE(ui_img_untitled_png);  // assets/Untitled.png
 LV_IMG_DECLARE(ui_img_489054950);     // assets/gauge-fill.png
 LV_IMG_DECLARE(ui_img_340686386);     // assets/indicator-small.png

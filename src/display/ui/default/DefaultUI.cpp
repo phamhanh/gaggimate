@@ -25,6 +25,120 @@ void setTempLabel(lv_obj_t *label, const float celsius) {
     const int tenths = static_cast<int>(lroundf(celsius * 10.0f));
     lv_label_set_text_fmt(label, "%d.%d°C", tenths / 10, abs(tenths % 10));
 }
+
+// ---------------------------------------------------------------------------
+// Animated "stabilizing" indicator for the brew screen: a little espresso cup
+// with steam wisps curling up out of it while the boiler reaches temperature.
+//
+// Built entirely here (not in the SquareLine-generated screen files) by parenting
+// the widgets onto the brew screen's content panel. The whole group lives in the
+// empty space just below the status caption (ui_BrewScreen_mainLabel3).
+// ---------------------------------------------------------------------------
+
+constexpr int kSteamRootW = 120;
+constexpr int kSteamRootH = 62;
+// Vertical centre of the group within the (centre-aligned) content panel.
+// Sits in the gap below the caption; tweak by a few px if needed on-device.
+constexpr int kSteamRootY = -90;
+constexpr int kSteamWispCount = 3;
+constexpr int kSteamWispBottomY = 30; // start (low, near the cup rim)
+constexpr int kSteamWispTopY = 4;     // end (high, faded out)
+constexpr uint32_t kSteamRiseTime = 1500;
+
+struct BrewSteamUI {
+    lv_obj_t *root = nullptr;
+    lv_obj_t *cup = nullptr;
+    lv_obj_t *wisps[kSteamWispCount] = {nullptr};
+};
+BrewSteamUI g_brewSteam;
+
+void brewSteamOpaCb(void *obj, int32_t v) {
+    lv_obj_set_style_opa(static_cast<lv_obj_t *>(obj), static_cast<lv_opa_t>(v), LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+void brewSteamRecolor(lv_obj_t *img) {
+    ui_object_set_themeable_style_property(img, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_IMG_RECOLOR,
+                                           _ui_theme_color_NiceWhite);
+    ui_object_set_themeable_style_property(img, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_IMG_RECOLOR_OPA,
+                                           _ui_theme_alpha_NiceWhite);
+}
+
+void brewSteamBuild(lv_obj_t *parent) {
+    lv_obj_t *root = lv_obj_create(parent);
+    lv_obj_remove_style_all(root);
+    lv_obj_set_size(root, kSteamRootW, kSteamRootH);
+    lv_obj_set_align(root, LV_ALIGN_CENTER);
+    lv_obj_set_y(root, kSteamRootY);
+    lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(root, LV_OBJ_FLAG_HIDDEN);
+    g_brewSteam.root = root;
+
+    // Wisps are created before the cup so the cup draws on top of their base,
+    // making the steam appear to rise out of the cup.
+    const int centreX = kSteamRootW / 2;
+    const int wispOffset[kSteamWispCount] = {-16, 0, 16};
+    const uint32_t wispDelay[kSteamWispCount] = {0, kSteamRiseTime / 3, (kSteamRiseTime * 2) / 3};
+    for (int i = 0; i < kSteamWispCount; i++) {
+        lv_obj_t *w = lv_img_create(root);
+        lv_img_set_src(w, &ui_img_steamwisp);
+        brewSteamRecolor(w);
+        lv_obj_set_pos(w, centreX + wispOffset[i] - ui_img_steamwisp.header.w / 2, kSteamWispBottomY);
+        g_brewSteam.wisps[i] = w;
+
+        lv_anim_t rise;
+        lv_anim_init(&rise);
+        lv_anim_set_var(&rise, w);
+        lv_anim_set_values(&rise, kSteamWispBottomY, kSteamWispTopY);
+        lv_anim_set_time(&rise, kSteamRiseTime);
+        lv_anim_set_delay(&rise, wispDelay[i]);
+        lv_anim_set_repeat_count(&rise, LV_ANIM_REPEAT_INFINITE);
+        lv_anim_set_path_cb(&rise, lv_anim_path_ease_out);
+        lv_anim_set_exec_cb(&rise, reinterpret_cast<lv_anim_exec_xcb_t>(lv_obj_set_y));
+        lv_anim_start(&rise);
+
+        lv_anim_t fade;
+        lv_anim_init(&fade);
+        lv_anim_set_var(&fade, w);
+        lv_anim_set_values(&fade, 0, LV_OPA_COVER);
+        lv_anim_set_time(&fade, kSteamRiseTime / 2);
+        lv_anim_set_playback_time(&fade, kSteamRiseTime / 2);
+        lv_anim_set_delay(&fade, wispDelay[i]);
+        lv_anim_set_repeat_count(&fade, LV_ANIM_REPEAT_INFINITE);
+        lv_anim_set_exec_cb(&fade, brewSteamOpaCb);
+        lv_anim_start(&fade);
+    }
+
+    lv_obj_t *cup = lv_img_create(root);
+    lv_img_set_src(cup, &ui_img_steamcup);
+    brewSteamRecolor(cup);
+    lv_obj_align(cup, LV_ALIGN_BOTTOM_MID, 0, 0);
+    g_brewSteam.cup = cup;
+}
+
+// Make sure the steam group exists and is parented to the current brew panel.
+// Rebuilds after a screen re-init (which destroys the previous widgets, and with
+// them their animations, so there is nothing to leak).
+void brewSteamEnsure(lv_obj_t *parent) {
+    if (g_brewSteam.root != nullptr && lv_obj_is_valid(g_brewSteam.root) &&
+        lv_obj_get_parent(g_brewSteam.root) == parent) {
+        return;
+    }
+    g_brewSteam = BrewSteamUI{};
+    if (parent != nullptr) {
+        brewSteamBuild(parent);
+    }
+}
+
+void brewSteamShow(bool show) {
+    if (g_brewSteam.root == nullptr || !lv_obj_is_valid(g_brewSteam.root)) {
+        return;
+    }
+    if (show) {
+        lv_obj_clear_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
+    }
+}
 } // namespace
 
 int16_t calculate_angle(int set_temp, int range, int offset) {
@@ -494,26 +608,31 @@ void DefaultUI::setupReactive() {
     effect_mgr.use_effect(
         [=] { return currentScreen == ui_BrewScreen; },
         [=]() {
+            lv_obj_t *brewPanel = lv_obj_get_parent(ui_BrewScreen_mainLabel3);
+            brewSteamEnsure(brewPanel);
             if (active != 0) {
+                brewSteamShow(false);
                 lv_label_set_text(ui_BrewScreen_mainLabel3, "Brew");
                 return;
             }
             if (pidFreezeGraceActive != 0) {
+                brewSteamShow(false);
                 lv_label_set_text(ui_BrewScreen_mainLabel3, "Freeze grace");
                 return;
             }
             if (pressureAvailable != 0 && brewIdleVenting != 0) {
+                brewSteamShow(false);
                 lv_label_set_text(ui_BrewScreen_mainLabel3, "Venting...");
                 return;
             }
             if (stableTemp == 0) {
-                if (currentTemp > targetTemp) {
-                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_DOWN " Stabilizing");
-                } else {
-                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_UP " Stabilizing");
-                }
+                // Boiler still reaching target: show the animated steaming cup
+                // and a gentle caption (direction-aware, like the old up/down arrow).
+                brewSteamShow(true);
+                lv_label_set_text(ui_BrewScreen_mainLabel3, currentTemp > targetTemp ? "Settling" : "Warming up");
                 return;
             }
+            brewSteamShow(false);
             lv_label_set_text(ui_BrewScreen_mainLabel3, "Ready to brew");
         },
         &active, &pidFreezeGraceActive, &brewIdleVenting, &stableTemp, &pressureAvailable, &currentTemp,
