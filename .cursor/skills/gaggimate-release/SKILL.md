@@ -1,61 +1,67 @@
 ---
 name: gaggimate-release
 description: >-
-  Release Gaggimate firmware via scripts/deploy.sh (backup, publish, OTA). Use when
-  the user mentions releasing firmware, OTA updates, GitHub Releases, bumping version,
+  Ship Gaggimate firmware via scripts/deploy.sh (backup by default, publish, OTA, verify).
+  Use when the user mentions releasing firmware, OTA updates, GitHub Releases, bumping version,
   deploy, or publishing bins from their Mac.
 ---
 
-# Gaggimate local release
+# Gaggimate release (same as deploy)
 
-Releases are built on the developer Mac and published to GitHub Releases — not via CI.
+**Release and deploy are the same workflow.** One command ships committed firmware to the machine with profiles and shots preserved.
 
-## Default workflow
+**Alias skill:** [`gaggimate-deploy`](gaggimate-deploy/SKILL.md) — same steps, different trigger words.
 
-**Run `./scripts/deploy.sh`.** It does everything:
-
-1. **Backup** — profiles and shot history from `gaggimate.local` → `data/p/`, `data/h/`
-2. **Release** — build firmware, bake SPIFFS, publish to GitHub
-3. **OTA** — update the machine from that release
+## Default command
 
 ```bash
-git status                    # must be clean
-git push origin master
-./scripts/deploy.sh --dry-run # preview backup counts + next version
-./scripts/deploy.sh           # backup → release → OTA (~10–15 min)
+git status                              # must be clean; device on LAN for backup
+./scripts/deploy.sh --dry-run           # preview backup counts, version, OTA plan
+./scripts/deploy.sh -- --yes            # backup → release → OTA (~10–15 min)
+./scripts/deploy.sh -- --patch --yes    # semver bump if requested
 ```
 
-Pass release flags after `--`:
+**Do not pass `--no-backup` unless the user explicitly wants the faster path.**
 
-```bash
-./scripts/deploy.sh -- --patch --yes
-./scripts/deploy.sh -- --minor --yes
-```
+**Never run `./scripts/release.sh` for a normal ship** — use `deploy.sh`. Exception: `--offline` when the device is unreachable and the user accepts stale SPIFFS.
 
-**Do not** run bare `./scripts/release.sh` for normal releases. It never contacts the device and silently reuses stale gitignored `data/p/` / `data/h/` if present.
+`release.sh` is internal (build engine). `deploy.sh` sets `GAGGIMATE_FROM_DEPLOY=1` when calling it.
 
-Full deploy details: [`gaggimate-deploy`](gaggimate-deploy/SKILL.md).
+## Default steps (agents)
 
-## Exceptions
+1. **Backup** — profiles + shots from `gaggimate.local` → `data/p/`, `data/h/`
+2. **Release** — tag, build (SPIFFS includes backup), publish to GitHub, push refs
+3. **OTA** — flash all components built in `out/`; poll until device sees new GitHub tag; **verify** display + controller match released tag
+
+## Required post-deploy check
+
+- Open or query `http://gaggimate.local/ota`: `displayVersion` and `controllerVersion` must equal the tag just shipped
+- If mismatch, report failure; suggest `./scripts/update-device.sh` or `./scripts/deploy.sh --update-only`
+
+**Manual `/ota` in the browser** — fallback only if scripted OTA fails.
+
+## Edge cases
 
 | When | Command |
 |------|---------|
-| Publish to GitHub only, no OTA | `./scripts/deploy.sh --release-only -- --yes` |
-| Machine offline; accept stale/seed SPIFFS | `./scripts/release.sh --yes` (user must confirm) |
-| Test build, no publish | `./scripts/deploy.sh --no-backup --release-only -- --build-only` |
-| OTA from existing `out/` | `./scripts/deploy.sh --update-only` |
-
-If `data/p/` is empty and backup is skipped, `build_spiffs.sh` falls back to `profiles/seed/` — factory defaults, not live device data.
+| Ship new code (build + publish + OTA) | `./scripts/deploy.sh -- --yes` |
+| Machine behind GitHub latest (no build) | `./scripts/update-device.sh` |
+| Faster ship, SPIFFS unchanged | `./scripts/deploy.sh --no-backup -- --yes` (user-requested only) |
+| Publish only, no OTA | `./scripts/deploy.sh --release-only -- --yes` |
+| OTA from local `out/` after partial OTA | `./scripts/deploy.sh --update-only` |
+| Test compile, no publish | `./scripts/deploy.sh --release-only -- --build-only` |
+| Device offline (user confirms stale SPIFFS) | `./scripts/release.sh --offline --yes` |
+| Backup only | `./scripts/backup-spiffs-data.sh` |
 
 ## Tool location
 
 | Script | Role |
 |--------|------|
-| `scripts/deploy.sh` | **Default** — backup → release → OTA |
+| `scripts/deploy.sh` | **Only public ship command** — backup (default) → release → OTA → verify |
+| `scripts/update-device.sh` | Latest GitHub tag → OTA → verify (no build) |
 | `scripts/backup-spiffs-data.sh` | Backup only |
-| `scripts/release.sh` | Build + publish only (internal / offline edge case) |
+| `scripts/release.sh` | Internal / `--offline` / `--build-only` / `--dry-run` only |
 | `scripts/build-firmware.sh` | Firmware build (called by `release.sh`) |
-| `scripts/auto_firmware_version.py` | Version embedding (`git describe --tags --exclude nightly`) |
 
 ## Pre-flight checklist
 
@@ -65,7 +71,7 @@ If `data/p/` is empty and backup is skipped, `build_spiffs.sh` falls back to `pr
 4. **Origin** — `git@github.com:phamhanh/gaggimate.git`
 5. **gh authenticated** — `gh auth login`
 
-## CLI reference (`release.sh` pass-through)
+## CLI reference (`release.sh` pass-through after `--`)
 
 | Flag | Effect |
 |------|--------|
@@ -80,18 +86,6 @@ If `data/p/` is empty and backup is skipped, `build_spiffs.sh` falls back to `pr
 
 Deploy flags: `--release-only`, `--update-only`, `--no-backup`, `--host`, `--dry-run` — see gaggimate-deploy skill.
 
-## Build order
-
-1. Device backup → `data/p/`, `data/h/`
-2. `build_spiffs.sh` (web UI + backed-up data)
-3. `spiffs_budget.py`
-4. PlatformIO: controller → display → display-headless → buildfs
-5. Copy OTA artifacts to `out/`
-6. GitHub release upload
-7. OTA to device
-
-Tag is created **before** compile so `BUILD_GIT_VERSION` matches the release tag.
-
 ## OTA asset names
 
 - `display-firmware.bin`
@@ -100,19 +94,9 @@ Tag is created **before** compile so `BUILD_GIT_VERSION` matches the release tag
 
 Release URL: `https://github.com/phamhanh/gaggimate/releases/`
 
-## Rollback on failure
-
-```bash
-git tag -d vX.Y.Z
-```
-
-Remote tag is pushed only after successful build + publish.
-
 ## Agent workflow
 
-1. Run `./scripts/deploy.sh --dry-run` — confirm device reachable, backup counts, next version.
+1. Run `./scripts/deploy.sh --dry-run` — confirm device reachable, backup step, next version, OTA plan.
 2. Ensure working tree is clean; stop and ask user to commit/stash if not.
-3. Run `./scripts/deploy.sh -- --yes` (default: backup + publish + OTA).
-4. Use `--release-only` only if user explicitly does not want the machine updated.
-5. Never run bare `release.sh` unless machine is offline and user confirms stale SPIFFS is OK.
-6. Verify GitHub release and device on `http://gaggimate.local` (profiles + shot history intact).
+3. Run `./scripts/deploy.sh -- --yes` (default includes backup).
+4. Confirm `/ota` shows both components on the new tag; profiles and shot history intact.

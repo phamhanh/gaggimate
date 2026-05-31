@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Back up device data → release → intelligent OTA
+# Back up device data (default) → release → OTA + verify
 #
 # Usage:
 #   ./scripts/deploy.sh [OPTIONS] [-- RELEASE_ARGS...]
 #
 # Examples:
-#   ./scripts/deploy.sh                              # backup + release + OTA
-#   ./scripts/deploy.sh --no-backup                  # release + OTA (keep data/p, data/h)
-#   ./scripts/deploy.sh --no-backup --release-only   # release only
+#   ./scripts/deploy.sh                              # backup + release + OTA (default)
 #   ./scripts/deploy.sh --dry-run
-#   ./scripts/deploy.sh --update-only
-#   ./scripts/deploy.sh --no-backup -- --build-only
+#   ./scripts/deploy.sh -- --patch --yes
+#   ./scripts/deploy.sh --no-backup                  # faster: skip device pull
+#   ./scripts/deploy.sh --release-only               # backup + release, skip OTA
+#   ./scripts/deploy.sh --update-only                # OTA from existing out/ only
 #
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

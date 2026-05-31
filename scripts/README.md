@@ -2,11 +2,11 @@
 
 This directory contains various utility scripts for development and debugging.
 
-## Firmware release (local)
+## Ship firmware (default)
 
-### `release.sh` / `build-firmware.sh`
+### `deploy.sh` — backup → release → OTA → verify
 
-Build firmware locally and publish OTA binaries to [GitHub Releases](https://github.com/phamhanh/gaggimate/releases). Replaces the old tag-only release script and GitHub Actions build workflows.
+**This is the only command to use for a normal release.** It backs up profiles and shots from the machine by default, builds SPIFFS with that data, publishes to [GitHub Releases](https://github.com/phamhanh/gaggimate/releases), OTA-flashes from `out/`, and verifies display + controller versions match the new tag.
 
 **One-time setup:**
 
@@ -15,67 +15,60 @@ brew install gh
 gh auth login
 ```
 
-**Typical release** (after pushing commits to `master` with a clean working tree):
+**Typical ship** (clean working tree, device on LAN):
 
 ```bash
-./scripts/release.sh --yes
+./scripts/deploy.sh --dry-run
+./scripts/deploy.sh -- --yes
 ```
-
-This auto-bumps the patch version (e.g. `v1.9.0` → `v1.9.1`), tags locally before building (so firmware embeds the exact version), compiles all targets, uploads bins to GitHub, and pushes `master` + the tag.
 
 **Options:**
 
 ```bash
-./scripts/release.sh --dry-run              # show plan, no changes
-./scripts/release.sh --build-only           # compile to out/ only
-./scripts/release.sh --minor --yes          # bump minor instead of patch
-./scripts/release.sh v1.9.2 --no-push       # explicit version, skip git push
-./scripts/release.sh --display-only --yes   # skip controller + headless
-./scripts/release.sh --force --yes          # replace existing tag/release
+./scripts/deploy.sh --no-backup              # faster: skip device pull (stale SPIFFS risk)
+./scripts/deploy.sh --release-only -- --yes  # backup + publish, no OTA
+./scripts/deploy.sh --update-only            # OTA from local out/ only
+./scripts/deploy.sh -- --patch --yes           # semver bump
+./scripts/backup-spiffs-data.sh --dry-run    # backup preview only
+```
+
+Deploy requires a **clean working tree** (commit or stash first). After OTA, check `http://gaggimate.local/ota` — both **Display** and **Controller** must show the new tag.
+
+See `.cursor/skills/gaggimate-deploy/SKILL.md` and `.cursor/skills/gaggimate-release/SKILL.md`.
+
+### `update-device.sh` — GitHub latest → OTA (no build)
+
+When a release already exists on GitHub but the machine is behind (no backup, compile, or publish):
+
+```bash
+./scripts/update-device.sh --dry-run
+./scripts/update-device.sh
+./scripts/update-device.sh --version v1.9.5
+```
+
+Not the same as `deploy.sh --update-only` (that uses bins in local `out/`).
+
+### `release.sh` — internal build engine
+
+Called by `deploy.sh`. **Do not run directly** for normal ships — it will exit with a pointer to `deploy.sh`.
+
+Direct use only:
+
+```bash
+./scripts/release.sh --dry-run
+./scripts/release.sh --build-only
+./scripts/release.sh --offline --yes   # device unreachable; stale SPIFFS risk
 ```
 
 **Build only** (no tag, publish, or push):
 
 ```bash
 ./scripts/build-firmware.sh --version v1.9.1
-./scripts/build-firmware.sh --display-only --skip-web
 ```
 
-Artifacts land in `out/` with OTA-expected names (`display-firmware.bin`, `display-filesystem.bin`, `board-firmware.bin`, etc.).
+Artifacts land in `out/` (`display-firmware.bin`, `display-filesystem.bin`, `board-firmware.bin`, `release-manifest.json`).
 
-See `.cursor/skills/gaggimate-release/SKILL.md` for agent-oriented release steps and OTA warnings.
-
-**OTA page (System & Updates):** Save & Refresh runs an immediate GitHub release check. The web UI shows **Latest on GitHub** separately from installed controller/display versions (`githubCheckOk` when Wi‑Fi and the release fetch succeed). See [docs/this-fork.md](../docs/this-fork.md#releases--ota).
-
-## Deploy (backup → release → OTA)
-
-### `deploy.sh` / `backup-spiffs-data.sh` / `gaggimate_deploy.py`
-
-Back up profiles and shot history from the machine into `data/p/` and `data/h/`, build a SPIFFS image that includes that data, publish via `release.sh`, then OTA only components that need updating. Profiles and shots survive display OTA because they are baked into `display-filesystem.bin`.
-
-**Typical deploy** (clean working tree, device on LAN):
-
-```bash
-./scripts/deploy.sh --dry-run
-./scripts/deploy.sh
-```
-
-**Options:**
-
-```bash
-./scripts/deploy.sh --release-only                  # backup + release, no OTA
-./scripts/deploy.sh --update-only                   # OTA from existing out/
-./scripts/deploy.sh --no-backup -- --build-only
-./scripts/backup-spiffs-data.sh --dry-run           # preview counts only
-```
-
-Snapshots land in `device-data/snapshots/` (gitignored). Backed-up data goes to gitignored `data/p/` and `data/h/`. Factory seed profiles live in `profiles/seed/`; builds copy them into `data/p/` only when no backup is present.
-
-Deploy requires a **clean working tree** before it starts (commit or stash code changes first).
-
-`build-firmware.sh` runs `spiffs_budget.py` before `buildfs` and writes `out/release-manifest.json`.
-
-See `.cursor/skills/gaggimate-deploy/SKILL.md` for the full agent workflow.
+**OTA page (System & Updates):** Save & Refresh checks GitHub; the UI shows **Latest on GitHub** separately from installed versions. See [docs/this-fork.md](../docs/this-fork.md#releases--ota).
 
 ## Profile maintenance (device WebSocket)
 

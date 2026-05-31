@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# Build firmware locally and publish a GitHub Release.
+# Internal build + publish engine (called by deploy.sh).
 #
-# Usage:
-#   ./scripts/release.sh [OPTIONS] [VERSION]
+# For normal releases use: ./scripts/deploy.sh
 #
-# Examples:
-#   ./scripts/release.sh --yes              # bump patch, build, publish, push
-#   ./scripts/release.sh --dry-run            # show plan only
-#   ./scripts/release.sh --build-only         # build to out/, no tag/publish/push
-#   ./scripts/release.sh v1.9.2 --no-push     # explicit version, skip git push
+# Direct use only when:
+#   --offline     device unreachable (no backup; may ship stale SPIFFS)
+#   --build-only  local compile to out/
+#   --dry-run     preview plan
 #
 set -euo pipefail
 
@@ -23,6 +21,7 @@ BUMP='patch'
 YES=0
 DRY_RUN=0
 BUILD_ONLY=0
+OFFLINE=0
 NO_PUSH=0
 DISPLAY_ONLY=0
 FORCE=0
@@ -41,6 +40,7 @@ Options:
   --yes            Skip confirmation prompt
   --dry-run        Print plan without making changes
   --build-only     Build to out/ only (no tag, publish, or push)
+  --offline        Device unreachable; skip deploy guard (stale SPIFFS risk)
   --no-push        Tag, build, and publish; skip git push
   --display-only   Skip controller and display-headless builds
   --force          Replace an existing tag/release
@@ -63,6 +63,7 @@ while [[ $# -gt 0 ]]; do
     --yes) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --build-only) BUILD_ONLY=1; shift ;;
+    --offline) OFFLINE=1; shift ;;
     --no-push) NO_PUSH=1; shift ;;
     --display-only) DISPLAY_ONLY=1; shift ;;
     --force) FORCE=1; shift ;;
@@ -81,6 +82,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -z "${GAGGIMATE_FROM_DEPLOY:-}" && "$BUILD_ONLY" -eq 0 && "$DRY_RUN" -eq 0 && "$OFFLINE" -eq 0 ]]; then
+  cat >&2 <<'EOF'
+Use ./scripts/deploy.sh for normal releases (backup → release → OTA).
+
+release.sh is internal. Direct use only with:
+  --offline     when the device is unreachable
+  --build-only  local compile to out/
+  --dry-run     preview plan without changes
+EOF
+  exit 1
+fi
 
 die() {
   echo "Error: $*" >&2

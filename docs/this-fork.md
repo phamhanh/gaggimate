@@ -16,7 +16,11 @@ Upstream docs for building and sourcing the kit stay at [gaggimate.eu](https://g
 
 ## Releases and OTA
 
-Upstream releases through GitHub Actions and shop channels. I replaced that on my fork with **`./scripts/release.sh`**: one command on my Mac that bumps the version, builds locally, uploads bins to GitHub Releases, and pushes the tag. I wanted **control over when builds ship** without waiting on CI.
+Upstream releases through GitHub Actions and shop channels. I ship from my Mac with **`./scripts/deploy.sh`**: **backup profiles and shots by default**, bump version, build locally, upload bins to GitHub Releases, OTA the machine, and verify both display and controller report the new tag. I wanted **control over when builds ship** without waiting on CI.
+
+If GitHub already has a release but the machine is behind, **`./scripts/update-device.sh`** OTA-updates to the latest tag without rebuilding.
+
+`./scripts/release.sh` is only the internal build step (or `--offline` when the device is unreachable). For a faster ship when SPIFFS has not changed, **`./scripts/deploy.sh --no-backup`**.
 
 I also changed the **System & Updates** page so it stops mixing up "what GitHub says is latest" with "what is actually installed". Save & Refresh hits GitHub immediately; the UI shows **Latest on GitHub** separately from **Controller** and **Display** versions, and warns if Wi‑Fi blocked the check.
 
@@ -26,7 +30,7 @@ Details and flags: [scripts/README.md](../scripts/README.md).
 
 Display OTA **wipes SPIFFS** — profiles and shot history live on the display filesystem, so a normal OTA used to **erase my data**.
 
-**`./scripts/deploy.sh`** is my workflow: back up profiles and shots from `gaggimate.local`, bake them into `display-filesystem.bin`, release, then OTA only what changed. After reboot, profiles and history are **inside the filesystem image**, not restored over WebSocket afterward.
+**`./scripts/deploy.sh`** backs up from `gaggimate.local` **before every release by default**, bakes `/p/` and `/h/` into `display-filesystem.bin`, publishes, then OTA-flashes from `out/`. After reboot, profiles and history are **inside the filesystem image**, not restored over WebSocket afterward.
 
 **`gaggimate-profiles.sh`** is for when corrupt profile JSON breaks the web profiles page — list and delete over WebSocket without USB.
 

@@ -14,7 +14,7 @@ This project upgrades a Gaggia espresso machine with smart controls to improve y
 
 <img src="docs/assets/gaggimate_poster.jpg" alt="Gaggia Classic Installation" width="500" />
 
-> **This is not upstream Gaggimate.** All changes here were made with AI assistance and target my **Iberital Express** only. My gratitude to the Gaggimate team for making their work publicly available. The repo is public so I can **update firmware over Wi‑Fi** instead of USB — not as a general fork for others to use. Profiles and shots survive OTA only when I run **`./scripts/deploy.sh`** (backup from the machine → bake into SPIFFS → release).  
+> **This is not upstream Gaggimate.** All changes here were made with AI assistance and target my **Iberital Express** only. My gratitude to the Gaggimate team for making their work publicly available. The repo is public so I can **update firmware over Wi‑Fi** instead of USB — not as a general fork for others to use. Ship with **`./scripts/deploy.sh`** (backup from the machine by default → GitHub release → OTA → verify). Catch up to an existing release with **`./scripts/update-device.sh`**.  
 > **Why it differs from upstream:** [docs/this-fork.md](docs/this-fork.md)
 
 ## Features

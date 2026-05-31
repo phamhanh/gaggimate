@@ -1,112 +1,117 @@
 ---
 name: gaggimate-deploy
 description: >-
-  Default release workflow: scripts/deploy.sh backs up from gaggimate.local, publishes
-  to GitHub, and OTA-updates the machine. Use when user says deploy, release, release
-  and update, or push firmware without losing profiles or shot history.
+  Default ship workflow: scripts/deploy.sh backs up from gaggimate.local (by default), publishes
+  to GitHub, OTA-updates, and verifies versions. Use when user says deploy, release, OTA,
+  update the machine, or push firmware without losing profiles or shot history.
 ---
 
-# Gaggimate deploy
+# Gaggimate deploy (same as release)
 
-**This is the default workshop.** `./scripts/deploy.sh` does all three steps:
+**Deploy and release are the same workflow.** `./scripts/deploy.sh` is the only command agents should use to ship new firmware.
 
-1. **Backup** — profiles and shots from `gaggimate.local`
-2. **Release** — build firmware, bake SPIFFS, publish to GitHub
-3. **OTA** — update the machine from that release
+**Alias skill:** [`gaggimate-release`](gaggimate-release/SKILL.md) — same steps, different trigger words.
 
-Profiles and shot history survive because device data is **baked into `display-filesystem.bin`** before OTA. No post-OTA WebSocket restore is required.
+Profiles and shot history survive display OTA because device data is **baked into `display-filesystem.bin`** before release. **Backup runs by default** before every release unless the user passes `--no-backup`.
 
-Semver, build order, and offline exceptions: [`gaggimate-release`](gaggimate-release/SKILL.md).
+## Default command
+
+```bash
+git status                              # must be clean
+./scripts/deploy.sh --dry-run           # preview backup + version + OTA
+./scripts/deploy.sh -- --yes            # backup → release → OTA (~10–15 min)
+```
+
+**Do not pass `--no-backup` unless the user explicitly wants the faster path** (SPIFFS may ship stale `data/p` or seed profiles).
+
+## Default steps (agents)
+
+1. **Backup** — profiles + shots from `gaggimate.local` → `data/p/`, `data/h/`
+2. **Release** — `release.sh` (internal) → SPIFFS budget → GitHub upload → push
+3. **OTA** — flash built artifacts from `out/`; wait for device GitHub `latestVersion`; **verify** both components on released tag
+
+## Required post-deploy check
+
+- `http://gaggimate.local/ota`: `displayVersion` and `controllerVersion` must match the tag just shipped
+- On failure: `./scripts/update-device.sh` or `./scripts/deploy.sh --update-only`
+
+## Catch up without rebuilding
+
+When GitHub already has the release but the machine is behind:
+
+```bash
+./scripts/update-device.sh --dry-run
+./scripts/update-device.sh
+```
+
+**Not** the same as `deploy.sh --update-only` (that flashes bins from local `out/`).
 
 ## Tool location
 
 | Script | Role |
 |--------|------|
-| `scripts/deploy.sh` | Full deploy orchestrator |
-| `scripts/backup-spiffs-data.sh` | Back up `/p/` and `/h/` from device → `data/p`, `data/h` |
-| `scripts/gaggimate_ws.py` | Shared WebSocket client (profiles, history, OTA) |
-| `scripts/spiffs_budget.py` | Abort build if `data/` exceeds SPIFFS partition |
-| `out/release-manifest.json` | Built artifacts + SPIFFS counts (after `build-firmware.sh`) |
-
-## Typical workflow
-
-```bash
-git status                    # must be clean — deploy stops immediately if dirty
-git commit -am "..."          # commit firmware changes before deploy
-./scripts/deploy.sh --dry-run # preview (no clean-tree check in dry-run)
-./scripts/deploy.sh           # backup from device → release → OTA (~10–15 min)
-```
+| `scripts/deploy.sh` | **Only public ship command** |
+| `scripts/update-device.sh` | GitHub latest → OTA → verify |
+| `scripts/backup-spiffs-data.sh` | Back up `/p/` and `/h/` → `data/p`, `data/h` |
+| `scripts/gaggimate_ota.py` | Shared OTA poll / flash / verify |
+| `scripts/gaggimate_ws.py` | WebSocket client |
+| `out/release-manifest.json` | Built artifacts + version (after release) |
 
 ## CLI reference
 
 ```bash
 ./scripts/deploy.sh [OPTIONS] [-- RELEASE_ARGS...]
 
---host HOST           Default: gaggimate.local (or $GAGGIMATE_HOST)
---release-only        Back up + release; skip OTA
---update-only         OTA only (uses existing out/)
---no-backup           Skip device backup (use existing data/p or profiles/seed fallback)
---ota-flash-built     Attempt OTA for all components in out/ (ignore device *UpdateAvailable)
---dry-run             Show plan only
---timeout SEC         OTA wait (default 600)
+--host HOST              Default: gaggimate.local (or $GAGGIMATE_HOST)
+--release-only             Back up + release; skip OTA (default backup unless --no-backup)
+--update-only              OTA from existing out/ + verify
+--no-backup                Skip device backup (user-requested faster path)
+--ota-respect-device       Only OTA if *UpdateAvailable (avoid after fresh release)
+--dry-run                  Show plan only
+--timeout SEC              OTA wait (default 600)
 
 Pass-through to release.sh after --:
-  ./scripts/deploy.sh -- --patch --display-only
+  ./scripts/deploy.sh -- --patch --yes
 ```
 
-**Backup only:**
+## Edge cases
 
-```bash
-./scripts/backup-spiffs-data.sh --dry-run
-./scripts/backup-spiffs-data.sh --host 192.168.1.50
-./scripts/backup-spiffs-data.sh --no-snapshot
-```
-
-## Flow
-
-1. **Backup** — WebSocket profiles; HTTP `index.bin`, `*.slog`, notes `*.json` when present
-2. **Snapshot** — `device-data/snapshots/{deviceVersion}-{timestamp}/` (gitignored; optional to commit)
-3. **Release** — `release.sh` → `build_spiffs.sh` → `spiffs_budget` check → `buildfs` → GitHub upload
-4. **OTA** — Only if manifest built an artifact **and** device reports `*UpdateAvailable`; `req:ota-start` with `cp: display` / `controller`
+| When | Command |
+|------|---------|
+| Ship new code | `./scripts/deploy.sh -- --yes` |
+| Machine behind GitHub | `./scripts/update-device.sh` |
+| Faster ship, SPIFFS OK | `./scripts/deploy.sh --no-backup -- --yes` |
+| Publish only | `./scripts/deploy.sh --release-only -- --yes` |
+| Finish partial OTA from `out/` | `./scripts/deploy.sh --update-only` |
+| Device offline | `./scripts/release.sh --offline --yes` |
 
 ## SPIFFS layout
 
 | Local | On device | Content |
 |-------|-----------|---------|
-| `data/w/` | `/w/` | Web UI (from `build_spiffs.sh`) |
-| `data/p/` (gitignored) | `/p/` | Profile JSON from device backup |
-| `profiles/seed/` | — | Factory defaults copied if `data/p/` empty |
-| `data/h/` | `/h/` | Shot `.slog`, notes `.json`, `index.bin` |
-
-Partition budget: **3,538,944 bytes** (`0x360000` on `default_16MB.csv`), with 128 KB reserved for metadata (`spiffs_budget.py`).
+| `data/w/` | `/w/` | Web UI |
+| `data/p/` (gitignored) | `/p/` | Profiles from backup |
+| `profiles/seed/` | — | Fallback if `data/p/` empty |
+| `data/h/` | `/h/` | Shot history |
 
 ## Preserved vs not
 
 | Data | In SPIFFS backup? | Survives display OTA? |
 |------|-------------------|------------------------|
-| Profile files | Yes | Yes — in FS image |
-| Shot history | Yes | Yes — in FS image |
-| Selected profile, favorites, order | NVS | Yes — NVS not wiped |
-| WiFi, PID, etc. | NVS | Yes |
+| Profile files | Yes | Yes |
+| Shot history | Yes | Yes |
+| NVS (WiFi, PID, selection) | NVS | Yes |
 
 ## Agent workflow
 
-1. Run `./scripts/deploy.sh --dry-run` to confirm device reachability, backup counts, and next version.
-2. Ensure working tree is clean; stop and ask user to commit/stash if not.
-3. Run `./scripts/deploy.sh -- --yes` (backup + publish + OTA). Add `--patch` / `--minor` / `--major` after `--` if requested.
-4. Use `--release-only` only when user explicitly does not want OTA.
-5. After deploy, verify profiles and shot history on `http://gaggimate.local`.
-
-## OTA warnings
-
-Display OTA **replaces the entire SPIFFS image**. With deploy, that image **includes** your backed-up `/p/` and `/h/` data. Without deploy, OTA still wipes user data on the device.
-
-`platformio run -e display -t upload` does **not** wipe SPIFFS; `uploadfs` does.
+1. `./scripts/deploy.sh --dry-run` — backup step present, device reachable, version bump.
+2. Clean working tree; ask user to commit if dirty.
+3. `./scripts/deploy.sh -- --yes`.
+4. Verify `/ota` versions and profiles/history on the web UI.
 
 ## Related skills
 
 | Skill | Role |
 |-------|------|
-| `gaggimate-release` | Release semantics; bare `release.sh` only without device |
+| `gaggimate-release` | Same workflow (alias triggers) |
 | `gaggimate-profiles` | Manual profile repair |
-| **gaggimate-deploy** | Backup → bake → release → OTA |

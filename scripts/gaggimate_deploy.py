@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Back up device profiles and shots, run a local release, and OTA-update the machine.
+Back up device profiles and shots (default), release firmware, OTA-update, and verify.
+
+Default: backup → release → OTA with flash-built from out/ and version check.
 """
 
 from __future__ import annotations
@@ -10,18 +12,24 @@ import json
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from device_http import device_web_urls
+from gaggimate_ota import (
+    normalize_version,
+    ota_flash_plan,
+    run_ota_sequence,
+    verify_device_versions,
+    wait_for_github_latest,
+)
 from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "out" / "release-manifest.json"
 GITHUB_RELEASES = "https://github.com/phamhanh/gaggimate/releases"
-OTA_PHASE_FINISHED = 4
+GITHUB_POLL_TIMEOUT = 60.0
 
 
 def print_device_links(host: str, port: int) -> None:
@@ -29,59 +37,6 @@ def print_device_links(host: str, port: int) -> None:
     print(f"Device IP:        {ip}")
     print(f"Web UI:           {home_url}")
     print(f"System & Updates: {ota_url}")
-
-
-def ota_update_plan(
-    settings: dict,
-    artifacts: dict,
-    *,
-    flash_built: bool,
-) -> tuple[bool, bool, list[str]]:
-    """Decide what deploy will try to OTA; return (display, controller, explanation lines)."""
-    built_display = bool(artifacts.get("display-firmware") and artifacts.get("display-filesystem"))
-    built_controller = bool(artifacts.get("board-firmware"))
-    device_wants_display = bool(settings.get("displayUpdateAvailable"))
-    device_wants_controller = bool(settings.get("controllerUpdateAvailable"))
-
-    lines: list[str] = []
-    display_version = settings.get("displayVersion") or "?"
-    latest = settings.get("latestVersion") or ""
-    if latest:
-        lines.append(f"GitHub latest (on device): v{latest.lstrip('v')}")
-    else:
-        lines.append(
-            "GitHub latest (on device): not loaded yet — open the Updates page and "
-            "click Save & Refresh first"
-        )
-    lines.append(f"Display firmware now:      {display_version}")
-
-    if flash_built:
-        update_display = built_display
-        update_controller = built_controller
-        lines.append("Mode: --ota-flash-built (attempt every component built in out/)")
-    else:
-        update_display = built_display and device_wants_display
-        update_controller = built_controller and device_wants_controller
-        lines.append("Mode: automatic (only if device reports an update is available)")
-
-    lines.append("")
-    lines.append("Display update will run:" + (" yes" if update_display else " no"))
-    lines.append(f"  built display-firmware + display-filesystem in out/: {built_display}")
-    lines.append(f"  device displayUpdateAvailable:                         {device_wants_display}")
-
-    lines.append("Controller update will run:" + (" yes" if update_controller else " no"))
-    lines.append(f"  built board-firmware in out/:              {built_controller}")
-    lines.append(f"  device controllerUpdateAvailable:           {device_wants_controller}")
-
-    if not flash_built and built_display and not device_wants_display:
-        lines.append("")
-        lines.append(
-            "Note: display=False usually means the device thinks it is already on the "
-            "latest version (or has not refreshed OTA info from GitHub). After you flash, "
-            "this becomes False until a newer release exists."
-        )
-
-    return update_display, update_controller, lines
 
 
 def assert_clean_git_tree() -> None:
@@ -100,115 +55,67 @@ def assert_clean_git_tree() -> None:
     raise SystemExit(1)
 
 
-def run_script(script: str, args: list[str], *, dry_run: bool) -> None:
+def run_script(
+    script: str,
+    args: list[str],
+    *,
+    dry_run: bool,
+    extra_env: dict[str, str] | None = None,
+) -> None:
     command = [str(ROOT / "scripts" / script), *args]
     print(f"\n→ {' '.join(command)}")
     if dry_run:
         return
-    subprocess.run(command, cwd=ROOT, check=True)
+    env = {**os.environ, **(extra_env or {})}
+    subprocess.run(command, cwd=ROOT, check=True, env=env)
 
 
 def load_manifest() -> dict:
     if not MANIFEST_PATH.is_file():
-        raise FileNotFoundError(f"Missing {MANIFEST_PATH.relative_to(ROOT)} — run release or build first")
+        raise FileNotFoundError(
+            f"Missing {MANIFEST_PATH.relative_to(ROOT)} — run release or build first"
+        )
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-
-
-def wait_for_reboot(host: str, port: int, connect_timeout: float, wait_timeout: float) -> None:
-    deadline = time.time() + wait_timeout
-    while time.time() < deadline:
-        try:
-            with GaggimateWsClient(host, port, timeout=connect_timeout):
-                print("  Device back online.")
-                return
-        except (TimeoutError, ConnectionError, OSError):
-            time.sleep(5)
-    raise TimeoutError(f"Device did not come back within {wait_timeout:.0f}s after reboot")
-
-
-def run_single_ota(
-    host: str,
-    port: int,
-    component: str,
-    timeout: float,
-    connect_timeout: float,
-) -> None:
-    print(f"Starting OTA: {component}")
-    with GaggimateWsClient(host, port, timeout=connect_timeout) as client:
-        client.start_ota(component)
-        for message in client.iter_messages(timeout=timeout):
-            if message.get("tp") != "evt:ota-progress":
-                continue
-            phase = int(message.get("phase", 0))
-            progress = int(message.get("progress", 0))
-            label = {
-                1: "display firmware",
-                2: "display filesystem",
-                3: "controller firmware",
-                4: "finished",
-            }.get(phase, f"phase {phase}")
-            print(f"  OTA {label}: {progress}%")
-            if phase >= OTA_PHASE_FINISHED:
-                print(f"  {component} OTA finished.")
-                return
-    raise TimeoutError(f"{component} OTA did not finish within {timeout:.0f}s")
-
-
-def run_ota(
-    host: str,
-    port: int,
-    *,
-    update_display: bool,
-    update_controller: bool,
-    timeout: float,
-    connect_timeout: float,
-    dry_run: bool,
-) -> None:
-    if not update_display and not update_controller:
-        print("\nOTA: nothing to update (device already on target or no matching artifacts).")
-        return
-
-    components: list[str] = []
-    if update_display:
-        components.append("display")
-    if update_controller:
-        components.append("controller")
-
-    print(f"\nOTA: will update {', '.join(components)} on {host} (sequential)")
-
-    if dry_run:
-        return
-
-    per_component_timeout = timeout / max(len(components), 1)
-
-    for index, component in enumerate(components):
-        if index > 0:
-            print("Waiting for device reboot...")
-            wait_for_reboot(host, port, connect_timeout, per_component_timeout)
-        run_single_ota(host, port, component, per_component_timeout, connect_timeout)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Back up device data, release firmware, and OTA-update the machine.",
+        description=(
+            "Back up device data (default), release firmware, and OTA-update the machine."
+        ),
         epilog=(
             "Examples:\n"
             "  ./scripts/deploy.sh\n"
+            "  ./scripts/deploy.sh --dry-run\n"
+            "  ./scripts/deploy.sh -- --patch --yes\n"
             "  ./scripts/deploy.sh --no-backup\n"
-            "  ./scripts/deploy.sh --no-backup --release-only\n"
+            "  ./scripts/deploy.sh --release-only\n"
             "  ./scripts/deploy.sh --update-only\n"
-            "  ./scripts/deploy.sh --no-backup -- --build-only"
+            "  ./scripts/deploy.sh --no-backup --release-only -- --build-only"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--host", default=os.environ.get("GAGGIMATE_HOST", DEFAULT_HOST))
-    parser.add_argument("--release-only", action="store_true", help="Back up + release; skip OTA")
+    parser.add_argument(
+        "--release-only",
+        action="store_true",
+        help="Back up + release; skip OTA (default includes backup unless --no-backup)",
+    )
     parser.add_argument("--update-only", action="store_true", help="OTA only (use existing out/)")
-    parser.add_argument("--no-backup", action="store_true", help="Skip device backup (use existing data/p, data/h)")
+    parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip device backup (faster; uses existing data/p, data/h or seed)",
+    )
     parser.add_argument(
         "--ota-flash-built",
         action="store_true",
-        help="Attempt OTA for every component in out/ (ignore device *UpdateAvailable flags)",
+        help="Flash every component in out/ (default after release or --update-only)",
+    )
+    parser.add_argument(
+        "--ota-respect-device",
+        action="store_true",
+        help="Only OTA when device reports *UpdateAvailable (not recommended after release)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
     parser.add_argument("--timeout", type=float, default=600.0, help="OTA wait timeout (seconds)")
@@ -256,7 +163,7 @@ def main() -> int:
         plan_lines.append(f"{step}. Release ({' '.join(args.release_args) or 'default flags'})")
         step += 1
     if do_ota:
-        plan_lines.append(f"{step}. Intelligent OTA")
+        plan_lines.append(f"{step}. OTA from out/ + verify versions on device")
 
     print("\n".join(plan_lines))
 
@@ -272,55 +179,109 @@ def main() -> int:
             release_args = ["--yes", *release_args]
         if args.dry_run and "--dry-run" not in release_args:
             release_args = ["--dry-run", *release_args]
-        run_script("release.sh", release_args, dry_run=args.dry_run)
+        run_script(
+            "release.sh",
+            release_args,
+            dry_run=args.dry_run,
+            extra_env={"GAGGIMATE_FROM_DEPLOY": "1"},
+        )
 
-    if do_ota:
-        manifest = load_manifest() if not args.dry_run else {
+    if not do_ota:
+        return 0
+
+    if MANIFEST_PATH.is_file():
+        manifest = load_manifest()
+    elif args.dry_run:
+        manifest = {
+            "version": "(unknown — run release first)",
             "artifacts": {
                 "display-firmware": True,
                 "display-filesystem": True,
                 "board-firmware": True,
-            }
+            },
         }
-        artifacts = manifest.get("artifacts", {})
-        manifest_version = manifest.get("version")
-        if manifest_version:
-            print(f"\nGitHub release: {GITHUB_RELEASES}/tag/{manifest_version}")
+    else:
+        print(f"Error: missing {MANIFEST_PATH.relative_to(ROOT)}", file=sys.stderr)
+        return 1
+    artifacts = manifest.get("artifacts", {})
+    target_version = normalize_version(str(manifest.get("version") or ""))
+    if target_version:
+        print(f"\nTarget version:   {target_version}")
+        print(f"GitHub release:   {GITHUB_RELEASES}/tag/{target_version}")
 
-        _, _, ota_url = device_web_urls(host, port)
-        print(f"Update in browser: {ota_url}\n")
+    _, _, ota_url = device_web_urls(host, port)
+    print(f"Verify in browser: {ota_url}\n")
 
-        try:
-            with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
-                settings = client.fetch_ota_settings(refresh=not args.dry_run)
-        except (TimeoutError, ConnectionError, OSError) as error:
-            print(f"Error: {error}", file=sys.stderr)
-            return 2
+    settings_before: dict = {}
+    try:
+        with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
+            settings_before = client.fetch_ota_settings(refresh=not args.dry_run)
+            if target_version and not args.dry_run:
+                print("Waiting for device to see new GitHub release...")
+                settings_before = wait_for_github_latest(
+                    client,
+                    target_version,
+                    timeout=GITHUB_POLL_TIMEOUT,
+                )
+    except (TimeoutError, ConnectionError, OSError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 2
 
-        update_display, update_controller, explanation = ota_update_plan(
-            settings,
-            artifacts,
-            flash_built=args.ota_flash_built,
-        )
-        print("\n".join(explanation))
+    if settings_before:
         print(
-            f"\nOTA decision: display={update_display} controller={update_controller}"
+            f"Device before OTA: display={settings_before.get('displayVersion')!r} "
+            f"controller={settings_before.get('controllerVersion')!r}"
         )
 
-        try:
-            run_ota(
-                host,
-                port,
-                update_display=update_display,
-                update_controller=update_controller,
-                timeout=args.timeout,
-                connect_timeout=args.timeout_connect,
-                dry_run=args.dry_run,
-            )
-        except TimeoutError as error:
-            print(f"Error: {error}", file=sys.stderr)
-            return 1
+    flash_built = args.ota_flash_built or (not args.ota_respect_device)
+    update_display, update_controller, explanation = ota_flash_plan(
+        settings_before,
+        artifacts,
+        flash_built=flash_built,
+    )
+    print("\n".join(explanation))
+    print(f"\nOTA decision: display={update_display} controller={update_controller}")
 
+    try:
+        run_ota_sequence(
+            host,
+            port,
+            update_display=update_display,
+            update_controller=update_controller,
+            timeout=args.timeout,
+            connect_timeout=args.timeout_connect,
+            dry_run=args.dry_run,
+            client_cls=GaggimateWsClient,
+        )
+    except TimeoutError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+    if args.dry_run or not target_version:
+        return 0
+
+    try:
+        with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
+            settings_after = client.fetch_ota_settings(refresh=True)
+    except (TimeoutError, ConnectionError, OSError) as error:
+        print(f"Error: post-OTA verify failed to connect: {error}", file=sys.stderr)
+        return 1
+
+    print(
+        f"\nDevice after OTA:  display={settings_after.get('displayVersion')!r} "
+        f"controller={settings_after.get('controllerVersion')!r}"
+    )
+    try:
+        verify_device_versions(settings_after, target_version)
+    except RuntimeError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        print(
+            "Retry: ./scripts/deploy.sh --update-only  or  ./scripts/update-device.sh",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"\nOTA verify OK — display and controller on {target_version}.")
     return 0
 
 
