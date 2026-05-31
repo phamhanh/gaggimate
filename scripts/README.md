@@ -45,6 +45,34 @@ Artifacts land in `out/` with OTA-expected names (`display-firmware.bin`, `displ
 
 See `.cursor/skills/gaggimate-release/SKILL.md` for agent-oriented release steps and OTA warnings.
 
+## Deploy (pull data → release → OTA)
+
+### `deploy.sh` / `pull-spiffs-data.sh` / `gaggimate_deploy.py`
+
+Pull profiles and shot history from the machine into `data/p/` and `data/h/`, build a SPIFFS image that includes that data, publish via `release.sh`, then OTA only components that need updating. Profiles and shots survive display OTA because they are baked into `display-filesystem.bin`.
+
+**Typical deploy** (clean git tree, device on LAN):
+
+```bash
+./scripts/deploy.sh --dry-run
+./scripts/deploy.sh --yes
+```
+
+**Options:**
+
+```bash
+./scripts/deploy.sh --release-only --yes          # pull + release, no OTA
+./scripts/deploy.sh --update-only --yes           # OTA from existing out/
+./scripts/deploy.sh --no-pull --yes -- --build-only
+./scripts/pull-spiffs-data.sh --dry-run           # preview counts only
+```
+
+Snapshots land in `device-data/snapshots/` (gitignored). Pulled shot binaries go to `data/h/` (gitignored). Seed profiles in `data/p/` are overwritten on pull.
+
+`build-firmware.sh` runs `spiffs_budget.py` before `buildfs` and writes `out/release-manifest.json`.
+
+See `.cursor/skills/gaggimate-deploy/SKILL.md` for the full agent workflow.
+
 ## Profile maintenance (device WebSocket)
 
 ### `gaggimate_profiles.py` / `gaggimate-profiles.sh`

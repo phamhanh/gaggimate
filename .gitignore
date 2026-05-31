@@ -7,6 +7,8 @@ pcb/**/*.kicad_sch_old
 node_modules/
 __pycache__
 data/w
+data/h/
+device-data/
 .codebuddy
 src/version.h
 src/display/ui/default/lvgl/project.info

@@ -104,6 +104,9 @@ if [[ "$DISPLAY_ONLY" -eq 0 ]]; then
   copy_out .pio/build/display-headless/bootloader.bin out/display-headless-bootloader.bin
 fi
 
+echo "Checking SPIFFS data size..."
+python3 scripts/spiffs_budget.py check
+
 echo "Building display filesystem..."
 platformio run -t buildfs -e display
 copy_out .pio/build/display/spiffs.bin out/display-filesystem.bin
@@ -119,6 +122,9 @@ require_file out/display-filesystem.bin
 if [[ "$DISPLAY_ONLY" -eq 0 ]]; then
   require_file out/board-firmware.bin
 fi
+
+VERSION_FOR_MANIFEST="$(cat out/version.txt)"
+python3 scripts/write_release_manifest.py --version "$VERSION_FOR_MANIFEST"
 
 echo ""
 echo "Firmware build complete — artifacts in out/"
