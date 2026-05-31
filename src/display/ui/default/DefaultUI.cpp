@@ -508,13 +508,13 @@ void DefaultUI::setupReactive() {
             }
             if (stableTemp == 0) {
                 if (currentTemp > targetTemp) {
-                    lv_label_set_text(ui_BrewScreen_mainLabel3, "Cooling...");
+                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_DOWN " Cooling...");
                 } else {
-                    lv_label_set_text(ui_BrewScreen_mainLabel3, "Heating...");
+                    lv_label_set_text(ui_BrewScreen_mainLabel3, LV_SYMBOL_UP " Heating...");
                 }
                 return;
             }
-            lv_label_set_text(ui_BrewScreen_mainLabel3, "Brew Ready");
+            lv_label_set_text(ui_BrewScreen_mainLabel3, "Ready to brew");
         },
         &active, &pidFreezeGraceActive, &brewIdleVenting, &stableTemp, &pressureAvailable, &currentTemp,
         &targetTemp);
