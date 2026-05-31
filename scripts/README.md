@@ -45,13 +45,13 @@ Artifacts land in `out/` with OTA-expected names (`display-firmware.bin`, `displ
 
 See `.cursor/skills/gaggimate-release/SKILL.md` for agent-oriented release steps and OTA warnings.
 
-## Deploy (pull data → release → OTA)
+## Deploy (backup → release → OTA)
 
-### `deploy.sh` / `pull-spiffs-data.sh` / `gaggimate_deploy.py`
+### `deploy.sh` / `backup-spiffs-data.sh` / `gaggimate_deploy.py`
 
-Pull profiles and shot history from the machine into `data/p/` and `data/h/`, build a SPIFFS image that includes that data, publish via `release.sh`, then OTA only components that need updating. Profiles and shots survive display OTA because they are baked into `display-filesystem.bin`.
+Back up profiles and shot history from the machine into `data/p/` and `data/h/`, build a SPIFFS image that includes that data, publish via `release.sh`, then OTA only components that need updating. Profiles and shots survive display OTA because they are baked into `display-filesystem.bin`.
 
-**Typical deploy** (clean git tree, device on LAN):
+**Typical deploy** (clean working tree, device on LAN):
 
 ```bash
 ./scripts/deploy.sh --dry-run
@@ -61,15 +61,15 @@ Pull profiles and shot history from the machine into `data/p/` and `data/h/`, bu
 **Options:**
 
 ```bash
-./scripts/deploy.sh --release-only --yes          # pull + release, no OTA
-./scripts/deploy.sh --update-only --yes           # OTA from existing out/
-./scripts/deploy.sh --no-pull --yes -- --build-only
-./scripts/pull-spiffs-data.sh --dry-run           # preview counts only
+./scripts/deploy.sh --release-only --yes            # backup + release, no OTA
+./scripts/deploy.sh --update-only --yes             # OTA from existing out/
+./scripts/deploy.sh --no-backup --yes -- --build-only
+./scripts/backup-spiffs-data.sh --dry-run           # preview counts only
 ```
 
-Snapshots land in `device-data/snapshots/` (gitignored). Pulled data goes to gitignored `data/p/` and `data/h/`. Factory seed profiles live in `profiles/seed/`; builds copy them into `data/p/` only when no pull data is present.
+Snapshots land in `device-data/snapshots/` (gitignored). Backed-up data goes to gitignored `data/p/` and `data/h/`. Factory seed profiles live in `profiles/seed/`; builds copy them into `data/p/` only when no backup is present.
 
-Deploy requires a **clean git tree** before it starts (commit or stash code changes first). Pull does not touch GitHub.
+Deploy requires a **clean working tree** before it starts (commit or stash code changes first).
 
 `build-firmware.sh` runs `spiffs_budget.py` before `buildfs` and writes `out/release-manifest.json`.
 

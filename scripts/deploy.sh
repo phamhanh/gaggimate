@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull device data → release → intelligent OTA
+# Back up device data → release → intelligent OTA
 #
 # Usage:
 #   ./scripts/deploy.sh [OPTIONS] [-- RELEASE_ARGS...]
@@ -9,7 +9,7 @@
 #   ./scripts/deploy.sh --dry-run
 #   ./scripts/deploy.sh --release-only --yes -- --patch
 #   ./scripts/deploy.sh --update-only --yes
-#   ./scripts/deploy.sh --no-pull --yes -- --build-only
+#   ./scripts/deploy.sh --no-backup --yes -- --build-only
 #
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

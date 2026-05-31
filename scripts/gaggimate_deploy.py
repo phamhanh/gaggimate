@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pull device SPIFFS data, run a local release, and OTA-update only needed components.
+Back up device profiles and shots, run a local release, and OTA-update the machine.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def assert_clean_git_tree() -> None:
     dirty = result.stdout.strip()
     if not dirty:
         return
-    print("Working tree is dirty — commit or stash before deploy:\n", file=sys.stderr)
+    print("Uncommitted changes — commit or stash before deploy:\n", file=sys.stderr)
     print(dirty, file=sys.stderr)
     raise SystemExit(1)
 
@@ -52,11 +52,11 @@ def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
-def confirm_pull(profile_count: int, shot_count: int, host: str, *, assume_yes: bool) -> bool:
+def confirm_backup(profile_count: int, shot_count: int, host: str, *, assume_yes: bool) -> bool:
     if assume_yes:
         return True
     reply = input(
-        f"\nPull {profile_count} profile(s) and {shot_count} shot(s) from {host} "
+        f"\nBack up {profile_count} profile(s) and {shot_count} shot(s) from {host} "
         "and bake them into the next SPIFFS build? [y/N] "
     ).strip().lower()
     return reply in ("y", "yes")
@@ -70,17 +70,16 @@ def confirm_deploy(plan: str, *, assume_yes: bool, dry_run: bool) -> bool:
     return reply in ("y", "yes")
 
 
-def dry_run_counts(host: str, port: int, timeout: float, http_timeout: float) -> tuple[int, int]:
+def preview_backup_counts(host: str, port: int, timeout: float, http_timeout: float) -> tuple[int, int]:
     from device_http import http_base_url
-    from shot_index import fetch_active_shots
+    from shot_index import load_active_shots_from_index
 
     history_url = f"{http_base_url(host, port)}/api/history"
     with GaggimateWsClient(host, port, timeout=timeout) as client:
         profiles = client.list_profiles()
-        shots = fetch_active_shots(history_url, http_timeout)
+        shots = load_active_shots_from_index(history_url, http_timeout)
         if shots is None:
-            shots = client.list_history()
-            shot_count = len(shots)
+            shot_count = len(client.list_history())
         else:
             shot_count = len(shots)
     return len(profiles), shot_count
@@ -162,17 +161,17 @@ def run_ota(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Pull SPIFFS data, release firmware, and OTA-update the device.",
+        description="Back up device data, release firmware, and OTA-update the machine.",
     )
     parser.add_argument("--host", default=os.environ.get("GAGGIMATE_HOST", DEFAULT_HOST))
     parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompts")
-    parser.add_argument("--release-only", action="store_true", help="Pull + release; skip OTA")
+    parser.add_argument("--release-only", action="store_true", help="Back up + release; skip OTA")
     parser.add_argument("--update-only", action="store_true", help="OTA only (use existing out/)")
-    parser.add_argument("--no-pull", action="store_true", help="Skip device pull")
+    parser.add_argument("--no-backup", action="store_true", help="Skip device backup (use existing data/p, data/h)")
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
     parser.add_argument("--timeout", type=float, default=600.0, help="OTA wait timeout (seconds)")
     parser.add_argument("--timeout-connect", type=float, default=15.0, help="WebSocket connect timeout")
-    parser.add_argument("--http-timeout", type=float, default=60.0, help="HTTP pull timeout (seconds)")
+    parser.add_argument("--http-timeout", type=float, default=60.0, help="HTTP download timeout (seconds)")
     parser.add_argument(
         "release_args",
         nargs=argparse.REMAINDER,
@@ -196,12 +195,12 @@ def main() -> int:
     host, port = parse_host(args.host)
     plan_lines = ["Deploy plan", "==========="]
 
-    do_pull = not args.no_pull and not args.update_only
+    do_backup = not args.no_backup and not args.update_only
     do_release = not args.update_only
     do_ota = not args.release_only
 
-    if do_pull:
-        plan_lines.append(f"1. Pull profiles + shots from Gaggimate at {host} (not GitHub)")
+    if do_backup:
+        plan_lines.append(f"1. Back up profiles + shots from Gaggimate at {host}")
     if do_release:
         plan_lines.append(f"2. Release ({' '.join(args.release_args) or 'default flags'})")
     if do_ota:
@@ -211,35 +210,25 @@ def main() -> int:
         print("Aborted.")
         return 1
 
-    if do_pull:
-        if args.dry_run:
-            try:
-                profile_count, shot_count = dry_run_counts(
-                    host, port, args.timeout_connect, args.http_timeout
-                )
-            except (TimeoutError, ConnectionError, OSError) as error:
-                print(f"Error: {error}", file=sys.stderr)
-                return 2
-            print(f"\nPull preview: {profile_count} profile(s), {shot_count} shot(s)")
-            if not confirm_pull(profile_count, shot_count, host, assume_yes=args.yes):
-                print("Aborted.")
-                return 1
-        else:
-            try:
-                profile_count, shot_count = dry_run_counts(
-                    host, port, args.timeout_connect, args.http_timeout
-                )
-            except (TimeoutError, ConnectionError, OSError) as error:
-                print(f"Error: {error}", file=sys.stderr)
-                return 2
-            if not confirm_pull(profile_count, shot_count, host, assume_yes=args.yes):
-                print("Aborted.")
-                return 1
+    if do_backup:
+        try:
+            profile_count, shot_count = preview_backup_counts(
+                host, port, args.timeout_connect, args.http_timeout
+            )
+        except (TimeoutError, ConnectionError, OSError) as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 2
 
-        pull_args = ["--host", host, "--http-timeout", str(args.http_timeout)]
         if args.dry_run:
-            pull_args.append("--dry-run")
-        run_script("pull-spiffs-data.sh", pull_args, dry_run=args.dry_run)
+            print(f"\nBackup preview: {profile_count} profile(s), {shot_count} shot(s)")
+        if not confirm_backup(profile_count, shot_count, host, assume_yes=args.yes):
+            print("Aborted.")
+            return 1
+
+        backup_args = ["--host", host, "--http-timeout", str(args.http_timeout)]
+        if args.dry_run:
+            backup_args.append("--dry-run")
+        run_script("backup-spiffs-data.sh", backup_args, dry_run=args.dry_run)
 
     if do_release:
         release_args = list(args.release_args)

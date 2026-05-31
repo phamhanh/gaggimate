@@ -59,8 +59,8 @@ def active_shots(data: bytes) -> list[ShotIndexEntry]:
     return [entry for entry in parse_index_bytes(data) if not entry.deleted]
 
 
-def fetch_active_shots(base_url: str, timeout: float) -> list[ShotIndexEntry] | None:
-    """Download index.bin from device; return entries or None if missing."""
+def load_active_shots_from_index(base_url: str, timeout: float) -> list[ShotIndexEntry] | None:
+    """Download index.bin from the device; return entries or None if missing."""
     from device_http import http_get_bytes
 
     index_bytes = http_get_bytes(f"{base_url.rstrip('/')}/index.bin", timeout)

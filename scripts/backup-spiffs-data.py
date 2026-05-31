@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Pull profiles and shot history from your Gaggimate (gaggimate.local) into gitignored
-data/p and data/h for SPIFFS — not from GitHub.
-for SPIFFS build, with an optional device-data snapshot archive.
+Backup profiles and shot history from your Gaggimate (gaggimate.local) into
+gitignored data/p and data/h for SPIFFS, with an optional device-data snapshot.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from device_http import http_base_url, http_get_bytes, resolve_host
 from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
-from shot_index import ShotIndexEntry, fetch_active_shots
+from shot_index import ShotIndexEntry, load_active_shots_from_index
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_P = ROOT / "data" / "p"
@@ -51,7 +50,7 @@ def write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def pull_profiles(
+def backup_profiles(
     client: GaggimateWsClient,
     dest: Path,
     *,
@@ -61,7 +60,7 @@ def pull_profiles(
     selected_id = next((profile.id for profile in profiles if profile.selected), None)
 
     if dry_run:
-        print(f"Would pull {len(profiles)} profile(s) to {dest}")
+        print(f"Would back up {len(profiles)} profile(s) to {dest}")
         for profile in profiles:
             print(f"  {profile.id}\t{profile.label!r}")
         return len(profiles), selected_id
@@ -75,13 +74,13 @@ def pull_profiles(
     return len(profiles), selected_id
 
 
-def list_shots(
+def list_shots_on_device(
     history_url: str,
     client: GaggimateWsClient | None,
     http_timeout: float,
 ) -> tuple[list[ShotIndexEntry], str]:
     """Prefer HTTP index.bin (fast); fall back to WebSocket directory scan."""
-    shots = fetch_active_shots(history_url, http_timeout)
+    shots = load_active_shots_from_index(history_url, http_timeout)
     if shots is not None:
         return shots, "index.bin"
 
@@ -103,7 +102,7 @@ def list_shots(
     return entries, "websocket"
 
 
-def pull_history(
+def backup_shot_history(
     history_url: str,
     shots: list[ShotIndexEntry],
     source: str,
@@ -115,7 +114,7 @@ def pull_history(
     print(f"  {len(shots)} shot(s) from {source}", flush=True)
 
     if dry_run:
-        print(f"Would pull {len(shots)} shot(s) + index.bin to {dest}")
+        print(f"Would back up {len(shots)} shot(s) + index.bin to {dest}")
         for shot in shots[:20]:
             print(f"  {pad_shot_id(shot.id)}.slog")
         if len(shots) > 20:
@@ -153,7 +152,7 @@ def pull_history(
     return len(shots)
 
 
-def snapshot_pull(
+def write_snapshot(
     *,
     device_version: str,
     host: str,
@@ -168,7 +167,7 @@ def snapshot_pull(
     copy_tree(DATA_H, snapshot_dir / "h")
     manifest = {
         "host": host,
-        "pulledAt": datetime.now(timezone.utc).isoformat(),
+        "backedUpAt": datetime.now(timezone.utc).isoformat(),
         "deviceVersion": device_version,
         "selectedProfileId": selected_profile_id,
         "profileCount": profile_count,
@@ -181,7 +180,7 @@ def snapshot_pull(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Pull device profiles and shot history into data/p and data/h.",
+        description="Back up device profiles and shot history into data/p and data/h.",
     )
     parser.add_argument(
         "--host",
@@ -191,7 +190,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="List counts only; do not write files")
     parser.add_argument("--no-snapshot", action="store_true", help="Skip device-data/snapshots archive")
     parser.add_argument("--timeout", type=float, default=15.0, help="WebSocket connect timeout (seconds)")
-    parser.add_argument("--http-timeout", type=float, default=30.0, help="HTTP download timeout per file (seconds)")
+    parser.add_argument(
+        "--http-timeout",
+        type=float,
+        default=30.0,
+        help="HTTP download timeout per file (seconds)",
+    )
     return parser
 
 
@@ -206,7 +210,7 @@ def main() -> int:
         return 2
 
     history_url = f"{http_base_url(host, port)}/api/history"
-    print(f"Pulling SPIFFS user data from {host} ({ip})...")
+    print(f"Backing up SPIFFS user data from {host} ({ip})...")
 
     device_version = "unknown"
     profile_count = 0
@@ -216,23 +220,22 @@ def main() -> int:
     try:
         with GaggimateWsClient(host, port, timeout=args.timeout) as client:
             print("Profiles:", flush=True)
-            profile_count, selected_id = pull_profiles(client, DATA_P, dry_run=args.dry_run)
+            profile_count, selected_id = backup_profiles(client, DATA_P, dry_run=args.dry_run)
             try:
                 ota = client.fetch_ota_settings()
                 device_version = str(ota.get("displayVersion") or "unknown")
             except TimeoutError:
                 print("  WARN: could not read device version", file=sys.stderr)
-        # WebSocket closed before HTTP bulk transfer (reduces ESP32 contention)
 
         print("Shot history:", flush=True)
         print("  reading shot list from index.bin...", flush=True)
-        shots = fetch_active_shots(history_url, args.http_timeout)
+        shots = load_active_shots_from_index(history_url, args.http_timeout)
         if shots is None:
             with GaggimateWsClient(host, port, timeout=args.timeout) as fallback_client:
-                shots, source = list_shots(history_url, fallback_client, args.http_timeout)
+                shots, source = list_shots_on_device(history_url, fallback_client, args.http_timeout)
         else:
             source = "index.bin"
-        shot_count = pull_history(
+        shot_count = backup_shot_history(
             history_url,
             shots,
             source,
@@ -258,7 +261,7 @@ def main() -> int:
         return 0
 
     if not args.no_snapshot:
-        snapshot_dir = snapshot_pull(
+        snapshot_dir = write_snapshot(
             device_version=device_version,
             host=f"{host} ({ip})",
             profile_count=profile_count,

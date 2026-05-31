@@ -5,7 +5,7 @@ rm -rf data/w
 mkdir -p data/w
 mkdir -p data/p
 if ! compgen -G "data/p/"'*.json' > /dev/null; then
-  echo "Seeding data/p from profiles/seed (no device pull present)..."
+  echo "Seeding data/p from profiles/seed (no device backup present)..."
   cp profiles/seed/*.json data/p/
 fi
 
