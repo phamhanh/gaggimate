@@ -39,6 +39,13 @@ def http_base_url(host: str, port: int = 80) -> str:
     return f"http://{ip}:{port}"
 
 
+def device_web_urls(host: str, port: int = 80) -> tuple[str, str, str]:
+    """Return (ip, home_url, ota_url) using resolved IP for reliable links."""
+    ip = resolve_host(host, port)
+    base = http_base_url(host, port)
+    return ip, f"{base}/", f"{base}/ota"
+
+
 def http_get_bytes(url: str, timeout: float) -> bytes | None:
     try:
         with urlopen(url, timeout=timeout) as response:

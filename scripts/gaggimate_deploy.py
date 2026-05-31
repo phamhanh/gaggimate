@@ -15,11 +15,73 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from device_http import device_web_urls
 from gaggimate_ws import DEFAULT_HOST, GaggimateWsClient, parse_host
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "out" / "release-manifest.json"
+GITHUB_RELEASES = "https://github.com/phamhanh/gaggimate/releases"
 OTA_PHASE_FINISHED = 4
+
+
+def print_device_links(host: str, port: int) -> None:
+    ip, home_url, ota_url = device_web_urls(host, port)
+    print(f"Device IP:        {ip}")
+    print(f"Web UI:           {home_url}")
+    print(f"System & Updates: {ota_url}")
+
+
+def ota_update_plan(
+    settings: dict,
+    artifacts: dict,
+    *,
+    flash_built: bool,
+) -> tuple[bool, bool, list[str]]:
+    """Decide what deploy will try to OTA; return (display, controller, explanation lines)."""
+    built_display = bool(artifacts.get("display-firmware") and artifacts.get("display-filesystem"))
+    built_controller = bool(artifacts.get("board-firmware"))
+    device_wants_display = bool(settings.get("displayUpdateAvailable"))
+    device_wants_controller = bool(settings.get("controllerUpdateAvailable"))
+
+    lines: list[str] = []
+    display_version = settings.get("displayVersion") or "?"
+    latest = settings.get("latestVersion") or ""
+    if latest:
+        lines.append(f"GitHub latest (on device): v{latest.lstrip('v')}")
+    else:
+        lines.append(
+            "GitHub latest (on device): not loaded yet — open the Updates page and "
+            "click Save & Refresh first"
+        )
+    lines.append(f"Display firmware now:      {display_version}")
+
+    if flash_built:
+        update_display = built_display
+        update_controller = built_controller
+        lines.append("Mode: --ota-flash-built (attempt every component built in out/)")
+    else:
+        update_display = built_display and device_wants_display
+        update_controller = built_controller and device_wants_controller
+        lines.append("Mode: automatic (only if device reports an update is available)")
+
+    lines.append("")
+    lines.append("Display update will run:" + (" yes" if update_display else " no"))
+    lines.append(f"  built display-firmware + display-filesystem in out/: {built_display}")
+    lines.append(f"  device displayUpdateAvailable:                         {device_wants_display}")
+
+    lines.append("Controller update will run:" + (" yes" if update_controller else " no"))
+    lines.append(f"  built board-firmware in out/:              {built_controller}")
+    lines.append(f"  device controllerUpdateAvailable:           {device_wants_controller}")
+
+    if not flash_built and built_display and not device_wants_display:
+        lines.append("")
+        lines.append(
+            "Note: display=False usually means the device thinks it is already on the "
+            "latest version (or has not refreshed OTA info from GitHub). After you flash, "
+            "this becomes False until a newer release exists."
+        )
+
+    return update_display, update_controller, lines
 
 
 def assert_clean_git_tree() -> None:
@@ -143,6 +205,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--release-only", action="store_true", help="Back up + release; skip OTA")
     parser.add_argument("--update-only", action="store_true", help="OTA only (use existing out/)")
     parser.add_argument("--no-backup", action="store_true", help="Skip device backup (use existing data/p, data/h)")
+    parser.add_argument(
+        "--ota-flash-built",
+        action="store_true",
+        help="Attempt OTA for every component in out/ (ignore device *UpdateAvailable flags)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
     parser.add_argument("--timeout", type=float, default=600.0, help="OTA wait timeout (seconds)")
     parser.add_argument("--timeout-connect", type=float, default=15.0, help="WebSocket connect timeout")
@@ -168,6 +235,7 @@ def main() -> int:
         assert_clean_git_tree()
 
     host, port = parse_host(args.host)
+    print_device_links(host, port)
 
     do_backup = not args.no_backup and not args.update_only
     do_release = not args.update_only
@@ -215,6 +283,13 @@ def main() -> int:
             }
         }
         artifacts = manifest.get("artifacts", {})
+        manifest_version = manifest.get("version")
+        if manifest_version:
+            print(f"\nGitHub release: {GITHUB_RELEASES}/tag/{manifest_version}")
+
+        _, _, ota_url = device_web_urls(host, port)
+        print(f"Update in browser: {ota_url}\n")
+
         try:
             with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
                 settings = client.fetch_ota_settings(refresh=not args.dry_run)
@@ -222,18 +297,14 @@ def main() -> int:
             print(f"Error: {error}", file=sys.stderr)
             return 2
 
-        update_display = bool(
-            artifacts.get("display-firmware")
-            and artifacts.get("display-filesystem")
-            and settings.get("displayUpdateAvailable")
+        update_display, update_controller, explanation = ota_update_plan(
+            settings,
+            artifacts,
+            flash_built=args.ota_flash_built,
         )
-        update_controller = bool(
-            artifacts.get("board-firmware") and settings.get("controllerUpdateAvailable")
-        )
-
+        print("\n".join(explanation))
         print(
-            f"\nOTA decision: display={update_display} controller={update_controller} "
-            f"(device {settings.get('displayVersion')} → {settings.get('latestVersion')})"
+            f"\nOTA decision: display={update_display} controller={update_controller}"
         )
 
         try:

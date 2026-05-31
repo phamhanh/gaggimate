@@ -42,6 +42,7 @@ git commit -am "..."          # commit firmware changes before deploy
 --release-only        Back up + release; skip OTA
 --update-only         OTA only (uses existing out/)
 --no-backup           Skip device backup (use existing data/p or profiles/seed fallback)
+--ota-flash-built     Attempt OTA for all components in out/ (ignore device *UpdateAvailable)
 --dry-run             Show plan only
 --timeout SEC         OTA wait (default 600)
 
