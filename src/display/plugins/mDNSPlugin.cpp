@@ -11,11 +11,25 @@ static constexpr char LOG_TAG[] = "mDNSPlugin";
 void mDNSPlugin::setup(Controller *controller, PluginManager *pluginManager) {
     this->controller = controller;
     pluginManager->on("controller:wifi:connect", [this](Event const &event) { start(event); });
+    pluginManager->on("controller:wifi:disconnect", [this](Event const &) { stop(); });
 }
-void mDNSPlugin::start(Event const &event) const {
-    const int apMode = event.getInt("AP");
-    if (apMode)
+
+void mDNSPlugin::stop() {
+    if (!mdnsActive) {
         return;
+    }
+    MDNS.end();
+    mdnsActive = false;
+    ESP_LOGI(LOG_TAG, "mDNS responder stopped");
+}
+
+void mDNSPlugin::start(Event const &event) {
+    stop();
+
+    const int apMode = event.getInt("AP");
+    if (apMode) {
+        return;
+    }
     if (!MDNS.begin(controller->getSettings().getMdnsName().c_str())) {
         ESP_LOGE(LOG_TAG, "Error setting up mDNS responder");
         return;
@@ -31,5 +45,6 @@ void mDNSPlugin::start(Event const &event) const {
     MDNS.addServiceTxt("gaggimate", "tcp", "version", BUILD_GIT_VERSION);
     MDNS.addServiceTxt("gaggimate", "tcp", "type", "espresso_machine");
 
+    mdnsActive = true;
     ESP_LOGI(LOG_TAG, "mDNS responder started with service advertisement");
 }

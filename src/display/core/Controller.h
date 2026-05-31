@@ -116,6 +116,13 @@ class Controller {
 
     NimBLEClientController *getClientController() { return &clientController; }
 
+    bool isWifiApFallback() const { return isApConnection; }
+    bool isWifiConnected() const { return !isApConnection && WiFi.status() == WL_CONNECTED; }
+    String getWifiIp() const;
+    String getWifiModeString() const;
+    int getWifiRssi() const;
+    String getWifiLastDisconnectReasonName() const;
+
   private:
     // Initialization methods
 #ifndef GAGGIMATE_HEADLESS
@@ -124,6 +131,13 @@ class Controller {
     void setupBluetooth();
     void setupInfos();
     void setupWifi();
+    void registerWifiEvents();
+    bool waitForWifiConnect(unsigned long timeoutMs);
+    void configureNtp();
+    void startApFallback();
+    void attemptStaReconnectFromAp();
+    void onWifiGotIp();
+    void onWifiDisconnected(WiFiEventInfo_t info);
 
     // Functional methods
     void updateControl();
@@ -172,6 +186,13 @@ class Controller {
     bool updating = false;
     bool autotuning = false;
     bool isApConnection = false;
+    bool staRetryExhausted = false;
+    bool wifiEventsRegistered = false;
+    unsigned long lastStaRetryMs = 0;
+    unsigned long apFallbackStartMs = 0;
+    int lastDisconnectReason = 0;
+    int staDisconnectCount = 0;
+    unsigned long staDisconnectWindowStartMs = 0;
     bool initialized = false;
     bool screenReady = false;
     bool waitingForController = false;

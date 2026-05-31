@@ -23,6 +23,16 @@
 static std::unordered_map<uint32_t, std::string> rxBuffers;
 static WebUIPlugin *g_webUIPlugin = nullptr;
 
+static void appendWifiStatus(JsonDocument &doc, Controller *controller, Settings const &settings) {
+    doc["wifiConnected"] = controller->isWifiConnected();
+    doc["wifiMode"] = controller->getWifiModeString();
+    doc["wifiIp"] = controller->getWifiIp();
+    doc["wifiRssi"] = controller->getWifiRssi();
+    doc["wifiLastDisconnectReason"] = controller->getWifiLastDisconnectReasonName();
+    doc["wifiApFallback"] = controller->isWifiApFallback();
+    doc["wifiApTimeout"] = settings.getWifiApTimeout() / 60000;
+}
+
 WebUIPlugin::WebUIPlugin() : server(80), ws("/ws") { g_webUIPlugin = this; }
 
 void WebUIPlugin::setup(Controller *_controller, PluginManager *_pluginManager) {
@@ -118,6 +128,8 @@ void WebUIPlugin::loop() {
         if (controller->getClientController()->getClient()->isConnected()) {
             doc["rssi"] = controller->getClientController()->getClient()->getRssi();
         }
+
+        appendWifiStatus(doc, controller, controller->getSettings());
 
         bool bleConnected = BLEScales.isConnected();
         // Add Bluetooth scale weight information
@@ -505,6 +517,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 settings->setMdnsName(request->arg("mdnsName"));
             if (request->hasArg("wifiPassword") && request->arg("wifiPassword") != "---unchanged---")
                 settings->setWifiPassword(request->arg("wifiPassword"));
+            if (request->hasArg("wifiApTimeout"))
+                settings->setWifiApTimeout(request->arg("wifiApTimeout").toInt() * 60000);
             settings->setHomekit(request->hasArg("homekit"));
             settings->setBoilerFillActive(request->hasArg("boilerFillActive"));
             if (request->hasArg("startupFillTime"))
@@ -689,6 +703,7 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
         }
     }
     doc["autowakeupSchedules"] = schedulesStr;
+    appendWifiStatus(doc, controller, settings);
     serializeJson(doc, *response);
     request->send(response);
 

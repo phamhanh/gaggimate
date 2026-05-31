@@ -228,7 +228,163 @@ void Controller::setupInfos() {
     }
 }
 
+void Controller::registerWifiEvents() {
+    if (wifiEventsRegistered) {
+        return;
+    }
+    wifiEventsRegistered = true;
+    WiFi.onEvent([this](WiFiEvent_t, WiFiEventInfo_t) { onWifiGotIp(); }, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+    WiFi.onEvent([this](WiFiEvent_t, WiFiEventInfo_t info) { onWifiDisconnected(info); },
+                 ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+}
+
+bool Controller::waitForWifiConnect(unsigned long timeoutMs) {
+    const unsigned long start = millis();
+    while (millis() - start < timeoutMs) {
+        if (WiFi.status() == WL_CONNECTED) {
+            return true;
+        }
+        delay(500);
+        Serial.print(".");
+    }
+    return WiFi.status() == WL_CONNECTED;
+}
+
+void Controller::configureNtp() {
+    configTzTime(resolve_timezone(settings.getTimezone()), NTP_SERVER);
+    setenv("TZ", resolve_timezone(settings.getTimezone()), 1);
+    tzset();
+    sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
+    sntp_setservername(0, NTP_SERVER);
+    sntp_init();
+}
+
+void Controller::startApFallback() {
+    isApConnection = true;
+    if (apFallbackStartMs == 0) {
+        apFallbackStartMs = millis();
+    }
+    lastStaRetryMs = millis();
+
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(WIFI_AP_IP, WIFI_AP_IP, WIFI_SUBNET_MASK);
+    WiFi.softAP(WIFI_AP_SSID);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+    ESP_LOGI(LOG_TAG, "Started WiFi AP %s", WIFI_AP_SSID);
+}
+
+void Controller::onWifiGotIp() {
+    staDisconnectCount = 0;
+    staDisconnectWindowStartMs = 0;
+
+    if (isApConnection) {
+        isApConnection = false;
+        apFallbackStartMs = 0;
+        staRetryExhausted = false;
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        configureNtp();
+    }
+
+    ESP_LOGI(LOG_TAG, "Connected to %s with IP address %s", settings.getWifiSsid().c_str(),
+             WiFi.localIP().toString().c_str());
+    pluginManager->trigger("controller:wifi:connect", "AP", 0);
+}
+
+void Controller::onWifiDisconnected(WiFiEventInfo_t info) {
+    lastDisconnectReason = info.wifi_sta_disconnected.reason;
+    ESP_LOGI(LOG_TAG, "Lost WiFi connection. Reason: %s",
+             WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(lastDisconnectReason)));
+
+    if (isApConnection) {
+        return;
+    }
+
+    const unsigned long now = millis();
+    if (staDisconnectWindowStartMs == 0 || (now - staDisconnectWindowStartMs) > WIFI_STA_DISCONNECT_WINDOW_MS) {
+        staDisconnectWindowStartMs = now;
+        staDisconnectCount = 1;
+    } else {
+        staDisconnectCount++;
+    }
+
+    WiFi.reconnect();
+
+    if (staDisconnectCount >= WIFI_STA_DISCONNECT_THRESHOLD) {
+        ESP_LOGW(LOG_TAG, "WiFi reconnect failed %d times within %d ms, entering AP fallback", staDisconnectCount,
+                 WIFI_STA_DISCONNECT_WINDOW_MS);
+        pluginManager->trigger("controller:wifi:disconnect");
+        startApFallback();
+        pluginManager->trigger("controller:wifi:connect", "AP", 1);
+    } else {
+        pluginManager->trigger("controller:wifi:disconnect");
+    }
+}
+
+void Controller::attemptStaReconnectFromAp() {
+    if (settings.getWifiSsid() == "" || settings.getWifiPassword() == "") {
+        return;
+    }
+
+    ESP_LOGI(LOG_TAG, "Retrying connection to home WiFi from AP fallback");
+
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAPConfig(WIFI_AP_IP, WIFI_AP_IP, WIFI_SUBNET_MASK);
+    WiFi.softAP(WIFI_AP_SSID);
+    WiFi.setHostname(settings.getMdnsName().c_str());
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(settings.getWifiSsid(), settings.getWifiPassword());
+
+    if (waitForWifiConnect(WIFI_CONNECT_TIMEOUT_MS)) {
+        if (isApConnection) {
+            onWifiGotIp();
+        }
+    } else {
+        WiFi.disconnect(false, false);
+        if (!(WiFi.getMode() & WIFI_MODE_AP)) {
+            startApFallback();
+        }
+        ESP_LOGI(LOG_TAG, "Home WiFi retry failed, AP still available");
+    }
+}
+
+String Controller::getWifiIp() const {
+    if (isApConnection && (WiFi.getMode() & WIFI_MODE_AP)) {
+        return WiFi.softAPIP().toString();
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        return WiFi.localIP().toString();
+    }
+    return "";
+}
+
+String Controller::getWifiModeString() const {
+    if (isApConnection) {
+        return (WiFi.getMode() == WIFI_MODE_APSTA) ? "ap_sta" : "ap";
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        return "sta";
+    }
+    return "disconnected";
+}
+
+int Controller::getWifiRssi() const {
+    if (WiFi.status() == WL_CONNECTED) {
+        return WiFi.RSSI();
+    }
+    return 0;
+}
+
+String Controller::getWifiLastDisconnectReasonName() const {
+    if (lastDisconnectReason == 0) {
+        return "";
+    }
+    return String(WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(lastDisconnectReason)));
+}
+
 void Controller::setupWifi() {
+    registerWifiEvents();
+
     if (settings.getWifiSsid() != "" && settings.getWifiPassword() != "") {
         WiFi.setHostname(settings.getMdnsName().c_str());
         WiFi.mode(WIFI_STA);
@@ -236,45 +392,17 @@ void Controller::setupWifi() {
         WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
         WiFi.begin(settings.getWifiSsid(), settings.getWifiPassword());
         WiFi.setTxPower(WIFI_POWER_19_5dBm);
-        for (int attempts = 0; attempts < WIFI_CONNECT_ATTEMPTS; attempts++) {
-            if (WiFi.status() == WL_CONNECTED) {
-                break;
-            }
-            delay(500);
-            Serial.print(".");
-        }
-        Serial.println("");
-        if (WiFi.status() == WL_CONNECTED) {
-            ESP_LOGI(LOG_TAG, "Connected to %s with IP address %s", settings.getWifiSsid().c_str(),
-                     WiFi.localIP().toString().c_str());
-            WiFi.onEvent([this](WiFiEvent_t, WiFiEventInfo_t) { pluginManager->trigger("controller:wifi:connect", "AP", 0); },
-                         WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-            WiFi.onEvent(
-                [this](WiFiEvent_t, WiFiEventInfo_t info) {
-                    ESP_LOGI(LOG_TAG, "Lost WiFi connection. Reason: %s",
-                             WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(info.wifi_sta_disconnected.reason)));
-                    pluginManager->trigger("controller:wifi:disconnect");
-                },
-                WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-            configTzTime(resolve_timezone(settings.getTimezone()), NTP_SERVER);
-            setenv("TZ", resolve_timezone(settings.getTimezone()), 1);
-            tzset();
-            sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
-            sntp_setservername(0, NTP_SERVER);
-            sntp_init();
+
+        if (waitForWifiConnect(WIFI_CONNECT_TIMEOUT_MS)) {
+            configureNtp();
         } else {
-            WiFi.disconnect(true, true);
+            WiFi.disconnect(false, false);
             ESP_LOGI(LOG_TAG, "Timed out while connecting to WiFi");
             Serial.println("Timed out while connecting to WiFi");
         }
     }
     if (WiFi.status() != WL_CONNECTED) {
-        isApConnection = true;
-        WiFi.mode(WIFI_AP);
-        WiFi.softAPConfig(WIFI_AP_IP, WIFI_AP_IP, WIFI_SUBNET_MASK);
-        WiFi.softAP(WIFI_AP_SSID);
-        WiFi.setTxPower(WIFI_POWER_19_5dBm);
-        ESP_LOGI(LOG_TAG, "Started WiFi AP %s", WIFI_AP_SSID);
+        startApFallback();
     }
 
     pluginManager->on("ota:update:start", [this](Event const &) { this->updating = true; });
@@ -390,6 +518,17 @@ void Controller::loop() {
         deactivateGrind();
     if (mode != MODE_STANDBY && settings.getStandbyTimeout() > 0 && now > lastAction + settings.getStandbyTimeout())
         activateStandby();
+
+    if (isApConnection && !staRetryExhausted && settings.getWifiSsid() != "" && settings.getWifiPassword() != "") {
+        const int apTimeout = settings.getWifiApTimeout();
+        if (apTimeout > 0 && apFallbackStartMs > 0 && (now - apFallbackStartMs) > static_cast<unsigned long>(apTimeout)) {
+            staRetryExhausted = true;
+            ESP_LOGI(LOG_TAG, "Stopped home WiFi retries after AP timeout (%d ms)", apTimeout);
+        } else if (lastStaRetryMs == 0 || (now - lastStaRetryMs) >= WIFI_STA_RETRY_INTERVAL_MS) {
+            lastStaRetryMs = now;
+            attemptStaReconnectFromAp();
+        }
+    }
 }
 
 void Controller::loopControl() {

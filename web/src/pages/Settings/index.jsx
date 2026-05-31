@@ -61,6 +61,16 @@ function splitPumpModelCoeffs(coeffs) {
   };
 }
 
+function getWifiStatusLabel(formData) {
+  if (formData.wifiApFallback) {
+    return 'AP fallback';
+  }
+  if (formData.wifiConnected) {
+    return 'Connected';
+  }
+  return 'Disconnected';
+}
+
 export function Settings() {
   const [submitting, setSubmitting] = useState(false);
   const [gen] = useState(0);
@@ -572,6 +582,60 @@ export function Settings() {
 
           {/* System Preferences */}
           <Card sm={10} lg={5} title='System Preferences'>
+            <div className='mb-4 rounded-lg border border-base-300 p-4'>
+              <p className='mb-3 text-sm font-medium'>Wi-Fi status</p>
+              <dl className='grid grid-cols-1 gap-2 text-sm sm:grid-cols-2'>
+                <div>
+                  <dt className='opacity-70'>State</dt>
+                  <dd className='font-medium'>{getWifiStatusLabel(formData)}</dd>
+                </div>
+                <div>
+                  <dt className='opacity-70'>Mode</dt>
+                  <dd className='font-medium'>{formData.wifiMode || '—'}</dd>
+                </div>
+                <div>
+                  <dt className='opacity-70'>IP address</dt>
+                  <dd className='font-medium'>{formData.wifiIp || '—'}</dd>
+                </div>
+                <div>
+                  <dt className='opacity-70'>Signal (RSSI)</dt>
+                  <dd className='font-medium'>
+                    {formData.wifiConnected && formData.wifiRssi ? `${formData.wifiRssi} dBm` : '—'}
+                  </dd>
+                </div>
+                <div className='sm:col-span-2'>
+                  <dt className='opacity-70'>Last disconnect reason</dt>
+                  <dd className='font-medium'>{formData.wifiLastDisconnectReason || '—'}</dd>
+                </div>
+              </dl>
+              <p className='mt-3 text-xs opacity-70'>
+                If you see the <strong>GaggiMate</strong> Wi-Fi network, the machine is in AP fallback — connect to it
+                and open http://4.4.4.1 to fix credentials.
+              </p>
+            </div>
+            <div className='form-control mb-4'>
+              <label htmlFor='wifiApTimeout' className='mb-2 block text-sm font-medium'>
+                AP retry timeout (minutes)
+              </label>
+              <div className='input-group'>
+                <label htmlFor='wifiApTimeout' className='input w-full'>
+                  <input
+                    id='wifiApTimeout'
+                    name='wifiApTimeout'
+                    type='number'
+                    min='0'
+                    className='grow'
+                    placeholder='10'
+                    value={formData.wifiApTimeout ?? 10}
+                    onChange={onChange('wifiApTimeout')}
+                  />
+                  <span aria-label='minutes'>min</span>
+                </label>
+              </div>
+              <p className='mt-1 text-xs opacity-70'>
+                How long to keep retrying home Wi-Fi while in AP fallback. Set to 0 to retry forever.
+              </p>
+            </div>
             <div className='form-control mb-4'>
               <label htmlFor='wifiSsid' className='mb-2 block text-sm font-medium'>
                 Wi-Fi SSID
