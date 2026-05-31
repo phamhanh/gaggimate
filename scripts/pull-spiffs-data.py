@@ -66,6 +66,7 @@ def pull_profiles(
         return len(profiles), selected_id
 
     wipe_dir(dest)
+    (dest / ".keep").touch()
     for profile in profiles:
         body = client.load_profile(profile.id)
         write_json(dest / f"{profile.id}.json", body)

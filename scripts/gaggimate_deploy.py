@@ -27,7 +27,16 @@ def run_script(script: str, args: list[str], *, dry_run: bool) -> None:
     print(f"\n→ {' '.join(command)}")
     if dry_run:
         return
-    subprocess.run(command, cwd=ROOT, check=True)
+    try:
+        subprocess.run(command, cwd=ROOT, check=True)
+    except subprocess.CalledProcessError as error:
+        if script == "release.sh":
+            print(
+                "\nRelease failed. If the tree is dirty only under data/p or data/h after pull, "
+                "re-run deploy (it passes --allow-pulled-data). Otherwise commit or stash first.",
+                file=sys.stderr,
+            )
+        raise SystemExit(error.returncode) from error
 
 
 def load_manifest() -> dict:
@@ -228,6 +237,8 @@ def main() -> int:
             release_args = ["--yes", *release_args]
         if args.dry_run and "--dry-run" not in release_args:
             release_args = ["--dry-run", *release_args]
+        if do_pull and "--allow-pulled-data" not in release_args:
+            release_args = ["--allow-pulled-data", *release_args]
         run_script("release.sh", release_args, dry_run=args.dry_run)
 
     if do_ota:
