@@ -21,7 +21,7 @@ import { faCrosshairs } from '@fortawesome/free-solid-svg-icons/faCrosshairs';
 const ledControl = computed(() => machine.value.capabilities.ledControl);
 const pressureAvailable = computed(() => machine.value.capabilities.pressure);
 const dimmingAvailable = computed(() => machine.value.capabilities.dimming);
-const showPumpFlowCoeffs = computed(() => dimmingAvailable.value);
+const showPumpFlowCoeffs = computed(() => pressureAvailable.value);
 const showPumpConfig = computed(() => showPumpFlowCoeffs.value);
 const tofDistance = computed(() => machine.value.status.tofDistance);
 
