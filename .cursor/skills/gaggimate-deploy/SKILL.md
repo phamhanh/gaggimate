@@ -24,6 +24,14 @@ git status                              # must be clean
 
 **Do not pass `--no-backup` unless the user explicitly wants the faster path** (SPIFFS may ship stale `data/p` or seed profiles).
 
+## Shell execution
+
+Deploy scripts are long-running (~10–15 min). **Run them in the foreground with visible terminal output** — the user must see progress in the terminal panel.
+
+- **Do not** start `./scripts/deploy.sh`, `./scripts/update-device.sh`, `./scripts/backup-spiffs-data.sh`, or related ship scripts in the background (`block_until_ms: 0`, background shell, or equivalent hidden execution).
+- Use a long `block_until_ms` (e.g. `900000` for 15 minutes) or poll the same shell with `Await` until the script exits — keep one terminal session so output stays visible.
+- Do not suppress or redirect stdout/stderr away from the user; surface key milestones (backup, build, publish, OTA, verify) from the live terminal output.
+
 ## Default steps (agents)
 
 1. **Backup** — profiles + shots from `gaggimate.local` → `data/p/`, `data/h/`

@@ -27,6 +27,8 @@ git status                              # must be clean; device on LAN for backu
 
 `release.sh` is internal (build engine). `deploy.sh` sets `GAGGIMATE_FROM_DEPLOY=1` when calling it.
 
+**Shell execution:** run all ship scripts in the foreground with visible terminal output — see [gaggimate-deploy](gaggimate-deploy/SKILL.md#shell-execution).
+
 ## Default steps (agents)
 
 1. **Backup** — profiles + shots from `gaggimate.local` → `data/p/`, `data/h/`
