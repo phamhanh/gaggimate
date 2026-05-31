@@ -2,6 +2,49 @@
 
 This directory contains various utility scripts for development and debugging.
 
+## Firmware release (local)
+
+### `release.sh` / `build-firmware.sh`
+
+Build firmware locally and publish OTA binaries to [GitHub Releases](https://github.com/phamhanh/gaggimate/releases). Replaces the old tag-only release script and GitHub Actions build workflows.
+
+**One-time setup:**
+
+```bash
+brew install gh
+gh auth login
+```
+
+**Typical release** (after pushing commits to `master` with a clean working tree):
+
+```bash
+./scripts/release.sh --yes
+```
+
+This auto-bumps the patch version (e.g. `v1.9.0` → `v1.9.1`), tags locally before building (so firmware embeds the exact version), compiles all targets, uploads bins to GitHub, and pushes `master` + the tag.
+
+**Options:**
+
+```bash
+./scripts/release.sh --dry-run              # show plan, no changes
+./scripts/release.sh --build-only           # compile to out/ only
+./scripts/release.sh --minor --yes          # bump minor instead of patch
+./scripts/release.sh v1.9.2 --no-push       # explicit version, skip git push
+./scripts/release.sh --display-only --yes   # skip controller + headless
+./scripts/release.sh --force --yes          # replace existing tag/release
+```
+
+**Build only** (no tag, publish, or push):
+
+```bash
+./scripts/build-firmware.sh --version v1.9.1
+./scripts/build-firmware.sh --display-only --skip-web
+```
+
+Artifacts land in `out/` with OTA-expected names (`display-firmware.bin`, `display-filesystem.bin`, `board-firmware.bin`, etc.).
+
+See `.cursor/skills/gaggimate-release/SKILL.md` for agent-oriented release steps and OTA warnings.
+
 ## Profile maintenance (device WebSocket)
 
 ### `gaggimate_profiles.py` / `gaggimate-profiles.sh`

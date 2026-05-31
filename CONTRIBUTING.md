@@ -93,8 +93,22 @@ When building the firmware, the `scripts/build_spiffs.sh` script installs the we
    | Display Firmware    | `platformio run -e display -t upload -t monitor`                                       |
    | Controller Firmware | `platformio run -e controller -t upload -t monitor`                                    |
    | Web UI              | <pre>scripts/build_spiffs.sh<br>platformio run -e display -t uploadfs -t monitor</pre> |
+   | **GitHub Release**  | `./scripts/release.sh --yes` (builds locally, publishes OTA bins)                      |
 
    **NOTE**: You can omit `-t monitor` if you don't want to immediately attach to the board's serial console.
+
+   ### Releasing firmware (this fork)
+
+   Releases are built and published from your Mac — not via GitHub Actions.
+
+   ```shell
+   git push origin master          # commit changes first; working tree must be clean
+   ./scripts/release.sh --yes      # auto-bump patch, build, publish, push tag
+   ```
+
+   One-time setup: `brew install gh && gh auth login`
+
+   See `scripts/README.md` and `.cursor/skills/gaggimate-release/SKILL.md` for flags, OTA notes, and troubleshooting.
 
 ## Code Style
 
