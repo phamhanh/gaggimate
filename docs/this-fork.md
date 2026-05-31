@@ -6,7 +6,7 @@ I run [Gaggimate](https://github.com/jniebuhr/gaggimate) on my **Iberital Expres
 
 The Iberital Express is a Silvia-class single-boiler machine — mechanically similar to the Rancilio Silvia, which Gaggimate also supports (the "Sylva" build). It is a precursor to the Lelit Anna. The boiler is roughly 60 mm wide × 100 mm tall (~280 ml), similar in volume to a Gaggia Classic brass boiler.
 
-I found this machine and confirmed it works with Gaggimate. If you have one and are trying to do the same, the Sylva build profile is your closest starting point.
+I found this machine and confirmed it works with Gaggimate. If you have one and are trying to do the same, the Sylva build profile is your closest starting point. Connectors and thermocouples are the same type as the Silvia — I damaged a few during assembly and sourced replacements through the AliExpress links Gaggimate provides.
 
 ## Why this fork exists
 
@@ -60,6 +60,7 @@ Developed iteratively with AI:
 - **During flow** — latch **I only**; **Kff adds** on measured flow. P/D **updates frozen** — they no longer overreact to a cold-looking probe mid-shot.
 - **After flow (grace)** — same **I-only** hold, **no Kff**. Grace stops **PID** from reacting to the lagging probe after flow stops. It does **not** excuse a big overshoot: that heat was already added by **Kff during the shot** if the spike appears.
 - **Inlet temp** — manual setting until a real inlet probe exists (see [thermal-kff-tuning.md](thermal-kff-tuning.md)); water **pre-heats in the machine plumbing**, so a room-temp guess is often wrong.
+- **Grace period (60 s default)** — measured empirically: ran a test shot, then held the valve open with flow at 0.1 g/s and watched how long it took for temperature to stabilize. Kff was technically active at that trickle but not meaningfully contributing; PID stayed frozen at I. 60 s was where `ct` reliably settled.
 - **Kff enable toggle** in Settings — I leave it on.
 
 ### What I tried and did not keep
@@ -81,7 +82,7 @@ I added **0.1 °C** dials, a softer thermocouple filter, and **inlet water ±** 
 
 The fundamental problem is that cold water enters the boiler during a shot and the inlet probe can only react, never anticipate. The only way to eliminate temperature sag entirely is to **heat the water before it reaches the boiler**.
 
-The plan: install a spare heater block on the inlet line, controlled by a **second PID** reading its own temperature probe. That block brings water up to close to target temperature before it enters the boiler — so instead of cold water quenching the boiler mid-shot, the boiler receives water that is already nearly at temperature.
+The plan: take a replacement heater block from any standard cheap espresso machine and plumb it between the pump and the boiler inlet using **6 mm hoses**. A **T-connector** in the line carries a **1 mm thermocouple fitting** with a probe seated at the exit end of the block — inside the block, measuring actual exit temperature. That gives accurate closed-loop control of what the boiler actually receives.
 
 With that in place the control architecture becomes clean:
 
@@ -112,6 +113,12 @@ I killed this boiler's heater element twice. Both are instructive.
 
 **Second time — pump assist bug + my own mistake.** I was testing the pressure venting code, going back and forth on the machine, and did not notice the pump was never assisting to refill the boiler during steam mode. The boiler ran dry and the element burned out. I had also disabled the steam refilling plugin at the time, which removed the last safeguard. If pump assist had worked correctly there would have been enough water to survive. This is what motivated the pump assist fix above.
 
+## Why this matters
+
+I roast my own coffee and grind it on a motorized hand grinder built for ultra-slow 12 RPM extraction (see [See also](#see-also)). The goal is a genuinely great espresso on a budget — not approximate, not "good enough." I know it is possible. The firmware work here is one piece of that.
+
+But the deeper reason: there is a moment — when the coffee, the beans, the labour, the earth, the effort over generations all come together in a swirling rollercoaster ride of taste and sensation — every chanda new, surprising, revealing, leaving you wondering what just happened. That is why.
+
 ## How this was built
 
 I did not write the C++ myself. All firmware changes were made through conversation with **Claude Code** and **Cursor** — describing the problem, reviewing diffs, iterating on behaviour. The PID freeze / Kff approach in particular went through many rounds of "the shot ran too hot / too cool, here is the graph, what should change."
@@ -129,3 +136,4 @@ If you landed here by accident, use [upstream Gaggimate](https://github.com/jnie
 - [README](../README.md) — upstream-shaped overview
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — release commands for this fork
 - **Motorized MHW-3BOMBER R3 hand grinder** (same author): [Instructables build](https://www.instructables.com/Motorizing-Coffee-Hand-Grinder-MHW-3BOMBER-R3-Into/) · [Reddit thread](https://www.reddit.com/r/espresso/comments/1ret457/diy_motorizing_hand_grinder_mhw3bomber_r3_for/)
+- **Dharma talk on coffee and mindfulness** (Plum Village, same author): [YouTube](https://www.youtube.com/watch?v=kfcxVhuTZy0&list=PLaX_vxbhs8fg2xlfYszcY9vAW88Z9uBhV&index=4)
