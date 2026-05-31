@@ -104,8 +104,35 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
-latest_semver_tag() {
-  git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1
+semver_tags() {
+  grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true
+}
+
+# Source of truth: highest semver tag on origin (GitHub), not local state.
+latest_origin_semver_tag() {
+  local remote local_tag
+
+  remote="$(
+    git ls-remote --tags origin 2>/dev/null \
+      | awk '{print $2}' \
+      | sed 's|refs/tags/||' \
+      | semver_tags \
+      | sort -u -V \
+      | tail -1
+  )"
+  if [[ -n "$remote" ]]; then
+    echo "$remote"
+    return
+  fi
+
+  local_tag="$(git tag -l 'v*' | semver_tags | sort -V | tail -1)"
+  [[ -n "$local_tag" ]] || return 0
+  echo "$local_tag"
+}
+
+remote_tag_sha() {
+  local version="$1"
+  git ls-remote origin "refs/tags/$version" 2>/dev/null | awk '{print $1}' | head -1
 }
 
 bump_version() {
@@ -161,24 +188,25 @@ preflight() {
 }
 
 resolve_version() {
+  local latest
+
   if [[ -n "$EXPLICIT_VERSION" ]]; then
     VERSION="$EXPLICIT_VERSION"
     return
   fi
 
-  local latest
-  latest="$(latest_semver_tag)"
-  [[ -n "$latest" ]] || die "No semver tag found matching vX.Y.Z — pass an explicit VERSION"
+  latest="$(latest_origin_semver_tag)"
+  [[ -n "$latest" ]] || die "No semver tag on origin — pass an explicit VERSION"
 
   VERSION="$(bump_version "$latest" "$BUMP")"
+  # Ignore stale local tags or partial releases: keep bumping until origin is free.
+  while [[ -n "$(remote_tag_sha "$VERSION")" ]]; do
+    VERSION="$(bump_version "$VERSION" patch)"
+  done
 }
 
 validate_version() {
   [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Invalid version format: $VERSION (expected vX.Y.Z)"
-
-  if git rev-parse "$VERSION" >/dev/null 2>&1; then
-    [[ "$FORCE" -eq 1 ]] || die "Tag $VERSION already exists (use --force to replace)"
-  fi
 }
 
 build_args() {
@@ -193,7 +221,7 @@ print_plan() {
 Release plan
 ============
 Version:       $VERSION
-Bump:          $(if [[ -n "$EXPLICIT_VERSION" ]]; then echo "explicit ($EXPLICIT_VERSION)"; else echo "$BUMP from $(latest_semver_tag)"; fi)
+Bump:          $(if [[ -n "$EXPLICIT_VERSION" ]]; then echo "explicit ($EXPLICIT_VERSION)"; else echo "$BUMP from $(latest_origin_semver_tag) (origin)"; fi)
 Build only:    $([[ "$BUILD_ONLY" -eq 1 ]] && echo yes || echo no)
 Display only:  $([[ "$DISPLAY_ONLY" -eq 1 ]] && echo yes || echo no)
 Dry run:       $([[ "$DRY_RUN" -eq 1 ]] && echo yes || echo no)
@@ -226,9 +254,7 @@ confirm() {
 
 tag_version() {
   if git rev-parse "$VERSION" >/dev/null 2>&1; then
-    if [[ "$FORCE" -eq 1 ]]; then
-      git tag -d "$VERSION"
-    fi
+    git tag -d "$VERSION"
   fi
   git tag "$VERSION"
 }
@@ -263,11 +289,13 @@ push_refs() {
   if git push origin "$VERSION" 2>/dev/null; then
     return
   fi
-  local remote_sha local_sha
-  remote_sha="$(git ls-remote origin "refs/tags/$VERSION" | awk '{print $1}')"
+  local remote_sha local_sha head_sha
+  remote_sha="$(remote_tag_sha "$VERSION")"
   local_sha="$(git rev-parse "$VERSION^{commit}")"
-  if [[ -n "$remote_sha" && "$remote_sha" != "$local_sha" ]]; then
-    die "Tag $VERSION on remote ($remote_sha) differs from local ($local_sha). Re-run with --force to move the tag, or bump the version."
+  head_sha="$(git rev-parse HEAD)"
+  if [[ -n "$remote_sha" && "$remote_sha" != "$local_sha" && "$local_sha" == "$head_sha" ]]; then
+    git push --force origin "$VERSION"
+    return
   fi
   die "Failed to push tag $VERSION"
 }
