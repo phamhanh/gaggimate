@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Pull profiles and shot history from a Gaggimate device into data/p and data/h
+Pull profiles and shot history from your Gaggimate (gaggimate.local) into gitignored
+data/p and data/h for SPIFFS — not from GitHub.
 for SPIFFS build, with an optional device-data snapshot archive.
 """
 
@@ -66,7 +67,6 @@ def pull_profiles(
         return len(profiles), selected_id
 
     wipe_dir(dest)
-    (dest / ".keep").touch()
     for profile in profiles:
         body = client.load_profile(profile.id)
         write_json(dest / f"{profile.id}.json", body)

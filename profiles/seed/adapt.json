@@ -1,107 +1,52 @@
 {
-  "id": "lmleva",
-  "label": "Damian's LM Leva",
+  "id": "adapt",
+  "label": "Adaptive v2",
   "type": "pro",
-  "description": "Light to Medium Roasts - Very Fine - 20-45 - 1:2.0 - 2.5 | Simulates La Marzocco Leva",
-  "temperature": 89,
+  "description": "Light to Medium - Fine - 25-40s - 1:2-2.5",
+  "temperature": 93,
+  "favorite": true,
+  "selected": false,
+  "utility": false,
   "phases": [
     {
-      "name": "fill start",
+      "name": "Prefill",
       "phase": "preinfusion",
-      "valve": 1,
-      "duration": 2,
-      "temperature": 89,
-      "transition": {
-        "type": "instant",
-        "duration": 0,
-        "adaptive": false
-      },
-      "pump": {
-        "target": "pressure",
-        "pressure": 1.8,
-        "flow": 0
-      },
-      "targets": [
-        {
-          "type": "pumped",
-          "operator": "gte",
-          "value": 100
-        }
-      ]
-    },
-    {
-      "name": "fill",
-      "phase": "preinfusion",
-      "valve": 1,
-      "duration": 20,
-      "temperature": 89,
-      "transition": {
-        "type": "instant",
-        "duration": 0,
-        "adaptive": false
-      },
-      "pump": {
-        "target": "pressure",
-        "pressure": 1.8,
-        "flow": 0
-      },
-      "targets": [
-        {
-          "type": "pumped",
-          "operator": "gte",
-          "value": 100
-        },
-        {
-          "type": "pressure",
-          "operator": "gte",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "name": "preinfusion",
-      "phase": "preinfusion",
-      "valve": 1,
-      "duration": 10,
-      "temperature": 88.5,
-      "transition": {
-        "type": "instant",
-        "duration": 0,
-        "adaptive": false
-      },
-      "pump": {
-        "target": "pressure",
-        "pressure": 2.2,
-        "flow": 0
-      },
-      "targets": [
-        {
-          "type": "pumped",
-          "operator": "gte",
-          "value": 100
-        },
-        {
-          "type": "pressure",
-          "operator": "gte",
-          "value": 4
-        }
-      ]
-    },
-    {
-      "name": "rise",
-      "phase": "brew",
       "valve": 1,
       "duration": 5,
-      "temperature": 88,
+      "temperature": 93,
+      "transition": {
+        "type": "ease-out",
+        "duration": 2,
+        "adaptive": true
+      },
+      "pump": {
+        "target": "flow",
+        "pressure": 0,
+        "flow": 8
+      },
+      "targets": [
+        {
+          "type": "pumped",
+          "operator": "gte",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "name": "Fill",
+      "phase": "preinfusion",
+      "valve": 1,
+      "duration": 12,
+      "temperature": 93,
       "transition": {
         "type": "instant",
         "duration": 0,
-        "adaptive": false
+        "adaptive": true
       },
       "pump": {
-        "target": "pressure",
-        "pressure": 8,
-        "flow": 0
+        "target": "flow",
+        "pressure": 0,
+        "flow": 8
       },
       "targets": [
         {
@@ -112,24 +57,24 @@
         {
           "type": "pressure",
           "operator": "gte",
-          "value": 8
+          "value": 3
         }
       ]
     },
     {
-      "name": "hold",
-      "phase": "brew",
+      "name": "Compressing",
+      "phase": "preinfusion",
       "valve": 1,
-      "duration": 5,
+      "duration": 12,
       "temperature": 88,
       "transition": {
-        "type": "instant",
-        "duration": 0,
-        "adaptive": false
+        "type": "ease-out",
+        "duration": 2,
+        "adaptive": true
       },
       "pump": {
         "target": "pressure",
-        "pressure": 8,
+        "pressure": 3,
         "flow": 0
       },
       "targets": [
@@ -140,26 +85,77 @@
         },
         {
           "type": "flow",
-          "operator": "gte",
-          "value": 1.5
+          "operator": "lte",
+          "value": 3
         }
       ]
     },
     {
-      "name": "decline",
-      "phase": "brew",
+      "name": "Dripping",
+      "phase": "preinfusion",
       "valve": 1,
-      "duration": 58,
+      "duration": 6,
       "temperature": 88,
       "transition": {
-        "type": "linear",
-        "duration": 58,
+        "type": "ease-out",
+        "duration": 2,
         "adaptive": true
       },
       "pump": {
         "target": "pressure",
-        "pressure": 2.2,
+        "pressure": 0.1,
         "flow": 0
+      }
+    },
+    {
+      "name": "Pressurize",
+      "phase": "brew",
+      "valve": 1,
+      "duration": 6,
+      "temperature": 88,
+      "transition": {
+        "type": "linear",
+        "duration": 6,
+        "adaptive": true
+      },
+      "pump": {
+        "target": "pressure",
+        "pressure": 11,
+        "flow": 3.5
+      },
+      "targets": [
+        {
+          "type": "pumped",
+          "operator": "gte",
+          "value": 100
+        },
+        {
+          "type": "pressure",
+          "operator": "gte",
+          "value": 8.8
+        },
+        {
+          "type": "volumetric",
+          "operator": "gte",
+          "value": 38
+        }
+      ]
+    },
+    {
+      "name": "Extraction",
+      "phase": "brew",
+      "valve": 1,
+      "duration": 60,
+      "temperature": 88,
+      "transition": {
+        "type": "instant",
+        "duration": 0,
+        "adaptive": true
+      },
+      "pump": {
+        "target": "flow",
+        "pressure": 9.5,
+        "flow": -1
       },
       "targets": [
         {
@@ -170,7 +166,7 @@
         {
           "type": "volumetric",
           "operator": "gte",
-          "value": 36
+          "value": 38
         }
       ]
     }

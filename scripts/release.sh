@@ -26,7 +26,6 @@ BUILD_ONLY=0
 NO_PUSH=0
 DISPLAY_ONLY=0
 FORCE=0
-ALLOW_PULLED_DATA=0
 EXPLICIT_VERSION=''
 
 usage() {
@@ -45,8 +44,6 @@ Options:
   --no-push        Tag, build, and publish; skip git push
   --display-only   Skip controller and display-headless builds
   --force          Replace an existing tag/release
-  --allow-pulled-data
-                   Ignore dirty data/p/, data/h/, device-data/ (used by deploy after pull)
   -h, --help       Show this help
 
 VERSION            Explicit version override, e.g. v1.9.1
@@ -69,7 +66,6 @@ while [[ $# -gt 0 ]]; do
     --no-push) NO_PUSH=1; shift ;;
     --display-only) DISPLAY_ONLY=1; shift ;;
     --force) FORCE=1; shift ;;
-    --allow-pulled-data) ALLOW_PULLED_DATA=1; shift ;;
     -h | --help)
       usage
       exit 0
@@ -93,43 +89,6 @@ die() {
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
-}
-
-# Paths that deploy pull intentionally rewrites before buildfs (not firmware source).
-is_pulled_data_path() {
-  local path="$1"
-  [[ "$path" == data/p/* || "$path" == data/p ]] && return 0
-  [[ "$path" == data/h/* || "$path" == data/h ]] && return 0
-  [[ "$path" == device-data/* || "$path" == device-data ]] && return 0
-  return 1
-}
-
-working_tree_dirty_outside_pulled_data() {
-  local line path
-  while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-    path="${line:3}"
-    if is_pulled_data_path "$path"; then
-      continue
-    fi
-    printf '%s\n' "$line"
-  done < <(git status --porcelain)
-}
-
-assert_clean_working_tree() {
-  local dirty outside
-  dirty="$(git status --porcelain)"
-  [[ -z "$dirty" ]] && return 0
-
-  if [[ "$ALLOW_PULLED_DATA" -eq 1 ]]; then
-    outside="$(working_tree_dirty_outside_pulled_data)"
-    [[ -z "$outside" ]] && return 0
-    echo "$outside" >&2
-    die "Working tree has uncommitted changes outside pulled SPIFFS data (data/p, data/h, device-data)"
-  fi
-
-  echo "$dirty" >&2
-  die "Working tree is dirty — commit or stash changes before releasing (prevents vX.Y.Z-dirty in firmware)"
 }
 
 latest_semver_tag() {
@@ -182,8 +141,9 @@ preflight() {
 
   git fetch origin --tags
 
-  if [[ "$DRY_RUN" -eq 0 ]]; then
-    assert_clean_working_tree
+  if [[ "$DRY_RUN" -eq 0 && -n "$(git status --porcelain)" ]]; then
+    git status --short >&2
+    die "Working tree is dirty — commit or stash changes before releasing (prevents vX.Y.Z-dirty in firmware)"
   fi
 }
 

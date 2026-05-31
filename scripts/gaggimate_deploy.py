@@ -22,21 +22,28 @@ MANIFEST_PATH = ROOT / "out" / "release-manifest.json"
 OTA_PHASE_FINISHED = 4
 
 
+def assert_clean_git_tree() -> None:
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    dirty = result.stdout.strip()
+    if not dirty:
+        return
+    print("Working tree is dirty — commit or stash before deploy:\n", file=sys.stderr)
+    print(dirty, file=sys.stderr)
+    raise SystemExit(1)
+
+
 def run_script(script: str, args: list[str], *, dry_run: bool) -> None:
     command = [str(ROOT / "scripts" / script), *args]
     print(f"\n→ {' '.join(command)}")
     if dry_run:
         return
-    try:
-        subprocess.run(command, cwd=ROOT, check=True)
-    except subprocess.CalledProcessError as error:
-        if script == "release.sh":
-            print(
-                "\nRelease failed. If the tree is dirty only under data/p or data/h after pull, "
-                "re-run deploy (it passes --allow-pulled-data). Otherwise commit or stash first.",
-                file=sys.stderr,
-            )
-        raise SystemExit(error.returncode) from error
+    subprocess.run(command, cwd=ROOT, check=True)
 
 
 def load_manifest() -> dict:
@@ -183,6 +190,9 @@ def main() -> int:
         print("Error: --release-only and --update-only are mutually exclusive", file=sys.stderr)
         return 1
 
+    if not args.dry_run:
+        assert_clean_git_tree()
+
     host, port = parse_host(args.host)
     plan_lines = ["Deploy plan", "==========="]
 
@@ -191,7 +201,7 @@ def main() -> int:
     do_ota = not args.release_only
 
     if do_pull:
-        plan_lines.append(f"1. Pull profiles + shots from {host}")
+        plan_lines.append(f"1. Pull profiles + shots from Gaggimate at {host} (not GitHub)")
     if do_release:
         plan_lines.append(f"2. Release ({' '.join(args.release_args) or 'default flags'})")
     if do_ota:
@@ -237,8 +247,6 @@ def main() -> int:
             release_args = ["--yes", *release_args]
         if args.dry_run and "--dry-run" not in release_args:
             release_args = ["--dry-run", *release_args]
-        if do_pull and "--allow-pulled-data" not in release_args:
-            release_args = ["--allow-pulled-data", *release_args]
         run_script("release.sh", release_args, dry_run=args.dry_run)
 
     if do_ota:

@@ -4,6 +4,10 @@
 rm -rf data/w
 mkdir -p data/w
 mkdir -p data/p
+if ! compgen -G "data/p/"'*.json' > /dev/null; then
+  echo "Seeding data/p from profiles/seed (no device pull present)..."
+  cp profiles/seed/*.json data/p/
+fi
 
 # Build web application
 cd web || exit

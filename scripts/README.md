@@ -67,7 +67,9 @@ Pull profiles and shot history from the machine into `data/p/` and `data/h/`, bu
 ./scripts/pull-spiffs-data.sh --dry-run           # preview counts only
 ```
 
-Snapshots land in `device-data/snapshots/` (gitignored). Pulled shot binaries go to `data/h/` (gitignored). Seed profiles in `data/p/` are overwritten on pull.
+Snapshots land in `device-data/snapshots/` (gitignored). Pulled data goes to gitignored `data/p/` and `data/h/`. Factory seed profiles live in `profiles/seed/`; builds copy them into `data/p/` only when no pull data is present.
+
+Deploy requires a **clean git tree** before it starts (commit or stash code changes first). Pull does not touch GitHub.
 
 `build-firmware.sh` runs `spiffs_budget.py` before `buildfs` and writes `out/release-manifest.json`.
 

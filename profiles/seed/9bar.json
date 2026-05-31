@@ -4,6 +4,9 @@
   "type": "standard",
   "description": "",
   "temperature": 93,
+  "favorite": true,
+  "selected": false,
+  "utility": false,
   "phases": [
     {
       "name": "Pump",

@@ -4,6 +4,9 @@
   "type": "pro",
   "description": "Darker Roasts - Very Fine- 40-60s - 1:1.5-2.2",
   "temperature": 86.5,
+  "favorite": true,
+  "selected": false,
+  "utility": false,
   "phases": [
     {
       "name": "preinfusion start",

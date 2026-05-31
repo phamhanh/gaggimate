@@ -10,6 +10,8 @@ description: >-
 
 One workflow preserves profiles and shot history by **baking device data into `display-filesystem.bin`** before OTA. No post-OTA WebSocket restore is required.
 
+**Pull = from your machine on the LAN** (`gaggimate.local`), not from GitHub. GitHub is only used in the **release** step (build + upload) and **OTA** step (device downloads firmware).
+
 Depends on [`gaggimate-release`](gaggimate-release/SKILL.md) for release semantics.
 
 ## Tool location
@@ -25,9 +27,10 @@ Depends on [`gaggimate-release`](gaggimate-release/SKILL.md) for release semanti
 ## Typical workflow
 
 ```bash
-git status                    # release requires clean tree
-./scripts/deploy.sh --dry-run # preview pull counts + release + OTA plan
-./scripts/deploy.sh --yes     # pull → release → OTA (~10–15 min)
+git status                    # must be clean — deploy stops immediately if dirty
+git commit -am "..."          # commit firmware changes before deploy
+./scripts/deploy.sh --dry-run # preview (no clean-tree check in dry-run)
+./scripts/deploy.sh --yes     # pull from device → release to GitHub → OTA (~10–15 min)
 ```
 
 ## CLI reference
@@ -39,7 +42,7 @@ git status                    # release requires clean tree
 --yes                 Skip confirmation prompts
 --release-only        Pull + release; skip OTA
 --update-only         OTA only (uses existing out/)
---no-pull             Skip pull (CI / seed data in data/p)
+--no-pull             Skip device pull (use existing data/p or profiles/seed fallback)
 --dry-run             Show plan only
 --timeout SEC         OTA wait (default 600)
 
@@ -67,7 +70,8 @@ Pass-through to release.sh after --:
 | Local | On device | Content |
 |-------|-----------|---------|
 | `data/w/` | `/w/` | Web UI (from `build_spiffs.sh`) |
-| `data/p/` | `/p/` | Profile JSON |
+| `data/p/` (gitignored) | `/p/` | Profile JSON from device pull |
+| `profiles/seed/` | — | Factory defaults copied if `data/p/` empty |
 | `data/h/` | `/h/` | Shot `.slog`, notes `.json`, `index.bin` |
 
 Partition budget: **3,538,944 bytes** (`0x360000` on `default_16MB.csv`), with 128 KB reserved for metadata (`spiffs_budget.py`).
