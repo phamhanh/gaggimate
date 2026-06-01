@@ -45,7 +45,7 @@ void setTempLabel(lv_obj_t *label, const float celsius) {
 // "Selected profile".
 // ---------------------------------------------------------------------------
 
-enum class BrewSteamState { None, Heating, Ready, Cooling, Brewing };
+enum class BrewSteamState { None, Heating, Ready, Cooling, Brewing, FreezeGrace, Venting };
 
 constexpr int kSteamRootW = 120;
 constexpr int kSteamRootH = 96;
@@ -72,6 +72,10 @@ lv_color_t brewSteamColor(BrewSteamState s) {
         return lv_color_hex(0x5BB8FF); // blue — shedding heat / settling
     case BrewSteamState::Brewing:
         return lv_color_hex(0xFFFFFF); // white — actively pulling a shot
+    case BrewSteamState::FreezeGrace:
+        return lv_color_hex(0x5BE0FF); // cyan — latent heat settling, a waiting state
+    case BrewSteamState::Venting:
+        return lv_color_hex(0xFFFFFF); // white — releasing pressure
     default:
         return lv_color_hex(0xFFFFFF);
     }
@@ -96,8 +100,11 @@ struct BrewSteamUI {
     lv_obj_t *root = nullptr;
     lv_obj_t *cup = nullptr;
     lv_obj_t *check = nullptr; // badge shown only in the Ready state
+    lv_obj_t *waves = nullptr; // settling water, shown only in Freeze grace
+    lv_obj_t *wind = nullptr;  // wind gust, shown only while Venting
     lv_obj_t *wisps[kSteamWispCount] = {nullptr};
     BrewSteamState state = BrewSteamState::None;
+    const struct BrewColorGradient *colorGradient = nullptr; // active multi-colour shift, or null for a static hue
 };
 BrewSteamUI g_brewSteam;
 
@@ -109,6 +116,106 @@ void brewSteamOpaCb(void *obj, int32_t v) {
 void brewSteamApplyColor(lv_obj_t *img, lv_color_t color) {
     lv_obj_set_style_img_recolor(img, color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_img_recolor_opa(img, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+// ---------------------------------------------------------------------------
+// Multi-colour spectrum shift. Each dynamic state owns a small list of RGB
+// "stops"; an LVGL animation drives a normalised position along that list and
+// a callback LERPs the R/G/B channels of the two surrounding stops to produce a
+// continuously shifting colour. All maths is integer-only (one multiply +
+// divide per channel) to stay light on the ESP32 and hold 30-60 FPS.
+// ---------------------------------------------------------------------------
+struct BrewColorGradient {
+    const uint32_t *stops; // 0xRRGGBB waypoints, traversed in order then back
+    uint8_t count;         // number of stops (>= 2)
+    uint32_t cycleMs;      // forward sweep duration; playback mirrors it for the return
+    bool smooth;           // true = ease-in-out (breathing), false = linear (jitter)
+};
+
+// 256 fixed-point steps per segment between adjacent stops.
+constexpr int32_t kBrewGradStep = 256;
+
+// Linear interpolation of one 8-bit channel; frac is 0..255.
+inline uint8_t brewLerp8(uint8_t a, uint8_t b, uint8_t frac) {
+    return static_cast<uint8_t>(static_cast<int>(a) + ((static_cast<int>(b) - static_cast<int>(a)) * frac) / 255);
+}
+
+// Sample the gradient at fixed-point position pos in [0, (count-1)*256].
+lv_color_t brewGradientColorAt(const BrewColorGradient &g, int32_t pos) {
+    const int32_t maxPos = (static_cast<int32_t>(g.count) - 1) * kBrewGradStep;
+    if (pos < 0) {
+        pos = 0;
+    } else if (pos > maxPos) {
+        pos = maxPos;
+    }
+    const int seg = static_cast<int>(pos / kBrewGradStep);
+    const uint8_t frac = static_cast<uint8_t>(pos % kBrewGradStep);
+    const int segNext = (seg < g.count - 1) ? seg + 1 : seg;
+    const uint32_t c0 = g.stops[seg];
+    const uint32_t c1 = g.stops[segNext];
+    const uint8_t r = brewLerp8((c0 >> 16) & 0xFF, (c1 >> 16) & 0xFF, frac);
+    const uint8_t grn = brewLerp8((c0 >> 8) & 0xFF, (c1 >> 8) & 0xFF, frac);
+    const uint8_t b = brewLerp8(c0 & 0xFF, c1 & 0xFF, frac);
+    return lv_color_make(r, grn, b);
+}
+
+// Multi-colour spectrums per dynamic state (see task spec). Stops are 0xRRGGBB.
+constexpr uint32_t kHeatingStops[] = {0x990000, 0xFF5500, 0xFFB300};  // deep red -> orange -> amber gold
+constexpr uint32_t kCoolingStops[] = {0x110066, 0x4040FF, 0x00DFFF};  // deep indigo -> electric blue -> bright cyan
+constexpr uint32_t kFreezeStops[] = {0xA5F2F3, 0xE0E0FF, 0x7FFFD4};   // ice blue -> pale violet/white -> soft mint cyan
+constexpr uint32_t kVentingStops[] = {0xFFFFFF, 0xD3D3D3, 0xA0C0F0};  // white -> light silver -> translucent blue
+
+constexpr BrewColorGradient kHeatingGradient{kHeatingStops, 3, 1400, true}; // breathing heating element
+constexpr BrewColorGradient kCoolingGradient{kCoolingStops, 3, 1800, true}; // slow liquid ocean shift
+constexpr BrewColorGradient kFreezeGradient{kFreezeStops, 3, 2600, true};   // slow settling-ice transition
+constexpr BrewColorGradient kVentingGradient{kVentingStops, 3, 280, false}; // rapid chaotic vapour jitter
+
+// Push a freshly-computed colour onto whichever widgets the active state draws.
+void brewSteamApplyDynamicColor(lv_color_t c) {
+    switch (g_brewSteam.state) {
+    case BrewSteamState::Heating:
+    case BrewSteamState::Cooling:
+        brewSteamApplyColor(g_brewSteam.cup, c);
+        for (int i = 0; i < kSteamWispCount; i++) {
+            brewSteamApplyColor(g_brewSteam.wisps[i], c);
+        }
+        break;
+    case BrewSteamState::FreezeGrace:
+        brewSteamApplyColor(g_brewSteam.waves, c);
+        break;
+    case BrewSteamState::Venting:
+        brewSteamApplyColor(g_brewSteam.wind, c);
+        break;
+    default:
+        break;
+    }
+}
+
+// LVGL anim exec callback: v is the fixed-point position along the active gradient.
+void brewSteamColorAnimCb(void *var, int32_t v) {
+    (void)var;
+    if (g_brewSteam.colorGradient == nullptr) {
+        return;
+    }
+    brewSteamApplyDynamicColor(brewGradientColorAt(*g_brewSteam.colorGradient, v));
+}
+
+// Start (or restart) the continuous colour shift for the active state. The anim
+// is anchored to the root so brewSteamSetState's lv_anim_del(root) cancels it.
+void brewSteamStartColorShift(const BrewColorGradient &g) {
+    g_brewSteam.colorGradient = &g;
+    brewSteamColorAnimCb(g_brewSteam.root, 0); // paint the first frame now (no flash of the static hue)
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_brewSteam.root);
+    lv_anim_set_values(&a, 0, (static_cast<int32_t>(g.count) - 1) * kBrewGradStep);
+    lv_anim_set_time(&a, g.cycleMs);
+    lv_anim_set_playback_time(&a, g.cycleMs); // sweep forward then smoothly back
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&a, g.smooth ? lv_anim_path_ease_in_out : lv_anim_path_linear);
+    lv_anim_set_exec_cb(&a, brewSteamColorAnimCb);
+    lv_anim_start(&a);
 }
 
 // (Re)start the rise + fade animations for one wisp according to the state motion.
@@ -149,6 +256,50 @@ void brewSteamStartWisp(lv_obj_t *w, int index, const BrewSteamMotion &m) {
     }
 }
 
+// Freeze grace: a slow side-to-side sway + breathing fade — water settling while
+// the system waits out its latent heat. Positioned absolutely within the root.
+void brewSteamStartWaves(lv_obj_t *w) {
+    lv_anim_del(w, nullptr);
+    const int baseX = (kSteamRootW - ui_img_steamwaves.header.w) / 2;
+    const int baseY = (kSteamRootH - ui_img_steamwaves.header.h) / 2;
+    lv_obj_set_pos(w, baseX, baseY);
+
+    lv_anim_t sway;
+    lv_anim_init(&sway);
+    lv_anim_set_var(&sway, w);
+    lv_anim_set_values(&sway, baseX - 5, baseX + 5);
+    lv_anim_set_time(&sway, 2000);
+    lv_anim_set_playback_time(&sway, 2000);
+    lv_anim_set_repeat_count(&sway, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&sway, lv_anim_path_ease_in_out);
+    lv_anim_set_exec_cb(&sway, reinterpret_cast<lv_anim_exec_xcb_t>(lv_obj_set_x));
+    lv_anim_start(&sway);
+
+    lv_anim_t fade;
+    lv_anim_init(&fade);
+    lv_anim_set_var(&fade, w);
+    lv_anim_set_values(&fade, 150, LV_OPA_COVER);
+    lv_anim_set_time(&fade, 1600);
+    lv_anim_set_playback_time(&fade, 1600);
+    lv_anim_set_repeat_count(&fade, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_exec_cb(&fade, brewSteamOpaCb);
+    lv_anim_start(&fade);
+}
+
+// Venting: a quick opacity flicker — a brief, energetic pressure release.
+void brewSteamStartWind(lv_obj_t *w) {
+    lv_anim_del(w, nullptr);
+    lv_anim_t flicker;
+    lv_anim_init(&flicker);
+    lv_anim_set_var(&flicker, w);
+    lv_anim_set_values(&flicker, 110, LV_OPA_COVER);
+    lv_anim_set_time(&flicker, 220);
+    lv_anim_set_playback_time(&flicker, 180);
+    lv_anim_set_repeat_count(&flicker, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_exec_cb(&flicker, brewSteamOpaCb);
+    lv_anim_start(&flicker);
+}
+
 void brewSteamBuild(lv_obj_t *parent) {
     lv_obj_t *root = lv_obj_create(parent);
     lv_obj_remove_style_all(root);
@@ -178,6 +329,23 @@ void brewSteamBuild(lv_obj_t *parent) {
     lv_obj_add_flag(check, LV_OBJ_FLAG_HIDDEN);
     g_brewSteam.check = check;
 
+    // Freeze grace: settling waves (wild river -> calm stream). Centred, hidden
+    // until that state. Its own gentle sway + breathing fade convey "waiting".
+    lv_obj_t *waves = lv_img_create(root);
+    lv_img_set_src(waves, &ui_img_steamwaves);
+    lv_obj_add_flag(waves, LV_OBJ_FLAG_HIDDEN); // positioned in brewSteamStartWaves
+    g_brewSteam.waves = waves;
+
+    // Venting: a wind gust (reused 80x80 asset), scaled down and centred, hidden
+    // until that state. Flickers quickly to read as a brief pressure release.
+    lv_obj_t *wind = lv_img_create(root);
+    lv_img_set_src(wind, &ui_img_783005998); // assets/wind-80x80
+    lv_img_set_pivot(wind, 40, 40);          // centre of the 80x80 source
+    lv_img_set_zoom(wind, 176);              // ~55 px (256 = 100%)
+    lv_obj_align(wind, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(wind, LV_OBJ_FLAG_HIDDEN);
+    g_brewSteam.wind = wind;
+
     g_brewSteam.state = BrewSteamState::None;
 }
 
@@ -195,7 +363,11 @@ void brewSteamEnsure(lv_obj_t *parent) {
     }
 }
 
-// Show the indicator in a given thermal/brew state (idempotent per state).
+// Show the indicator in a given state (idempotent per state). Each state owns a
+// different glyph: cup + steam for the thermal/brew states, settling waves for
+// Freeze grace, a wind gust for Venting. On every transition we cancel all
+// sub-animations and hide all sub-widgets, then re-show and re-animate only the
+// ones the new state uses, so nothing from the previous state lingers or leaks.
 void brewSteamSetState(BrewSteamState s) {
     if (g_brewSteam.root == nullptr || !lv_obj_is_valid(g_brewSteam.root)) {
         return;
@@ -206,29 +378,65 @@ void brewSteamSetState(BrewSteamState s) {
     }
     g_brewSteam.state = s;
 
+    // Reset: stop every sub-animation and hide every sub-widget.
+    lv_anim_del(g_brewSteam.root, nullptr); // cancels the colour-shift anim (anchored to root)
+    g_brewSteam.colorGradient = nullptr;
+    lv_anim_del(g_brewSteam.cup, nullptr);
+    lv_anim_del(g_brewSteam.check, nullptr);
+    lv_anim_del(g_brewSteam.waves, nullptr);
+    lv_anim_del(g_brewSteam.wind, nullptr);
+    lv_obj_add_flag(g_brewSteam.cup, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(g_brewSteam.waves, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(g_brewSteam.wind, LV_OBJ_FLAG_HIDDEN);
+    for (int i = 0; i < kSteamWispCount; i++) {
+        lv_anim_del(g_brewSteam.wisps[i], nullptr);
+        lv_obj_add_flag(g_brewSteam.wisps[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
     const lv_color_t color = brewSteamColor(s);
+
+    // Freeze grace: settling-ice spectrum over the swaying, breathing waves.
+    if (s == BrewSteamState::FreezeGrace) {
+        brewSteamApplyColor(g_brewSteam.waves, color);
+        lv_obj_clear_flag(g_brewSteam.waves, LV_OBJ_FLAG_HIDDEN);
+        brewSteamStartWaves(g_brewSteam.waves);
+        brewSteamStartColorShift(kFreezeGradient);
+        return;
+    }
+
+    // Venting: pressure-vapour jitter (white/silver/blue) over the flickering gust.
+    if (s == BrewSteamState::Venting) {
+        brewSteamApplyColor(g_brewSteam.wind, color);
+        lv_obj_clear_flag(g_brewSteam.wind, LV_OBJ_FLAG_HIDDEN);
+        brewSteamStartWind(g_brewSteam.wind);
+        brewSteamStartColorShift(kVentingGradient);
+        return;
+    }
+
+    // Thermal / brew states: the cup with rising steam wisps.
     const BrewSteamMotion motion = brewSteamMotion(s);
     brewSteamApplyColor(g_brewSteam.cup, color);
+    lv_obj_clear_flag(g_brewSteam.cup, LV_OBJ_FLAG_HIDDEN);
     for (int i = 0; i < kSteamWispCount; i++) {
         brewSteamApplyColor(g_brewSteam.wisps[i], color);
+        lv_obj_clear_flag(g_brewSteam.wisps[i], LV_OBJ_FLAG_HIDDEN);
         brewSteamStartWisp(g_brewSteam.wisps[i], i, motion);
     }
 
+    // Heating = breathing thermal glow; Cooling = liquid ocean shift. The cup +
+    // wisps recolour continuously; Ready/Brewing keep their flat hue from above.
+    if (s == BrewSteamState::Heating) {
+        brewSteamStartColorShift(kHeatingGradient);
+    } else if (s == BrewSteamState::Cooling) {
+        brewSteamStartColorShift(kCoolingGradient);
+    }
+
+    // Ready: a green check badge alongside the calm cup.
     if (s == BrewSteamState::Ready) {
         brewSteamApplyColor(g_brewSteam.check, color);
         lv_obj_clear_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
     }
-}
-
-// Hide the indicator (used for the text-only states like Venting / Freeze grace).
-void brewSteamHide() {
-    if (g_brewSteam.root == nullptr || !lv_obj_is_valid(g_brewSteam.root)) {
-        return;
-    }
-    lv_obj_add_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
-    g_brewSteam.state = BrewSteamState::None; // force re-apply next time it shows
 }
 } // namespace
 
@@ -554,6 +762,10 @@ void DefaultUI::onVolumetricDelete() {
 
 void DefaultUI::setupPanel() {
     ui_init();
+    // The brew-status icon/animation now carries the state and reclaims this row,
+    // so the static "Selected profile" caption is hidden for good. (We touch it
+    // here rather than in the SquareLine-generated screen file.)
+    lv_obj_add_flag(ui_BrewScreen_Label1, LV_OBJ_FLAG_HIDDEN);
     lv_task_handler();
 
     delay(100);
@@ -701,33 +913,21 @@ void DefaultUI::setupReactive() {
         [=]() {
             lv_obj_t *brewPanel = lv_obj_get_parent(ui_BrewScreen_mainLabel3);
             brewSteamEnsure(brewPanel);
-            // The animated cup carries the state wordlessly for the four thermal/brew
-            // states, so the label is cleared for those. Venting / Freeze grace are
-            // distinct contexts that keep a brief text and hide the animation.
+            // Every brew state is now carried by a purpose-built icon + animation,
+            // so the caption label stays empty in all of them.
+            lv_label_set_text(ui_BrewScreen_mainLabel3, "");
             if (active != 0) {
                 brewSteamSetState(BrewSteamState::Brewing); // white, strong steady steam
-                lv_label_set_text(ui_BrewScreen_mainLabel3, "");
-                return;
-            }
-            if (pidFreezeGraceActive != 0) {
-                brewSteamHide();
-                lv_label_set_text(ui_BrewScreen_mainLabel3, "Freeze grace");
-                return;
-            }
-            if (pressureAvailable != 0 && brewIdleVenting != 0) {
-                brewSteamHide();
-                lv_label_set_text(ui_BrewScreen_mainLabel3, "Venting...");
-                return;
-            }
-            if (stableTemp == 0) {
+            } else if (pidFreezeGraceActive != 0) {
+                brewSteamSetState(BrewSteamState::FreezeGrace); // cyan waves, settling/waiting
+            } else if (pressureAvailable != 0 && brewIdleVenting != 0) {
+                brewSteamSetState(BrewSteamState::Venting); // white wind gust, flickering
+            } else if (stableTemp == 0) {
                 // Not at target yet: amber rising steam when below, blue drifting steam when above.
                 brewSteamSetState(currentTemp > targetTemp ? BrewSteamState::Cooling : BrewSteamState::Heating);
-                lv_label_set_text(ui_BrewScreen_mainLabel3, "");
-                return;
+            } else {
+                brewSteamSetState(BrewSteamState::Ready); // green calm steam + check badge
             }
-            // Stable at target: green calm steam + check badge.
-            brewSteamSetState(BrewSteamState::Ready);
-            lv_label_set_text(ui_BrewScreen_mainLabel3, "");
         },
         &active, &pidFreezeGraceActive, &brewIdleVenting, &stableTemp, &pressureAvailable, &currentTemp,
         &targetTemp);
