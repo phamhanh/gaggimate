@@ -208,8 +208,11 @@ function computePhaseTargetDeltas(phases, calcMode) {
       targets.water.push(pumpedTarget.value);
     }
 
-    // Weight target (weight or volumetric)
-    const weightTarget = pp.targets?.find(t => t.type === 'weight' || t.type === 'volumetric');
+    // Weight target (scale, predicted, or legacy volumetric alias)
+    const weightTarget = pp.targets?.find(
+      t =>
+        t.type === 'weight' || t.type === 'predicted_weight' || t.type === 'volumetric',
+    );
     if (weightTarget && Number.isFinite(phase.weight)) {
       const calcKey = weightTarget.type;
       const calcVal = calcMode ? phase.targetCalcValues?.[calcKey] : null;

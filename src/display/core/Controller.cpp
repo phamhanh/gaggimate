@@ -655,8 +655,8 @@ void Controller::lowerTemp() {
 }
 
 void Controller::raiseBrewTarget() {
-    if (isVolumetricAvailable() && profileManager->getSelectedProfile().isVolumetric()) {
-        profileManager->getSelectedProfile().adjustVolumetricTarget(1);
+    if (isVolumetricAvailable() && profileManager->getSelectedProfile().hasWeightTarget()) {
+        profileManager->getSelectedProfile().adjustWeightTargets(1);
     } else {
         profileManager->getSelectedProfile().adjustDuration(1);
     }
@@ -664,8 +664,8 @@ void Controller::raiseBrewTarget() {
 }
 
 void Controller::lowerBrewTarget() {
-    if (isVolumetricAvailable() && profileManager->getSelectedProfile().isVolumetric()) {
-        profileManager->getSelectedProfile().adjustVolumetricTarget(-1);
+    if (isVolumetricAvailable() && profileManager->getSelectedProfile().hasWeightTarget()) {
+        profileManager->getSelectedProfile().adjustWeightTargets(-1);
     } else {
         profileManager->getSelectedProfile().adjustDuration(-1);
     }
@@ -810,7 +810,7 @@ void Controller::activate() {
     switch (mode) {
     case MODE_BREW:
         startProcess(new BrewProcess(profileManager->getSelectedProfile(),
-                                     profileManager->getSelectedProfile().isVolumetric() && isVolumetricAvailable()
+                                     profileManager->getSelectedProfile().hasWeightTarget() && isVolumetricAvailable()
                                          ? ProcessTarget::VOLUMETRIC
                                          : ProcessTarget::TIME,
                                      settings.getBrewDelay()));
@@ -1000,8 +1000,8 @@ void Controller::onFlush() {
 }
 
 void Controller::onVolumetricDelete() {
-    if (profileManager->getSelectedProfile().isVolumetric()) {
-        profileManager->getSelectedProfile().removeVolumetricTarget();
+    if (profileManager->getSelectedProfile().hasWeightTarget()) {
+        profileManager->getSelectedProfile().removeWeightTargets();
     }
 }
 

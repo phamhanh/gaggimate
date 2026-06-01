@@ -191,7 +191,7 @@ function Phase({ phase, index, onChange, onRemove, pressureAvailable }) {
       ...phase,
       targets: [
         {
-          type: 'volumetric',
+          type: 'predicted_weight',
           value: value,
         },
       ],
@@ -199,8 +199,9 @@ function Phase({ phase, index, onChange, onRemove, pressureAvailable }) {
   };
 
   const targets = phase?.targets || [];
-  const volumetricTarget = targets.find(t => t.type === 'volumetric') || {};
-  const targetWeight = volumetricTarget?.value || 0;
+  const weightTarget =
+    targets.find(t => t.type === 'predicted_weight' || t.type === 'volumetric') || {};
+  const targetWeight = weightTarget?.value || 0;
 
   const pumpPower = isNumber(phase.pump) ? phase.pump : 100;
   const pressure = !isNumber(phase.pump) ? phase.pump.pressure : 0;

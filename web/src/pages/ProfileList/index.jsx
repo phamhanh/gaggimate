@@ -490,10 +490,21 @@ function ProfileCard({
                     {totalDurationSeconds}s
                   </span>
                   {data.phases.length > 0 &&
-                    data.phases.at(-1)?.targets?.some(target => target.type === 'volumetric') && (
+                    data.phases
+                      .at(-1)
+                      ?.targets?.some(
+                        target => target.type === 'predicted_weight' || target.type === 'volumetric',
+                      ) && (
                       <span className='text-base-content/60 badge badge-xs md:badge-sm badge-outline'>
                         <FontAwesomeIcon icon={faScaleBalanced} />
-                        {`${data.phases.at(-1).targets.find(target => target.type === 'volumetric').value}g`}
+                        {`${
+                          data.phases
+                            .at(-1)
+                            .targets.find(
+                              target =>
+                                target.type === 'predicted_weight' || target.type === 'volumetric',
+                            ).value
+                        }g`}
                       </span>
                     )}
                   {data.phases.length > 0 && (
@@ -593,7 +604,7 @@ function SimpleStep(props) {
         {props.targets.map((t, i) => (
           <span key={i}>
             Exit on: {t.value}
-            {t.type === 'volumetric' && 'g'}
+            {(t.type === 'predicted_weight' || t.type === 'volumetric' || t.type === 'weight') && 'g'}
           </span>
         ))}
       </div>

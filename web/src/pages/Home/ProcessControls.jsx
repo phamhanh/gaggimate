@@ -57,7 +57,10 @@ const GrindProgress = props => {
           <div className='space-y-2 text-center'>
             <div className='text-base-content/60 text-xs sm:text-sm'>
               {processInfo.tt === 'time' && `${(processInfo.pt / 1000).toFixed(0)}s`}
-              {processInfo.tt === 'volumetric' && `${processInfo.pt.toFixed(1)}g`}
+              {(processInfo.tt === 'volumetric' ||
+                processInfo.tt === 'weight' ||
+                processInfo.tt === 'predicted_weight') &&
+                `${processInfo.pt.toFixed(1)}g`}
             </div>
             <div className='text-base-content text-2xl font-bold sm:text-3xl'>
               {formatDuration(elapsed)}
@@ -106,7 +109,10 @@ const BrewProgress = props => {
           <div className='space-y-2 text-center'>
             <div className='text-base-content/60 text-xs sm:text-sm'>
               {processInfo.tt === 'time' && `${(processInfo.pt / 1000).toFixed(0)}s`}
-              {processInfo.tt === 'volumetric' && `${processInfo.pt.toFixed(0)}g`}
+              {(processInfo.tt === 'volumetric' ||
+                processInfo.tt === 'weight' ||
+                processInfo.tt === 'predicted_weight') &&
+                `${processInfo.pt.toFixed(0)}g`}
             </div>
             <div className='text-base-content text-2xl font-bold sm:text-3xl'>
               {formatDuration(elapsed)}

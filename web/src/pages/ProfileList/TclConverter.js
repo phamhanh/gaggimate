@@ -97,7 +97,7 @@ export class TclConverter {
     if (targetWeight > 0 && profile.phases.length > 0) {
       const lastPhase = profile.phases[profile.phases.length - 1];
       if (!lastPhase.targets) lastPhase.targets = [];
-      lastPhase.targets.push({ type: 'volumetric', value: targetWeight });
+      lastPhase.targets.push({ type: 'predicted_weight', value: targetWeight });
     }
     return profile;
   }
@@ -202,7 +202,7 @@ export class TclConverter {
     if (shotWeight > 0) {
       for (const phase of resultProfile.phases) {
         phase.targets = phase.targets || [];
-        phase.targets.push({ type: 'volumetric', operator: 'gte', value: shotWeight });
+        phase.targets.push({ type: 'predicted_weight', operator: 'gte', value: shotWeight });
       }
     }
 

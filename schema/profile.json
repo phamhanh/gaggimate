@@ -251,20 +251,24 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["type", "value"],
-      "description": "A single stop condition. Parser is strict — only the four `type` strings below are accepted; any other string (including `\"weight\"`) is silently dropped by `continue;` at `src/display/models/profile.h:287-289`. The web UI shot analyzer treats `\"weight\"` and `\"volumetric\"` as aliases for display only, which can mislead users into thinking `\"weight\"` works as a target type.",
+      "description": "A single stop condition. Unknown `type` strings are silently dropped (`profile.h`). Legacy `\"volumetric\"` parses as `\"predicted_weight\"` and is never written on save.",
       "properties": {
         "type": {
           "type": "string",
-          "description": "What measured variable this target watches. All four are strict string matches; unknown strings drop the target without error.",
+          "description": "What measured variable this target watches. Weight targets require brew-by-weight mode and a scale (`BrewProcess` enableVolumetric flag).",
           "oneOf": [
-            { "const": "volumetric", "title": "Volumetric (scale weight)", "description": "Compares scale weight in grams. Volumetric targets require a connected Bluetooth scale AND the brew-by-weight mode toggle active (see `BrewProcess` enableVolumetric flag). A `value` of `0` is treated as 'no target' — the phase will run for its full `duration` (`src/display/models/profile.h:55`). The web UI renders this as 'Weight'." },
+            { "const": "weight", "title": "Current weight", "description": "Stops when the scale reading (grams) reaches `value`. Use for mid-shot ramps and drops — no predictive delay." },
+            { "const": "predicted_weight", "title": "Predicted weight", "description": "Stops when scale weight plus firmware lookahead (`brewDelay` × flow rate) reaches `value`. Use for final yield." },
+            { "const": "volumetric", "title": "Volumetric (deprecated)", "description": "Alias for `predicted_weight` on import only." },
             { "const": "pressure",   "title": "Pressure",                  "description": "Compares current pressure in bar." },
             { "const": "flow",       "title": "Flow",                      "description": "Compares current flow rate. UI labels this in ml/s; firmware uses same value as pump.flow (g/s)." },
             { "const": "pumped",     "title": "Pumped water",              "description": "Compares cumulative water pumped in this phase in ml. Reset to 0 at each phase boundary (`BrewProcess.h:141`)." }
           ],
-          "enum": ["volumetric", "pressure", "flow", "pumped"],
+          "enum": ["weight", "predicted_weight", "volumetric", "pressure", "flow", "pumped"],
           "enumDescriptions": [
-            "Scale weight in grams.",
+            "Scale reading in grams (no lookahead).",
+            "Scale plus predictive delay in grams.",
+            "Deprecated; same as predicted_weight on load.",
             "Current pressure in bar.",
             "Current flow rate in ml/s.",
             "Cumulative water pumped in this phase, in ml."
@@ -287,7 +291,7 @@
         "value": {
           "type": "number",
           "minimum": 0,
-          "description": "Threshold. Units depend on `type`: `volumetric` = grams, `pressure` = bar, `flow` = ml/s, `pumped` = ml. For `volumetric` specifically, `value: 0` is treated as 'no target — run full duration'."
+          "description": "Threshold. Units depend on `type`: `weight` / `predicted_weight` = grams, `pressure` = bar, `flow` = ml/s, `pumped` = ml. For weight types, `value: 0` means no target — run full `duration`."
         }
       }
     }

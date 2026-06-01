@@ -114,7 +114,7 @@ void WebUIPlugin::loop() {
         doc["tw"] = profileManager->getSelectedProfile().getTotalVolume(); // total target weight for the process
         doc["bta"] = controller->isVolumetricAvailable() ? 1 : 0;
         doc["bt"] =
-            controller->isVolumetricAvailable() && controller->getProfileManager()->getSelectedProfile().isVolumetric() ? 1 : 0;
+            controller->isVolumetricAvailable() && controller->getProfileManager()->getSelectedProfile().hasWeightTarget() ? 1 : 0;
         doc["btd"] = profileManager->getSelectedProfile().getTotalDuration();
         doc["led"] = controller->getSystemInfo().capabilities.ledControl;
         doc["gtd"] = controller->getTargetGrindDuration();
@@ -150,14 +150,15 @@ void WebUIPlugin::loop() {
                 pObj["s"] = brew->currentPhase.phase == PhaseType::PHASE_TYPE_BREW ? "brew" : "infusion";
                 pObj["l"] = brew->isActive() ? brew->currentPhase.name.c_str() : "Finished";
                 pObj["e"] = ts - brew->processStarted;
-                const bool isVolumetric = brew->target == ProcessTarget::VOLUMETRIC && brew->currentPhase.hasVolumetricTarget() &&
+                const bool isVolumetric = brew->target == ProcessTarget::VOLUMETRIC && brew->currentPhase.hasWeightTarget() &&
                                           controller->isVolumetricAvailable();
-                pObj["tt"] = isVolumetric ? "volumetric" : "time";
                 if (isVolumetric) {
-                    Target t = brew->currentPhase.getVolumetricTarget();
+                    Target t = brew->currentPhase.getDisplayWeightTarget();
+                    pObj["tt"] = t.type == TargetType::TARGET_TYPE_WEIGHT ? "weight" : "predicted_weight";
                     pObj["pt"] = t.value;
                     pObj["pp"] = brew->currentVolume;
                 } else {
+                    pObj["tt"] = "time";
                     pObj["pt"] = brew->getPhaseDuration();
                     pObj["pp"] = ts - brew->currentPhaseStarted;
                 }

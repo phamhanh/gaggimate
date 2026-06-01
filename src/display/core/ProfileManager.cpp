@@ -41,7 +41,7 @@ void ProfileManager::migrate() {
     brewPhase.pumpIsSimple = true;
     brewPhase.pumpSimple = 100;
     Target target{};
-    target.type = TargetType::TARGET_TYPE_VOLUMETRIC;
+    target.type = TargetType::TARGET_TYPE_PREDICTED_WEIGHT;
     target.operator_ = TargetOperator::GTE;
     target.value = 36;
     brewPhase.targets.push_back(target);

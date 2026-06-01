@@ -54,16 +54,16 @@ class BrewProcess : public Process {
         if (millis() - currentPhaseStarted > BREW_SAFETY_DURATION_MS) {
             return true;
         }
-        double volume = currentVolume;
-        if (volume > 0.0) {
+        double predicted_volume = currentVolume;
+        if (currentVolume > 0.0) {
             double currentRate = volumetricRateCalculator.getRate();
             double predictedAddedVolume = currentRate * brewDelay;
             predictedAddedVolume = std::clamp(predictedAddedVolume, 0.0, 8.0);
-            volume = currentVolume + predictedAddedVolume;
+            predicted_volume = currentVolume + predictedAddedVolume;
         }
         float timeInPhase = static_cast<float>(millis() - currentPhaseStarted) / 1000.0f;
-        return currentPhase.isFinished(target == ProcessTarget::VOLUMETRIC, volume, timeInPhase, currentFlow, currentPressure,
-                                       waterPumped, profile.type);
+        return currentPhase.isFinished(target == ProcessTarget::VOLUMETRIC, currentVolume, predicted_volume, timeInPhase,
+                                       currentFlow, currentPressure, waterPumped, profile.type);
     }
 
     bool isUtility() const { return profile.utility; }
@@ -71,8 +71,8 @@ class BrewProcess : public Process {
     double getBrewVolume() const {
         double brewVolume = 0;
         for (const auto &phase : profile.phases) {
-            if (phase.hasVolumetricTarget()) {
-                Target target = phase.getVolumetricTarget();
+            if (phase.hasPredictedWeightTarget()) {
+                Target target = phase.getPredictedWeightTarget();
                 brewVolume = target.value;
             }
         }

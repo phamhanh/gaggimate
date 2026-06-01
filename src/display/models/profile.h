@@ -4,7 +4,13 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-enum class TargetType { TARGET_TYPE_VOLUMETRIC, TARGET_TYPE_PRESSURE, TARGET_TYPE_FLOW, TARGET_TYPE_PUMPED };
+enum class TargetType {
+    TARGET_TYPE_WEIGHT,
+    TARGET_TYPE_PREDICTED_WEIGHT,
+    TARGET_TYPE_PRESSURE,
+    TARGET_TYPE_FLOW,
+    TARGET_TYPE_PUMPED
+};
 enum class TargetOperator { LTE, GTE };
 enum class PumpTarget {
     PUMP_TARGET_FLOW,
@@ -50,42 +56,77 @@ struct Phase {
     PumpAdvanced pumpAdvanced;
     std::vector<Target> targets;
 
-    bool hasVolumetricTarget() const {
+    bool hasWeightTarget() const {
         for (const auto &target : targets) {
-            if (target.type == TargetType::TARGET_TYPE_VOLUMETRIC && target.value > 0.0f) {
+            if ((target.type == TargetType::TARGET_TYPE_WEIGHT ||
+                 target.type == TargetType::TARGET_TYPE_PREDICTED_WEIGHT) &&
+                target.value > 0.0f) {
                 return true;
             }
         }
         return false;
     }
 
-    Target getVolumetricTarget() const {
-        for (auto &target : targets) {
-            if (target.type == TargetType::TARGET_TYPE_VOLUMETRIC) {
+    bool hasPredictedWeightTarget() const {
+        for (const auto &target : targets) {
+            if (target.type == TargetType::TARGET_TYPE_PREDICTED_WEIGHT && target.value > 0.0f) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Target getWeightTarget() const {
+        for (const auto &target : targets) {
+            if (target.type == TargetType::TARGET_TYPE_WEIGHT) {
                 return target;
             }
         }
         return Target{};
     }
 
+    Target getPredictedWeightTarget() const {
+        for (const auto &target : targets) {
+            if (target.type == TargetType::TARGET_TYPE_PREDICTED_WEIGHT) {
+                return target;
+            }
+        }
+        return Target{};
+    }
+
+    // Prefer scale weight target for display; fall back to predicted weight.
+    Target getDisplayWeightTarget() const {
+        if (hasWeightTarget() && getWeightTarget().value > 0.0f) {
+            return getWeightTarget();
+        }
+        return getPredictedWeightTarget();
+    }
+
     void adjustDuration(float amount) { duration = std::max(0.5f, duration + amount); }
 
-    void adjustVolumetricTarget(float factor) {
+    void adjustWeightTargets(float factor) {
         for (auto &target : targets) {
-            if (target.type == TargetType::TARGET_TYPE_VOLUMETRIC) {
+            if (target.type == TargetType::TARGET_TYPE_WEIGHT ||
+                target.type == TargetType::TARGET_TYPE_PREDICTED_WEIGHT) {
                 target.value *= factor;
             }
         }
     }
 
-    bool isFinished(bool enableVolumetric, float volume, float time_in_phase, float current_flow, float current_pressure,
-                    float water_pumped, String type) const {
-        bool volumetricTested = false;
+    bool isFinished(bool enableVolumetric, float scale_volume, float predicted_volume, float time_in_phase,
+                    float current_flow, float current_pressure, float water_pumped, String type) const {
+        bool weightTested = false;
         for (const auto &target : targets) {
             switch (target.type) {
-            case TargetType::TARGET_TYPE_VOLUMETRIC:
-                volumetricTested = enableVolumetric;
-                if (enableVolumetric && target.isReached(volume)) {
+            case TargetType::TARGET_TYPE_WEIGHT:
+                weightTested = enableVolumetric;
+                if (enableVolumetric && target.isReached(scale_volume)) {
+                    return true;
+                }
+                break;
+            case TargetType::TARGET_TYPE_PREDICTED_WEIGHT:
+                weightTested = enableVolumetric;
+                if (enableVolumetric && target.isReached(predicted_volume)) {
                     return true;
                 }
                 break;
@@ -106,16 +147,17 @@ struct Phase {
                 break;
             }
         }
-        if (type == "standard" && volumetricTested) {
+        if (type == "standard" && weightTested) {
             return false;
         }
         return time_in_phase > duration;
     }
 
-    void removeVolumetricTarget() {
+    void removeWeightTargets() {
         std::vector<Target> newTargets;
         for (const auto &target : targets) {
-            if (target.type != TargetType::TARGET_TYPE_VOLUMETRIC) {
+            if (target.type != TargetType::TARGET_TYPE_WEIGHT &&
+                target.type != TargetType::TARGET_TYPE_PREDICTED_WEIGHT) {
                 newTargets.push_back(target);
             }
         }
@@ -134,9 +176,9 @@ struct Profile {
     bool selected = false;
     std::vector<Phase> phases;
 
-    bool isVolumetric() const {
+    bool hasWeightTarget() const {
         for (const auto &phase : phases) {
-            if (phase.hasVolumetricTarget()) {
+            if (phase.hasWeightTarget()) {
                 return true;
             }
         }
@@ -167,8 +209,8 @@ struct Profile {
     float getTotalVolume() const {
         float volume = 0.0;
         for (const auto &phase : phases) {
-            if (phase.hasVolumetricTarget()) {
-                volume = phase.getVolumetricTarget().value;
+            if (phase.hasPredictedWeightTarget()) {
+                volume = phase.getPredictedWeightTarget().value;
             }
         }
         return volume;
@@ -190,21 +232,24 @@ struct Profile {
         }
     }
 
-    void adjustVolumetricTarget(float amount) {
+    void adjustWeightTargets(float amount) {
         float max = getTotalVolume();
+        if (max <= 0.0f) {
+            return;
+        }
         float adjustedMax = max + amount;
         float adjustment = adjustedMax / max;
         for (auto &phase : phases) {
-            if (phase.hasVolumetricTarget() && phase.phase == PhaseType::PHASE_TYPE_BREW) {
-                phase.adjustVolumetricTarget(adjustment);
+            if (phase.hasWeightTarget() && phase.phase == PhaseType::PHASE_TYPE_BREW) {
+                phase.adjustWeightTargets(adjustment);
             }
         }
     }
 
-    void removeVolumetricTarget() {
+    void removeWeightTargets() {
         for (auto &phase : phases) {
-            if (phase.hasVolumetricTarget()) {
-                phase.removeVolumetricTarget();
+            if (phase.hasWeightTarget()) {
+                phase.removeWeightTargets();
             }
         }
     }
@@ -276,8 +321,10 @@ inline bool parseProfile(const JsonObject &obj, Profile &profile) {
             for (JsonObject t : targetsArray) {
                 Target target{};
                 auto type = t["type"].as<String>();
-                if (type == "volumetric") {
-                    target.type = TargetType::TARGET_TYPE_VOLUMETRIC;
+                if (type == "weight") {
+                    target.type = TargetType::TARGET_TYPE_WEIGHT;
+                } else if (type == "predicted_weight" || type == "volumetric") {
+                    target.type = TargetType::TARGET_TYPE_PREDICTED_WEIGHT;
                 } else if (type == "pressure") {
                     target.type = TargetType::TARGET_TYPE_PRESSURE;
                 } else if (type == "flow") {
@@ -357,8 +404,11 @@ inline void writeProfile(JsonObject &obj, const Profile &profile) {
             for (const Target &t : phase.targets) {
                 auto tObj = targets.add<JsonObject>();
                 switch (t.type) {
-                case TargetType::TARGET_TYPE_VOLUMETRIC:
-                    tObj["type"] = "volumetric";
+                case TargetType::TARGET_TYPE_WEIGHT:
+                    tObj["type"] = "weight";
+                    break;
+                case TargetType::TARGET_TYPE_PREDICTED_WEIGHT:
+                    tObj["type"] = "predicted_weight";
                     break;
                 case TargetType::TARGET_TYPE_PRESSURE:
                     tObj["type"] = "pressure";

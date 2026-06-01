@@ -76,9 +76,9 @@ function parseJsonProfile(input) {
         phase.targets.push({ type: 'flow', operator: 'lte', value: conditions.flowBelow });
       }
       if (isPositive(conditions.weight)) {
-        phase.targets.push({ type: 'volumetric', value: conditions.weight });
+        phase.targets.push({ type: 'predicted_weight', value: conditions.weight });
       } else if (isPositive(input.globalStopConditions?.weight)) {
-        phase.targets.push({ type: 'volumetric', value: input.globalStopConditions.weight });
+        phase.targets.push({ type: 'predicted_weight', value: input.globalStopConditions.weight });
       }
       if (isPositive(conditions.waterPumpedInPhase)) {
         phase.targets.push({ type: 'pumped', value: conditions.waterPumpedInPhase });

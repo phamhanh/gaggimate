@@ -12,6 +12,21 @@ import { faFileExport } from '@fortawesome/free-solid-svg-icons/faFileExport';
 const connected = computed(() => machine.value.connected);
 const pressureAvailable = computed(() => machine.value.capabilities.pressure);
 
+function normalizeProfileTargets(profile) {
+  if (!profile?.phases) {
+    return profile;
+  }
+  return {
+    ...profile,
+    phases: profile.phases.map(phase => ({
+      ...phase,
+      targets: (phase.targets || []).map(target =>
+        target.type === 'volumetric' ? { ...target, type: 'predicted_weight' } : target,
+      ),
+    })),
+  };
+}
+
 export function ProfileEdit() {
   const apiService = useContext(ApiServiceContext);
   const location = useLocation();
@@ -61,7 +76,7 @@ export function ProfileEdit() {
               duration: 20,
               targets: [
                 {
-                  type: 'volumetric',
+                  type: 'predicted_weight',
                   value: 36,
                 },
               ],
@@ -76,7 +91,7 @@ export function ProfileEdit() {
         setLoading(false);
       } else if (connected.value) {
         const response = await apiService.request({ tp: 'req:profiles:load', id: params.id });
-        setData(response.profile);
+        setData(normalizeProfileTargets(response.profile));
         setLoading(false);
       }
     }
@@ -85,7 +100,10 @@ export function ProfileEdit() {
   const onSave = useCallback(
     async data => {
       setSaving(true);
-      const response = await apiService.request({ tp: 'req:profiles:save', profile: data });
+      const response = await apiService.request({
+        tp: 'req:profiles:save',
+        profile: normalizeProfileTargets(data),
+      });
       setData(response.profile);
       setSaving(false);
       location.route('/profiles');

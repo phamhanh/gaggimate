@@ -10,8 +10,14 @@ export const TargetTypes = [
     unit: 'ml',
   },
   {
-    label: 'Weight reached',
-    type: 'volumetric',
+    label: 'Current weight reached',
+    type: 'weight',
+    operator: 'gte',
+    unit: 'g',
+  },
+  {
+    label: 'Predicted weight reached',
+    type: 'predicted_weight',
     operator: 'gte',
     unit: 'g',
   },
@@ -51,8 +57,9 @@ export function ExtendedPhaseTarget({ onChange, target, index, onRemove }) {
     }
   }, [focused, target.value, target.type, target.operator]);
 
+  const normalizedType = target.type === 'volumetric' ? 'predicted_weight' : target.type;
   const targetType =
-    TargetTypes.find(tt => tt.type === target.type && tt.operator === (target.operator || 'gte')) ||
+    TargetTypes.find(tt => tt.type === normalizedType && tt.operator === (target.operator || 'gte')) ||
     TargetTypes[0];
 
   const displayValue = draft !== null ? draft : target.value ?? 0;

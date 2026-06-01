@@ -186,13 +186,18 @@ export function formatStopReason(type) {
   // Map internal types to GM UI friendly labels
   if (t === 'duration') return 'Time Stop';
   if (t === 'pumped') return 'Water Drawn Stop';
-  if (t === 'volumetric' || t === 'weight') return 'Weight Stop';
+  if (t === 'weight') return 'Weight Stop';
+  if (t === 'predicted_weight' || t === 'volumetric') return 'Predicted Weight Stop';
   if (t === 'pressure') return 'Pressure Stop';
   if (t === 'flow') return 'Flow Stop';
 
   // Fallback
   return `${t.charAt(0).toUpperCase() + t.slice(1)} Stop`;
 }
+
+const isScaleWeightTarget = type => type === 'weight';
+const isPredictedWeightTarget = type => type === 'predicted_weight' || type === 'volumetric';
+const isAnyWeightTarget = type => isScaleWeightTarget(type) || isPredictedWeightTarget(type);
 
 /**
  * Main Analysis Function
@@ -402,7 +407,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
           const tryTargets = (p, f, w, pumped, delayMs) => {
             for (let ti = 0; ti < profilePhase.targets.length; ti++) {
               const tgt = profilePhase.targets[ti];
-              const isWt = tgt.type === 'volumetric' || tgt.type === 'weight';
+              const isWt = isAnyWeightTarget(tgt.type);
               if (isWt && !isBrewByWeight) continue;
               if (isWt && scaleConnectionBrokenPermanently) continue;
               if (
@@ -417,7 +422,9 @@ export function calculateShotMetrics(shotData, profileData, settings) {
                 val = p;
               } else if (tgt.type === 'flow') {
                 val = f;
-              } else if (isWt) {
+              } else if (isScaleWeightTarget(tgt.type)) {
+                val = w;
+              } else if (isPredictedWeightTarget(tgt.type)) {
                 val = w;
               } else if (tgt.type === 'pumped') {
                 val = pumped;
@@ -430,7 +437,13 @@ export function calculateShotMetrics(shotData, profileData, settings) {
               }
               if (tgt.operator === 'lte' && val <= tgt.value) hit = true;
 
-              if (hit) return { target: tgt, delayMs, predictedWeight: isWt ? val : null };
+              if (hit) {
+                return {
+                  target: tgt,
+                  delayMs,
+                  predictedWeight: isPredictedWeightTarget(tgt.type) ? val : null,
+                };
+              }
             }
             return null;
           };
@@ -442,7 +455,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
 
             for (let ti = 0; ti < profilePhase.targets.length; ti++) {
               const tgt = profilePhase.targets[ti];
-              const isWt = tgt.type === 'volumetric' || tgt.type === 'weight';
+              const isWt = isAnyWeightTarget(tgt.type);
               if (isWt && !isBrewByWeight) continue;
               if (isWt && scaleConnectionBrokenPermanently) continue;
               if (
@@ -461,7 +474,11 @@ export function calculateShotMetrics(shotData, profileData, settings) {
                 anchorVal = anchor.fl;
                 nextVal = nextSample.fl;
                 predVal = Math.max(0, anchor.fl + fSlope * horizon);
-              } else if (isWt) {
+              } else if (isScaleWeightTarget(tgt.type)) {
+                anchorVal = anchor.v;
+                nextVal = nextSample.v;
+                predVal = anchor.v;
+              } else if (isPredictedWeightTarget(tgt.type)) {
                 anchorVal = anchor.v;
                 nextVal = nextSample.v;
                 predVal = anchor.v + (wRate > 0 ? wRate * horizon : 0);
@@ -473,7 +490,13 @@ export function calculateShotMetrics(shotData, profileData, settings) {
 
               // Use actual value if direction is valid, otherwise fall back to prediction
               const dirValid = isDirectionallyValidLookAhead(tgt.operator, anchorVal, nextVal);
-              const val = dirValid ? nextVal : predVal;
+              const val = isScaleWeightTarget(tgt.type)
+                ? dirValid
+                  ? nextVal
+                  : anchorVal
+                : dirValid
+                  ? nextVal
+                  : predVal;
 
               // No tolerance at look-ahead steps — these are actual/predicted values, not raw sensor readings
               let hit = false;
@@ -487,7 +510,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
                 return {
                   target: tgt,
                   delayMs: nSteps * sInterval,
-                  predictedWeight: isWt ? val : null,
+                  predictedWeight: isPredictedWeightTarget(tgt.type) ? val : null,
                 };
               }
             }
@@ -540,7 +563,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
 
             for (let ti = 0; ti < profilePhase.targets.length && !match; ti++) {
               const tgt = profilePhase.targets[ti];
-              const isWt = tgt.type === 'volumetric' || tgt.type === 'weight';
+              const isWt = isAnyWeightTarget(tgt.type);
               if (isWt && !isBrewByWeight) continue;
               if (isWt && scaleConnectionBrokenPermanently) continue;
               if (
@@ -558,7 +581,10 @@ export function calculateShotMetrics(shotData, profileData, settings) {
               } else if (tgt.type === 'flow') {
                 val = Math.max(0, anchor.fl + fSlope * sensorDelaySec);
                 delayMs = normSensorMs;
-              } else if (isWt) {
+              } else if (isScaleWeightTarget(tgt.type)) {
+                val = anchor.v;
+                delayMs = 0;
+              } else if (isPredictedWeightTarget(tgt.type)) {
                 val = anchor.v + (wRate > 0 ? wRate * scaleDelaySec : 0);
                 delayMs = normScaleMs;
               } else if (tgt.type === 'pumped') {
@@ -575,7 +601,11 @@ export function calculateShotMetrics(shotData, profileData, settings) {
               if (tgt.operator === 'lte' && val <= tgt.value) hit = true;
 
               if (hit) {
-                match = { target: tgt, delayMs, predictedWeight: isWt ? val : null };
+                match = {
+                  target: tgt,
+                  delayMs,
+                  predictedWeight: isPredictedWeightTarget(tgt.type) ? val : null,
+                };
               }
             }
           }
@@ -603,7 +633,11 @@ export function calculateShotMetrics(shotData, profileData, settings) {
             });
 
             if (isAutoAdjusted) {
-              if (exitType === 'weight' || exitType === 'volumetric') {
+              if (
+                exitType === 'weight' ||
+                exitType === 'predicted_weight' ||
+                exitType === 'volumetric'
+              ) {
                 sumScaleDelay += match.delayMs;
                 countScaleHits++;
               } else {
@@ -619,7 +653,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
               const matchStep = Math.round(match.delayMs / sInterval);
 
               for (const tgt of profilePhase.targets) {
-                const isWt = tgt.type === 'volumetric' || tgt.type === 'weight';
+                const isWt = isAnyWeightTarget(tgt.type);
                 if (isWt && !isBrewByWeight) continue;
                 if (isWt && scaleConnectionBrokenPermanently) continue;
 
@@ -642,7 +676,11 @@ export function calculateShotMetrics(shotData, profileData, settings) {
                     anchorVal = anchor.fl;
                     nextVal = ns.fl;
                     predVal = Math.max(0, anchor.fl + fSlope * horizon);
-                  } else if (isWt) {
+                  } else if (isScaleWeightTarget(tgt.type)) {
+                    anchorVal = anchor.v;
+                    nextVal = ns.v;
+                    predVal = anchor.v;
+                  } else if (isPredictedWeightTarget(tgt.type)) {
                     anchorVal = anchor.v;
                     nextVal = ns.v;
                     predVal = anchor.v + (wRate > 0 ? wRate * horizon : 0);
@@ -657,7 +695,9 @@ export function calculateShotMetrics(shotData, profileData, settings) {
                   const h = match.delayMs / 1000;
                   if (tgt.type === 'pressure') calcVal = Math.max(0, anchor.cp + pSlope * h);
                   else if (tgt.type === 'flow') calcVal = Math.max(0, anchor.fl + fSlope * h);
-                  else if (isWt) calcVal = anchor.v + (wRate > 0 ? wRate * h : 0);
+                  else if (isScaleWeightTarget(tgt.type)) calcVal = anchor.v;
+                  else if (isPredictedWeightTarget(tgt.type))
+                    calcVal = anchor.v + (wRate > 0 ? wRate * h : 0);
                   else if (tgt.type === 'pumped')
                     calcVal = anchorPumped + Math.max(0, anchor.fl) * h;
                   else continue;
@@ -691,9 +731,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
             isBrewByWeight &&
             !scaleConnectionBrokenPermanently
           ) {
-            const weightTarget = profilePhase.targets.find(
-              t => t.type === 'weight' || t.type === 'volumetric',
-            );
+            const weightTarget = profilePhase.targets.find(t => isPredictedWeightTarget(t.type));
 
             if (weightTarget) {
               const finalSample = samples[samples.length - 1];
@@ -802,9 +840,7 @@ export function calculateShotMetrics(shotData, profileData, settings) {
           // Independent high-delay warning detection for last phase (undershoot up to configured max,
           // overshoot up to configured max) to avoid flagging clear manual stops.
           if (isLastPhase && isBrewByWeight && !scaleConnectionBrokenPermanently) {
-            const weightTarget = profilePhase.targets.find(
-              t => t.type === 'weight' || t.type === 'volumetric',
-            );
+            const weightTarget = profilePhase.targets.find(t => isPredictedWeightTarget(t.type));
             if (weightTarget) {
               const finalSample = samples[samples.length - 1];
               const finalW = finalSample.v;

@@ -9,6 +9,8 @@
 The following steps are executed for each phase. The goal is to determine which parameter from the profile was responsible as the target value for ending the phase. At the end of each step, the process moves to the next one if no parameter could be assigned. Time-based stops are checked first, as they are static.
 
 1. In Step 1, it is checked whether the values at the end of the phase match the target. If this is the case, the parameter has been found.
+
+**Weight target types:** `weight` uses the scale reading only (no predictive delay). `predicted_weight` (and legacy `volumetric`) use scale plus regression lookahead, matching firmware `brewDelay` behaviour. Mid-shot ramps should use `weight`; final yield should use `predicted_weight`.
 2. In Step 2, the values from the first sample of the following phase are considered. Based on the direction of the value change, it is decided whether the actual value can be used or whether a calculated prediction must be used. The values resulting from this decision are used as the comparison source and compared with the target values.
 3. In Step 3, Step 2 is repeated with the second sample of the following phase. If the correct target value is found here, the parameter is set and it is indicated that a review may be necessary.
 4. In Step 4, the last few samples are used to perform a linear extrapolation. Using this, the algorithm looks up to 4 seconds into the future starting from the end of the phase. A potentially excessive delay is indicated.  

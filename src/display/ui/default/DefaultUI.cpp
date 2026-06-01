@@ -27,28 +27,77 @@ void setTempLabel(lv_obj_t *label, const float celsius) {
 }
 
 // ---------------------------------------------------------------------------
-// Animated "stabilizing" indicator for the brew screen: a little espresso cup
-// with steam wisps curling up out of it while the boiler reaches temperature.
+// Animated brew-status indicator: an espresso cup whose steam communicates the
+// thermal state on its own, with NO accompanying word. The animation replaces
+// the old "Brew" / "Stabilizing ↑↓" / "Ready to brew" text in ui_BrewScreen_mainLabel3.
+//
+// The state is conveyed two ways at once (so it reads at a glance and survives
+// colour-blindness / glare):
+//   * Colour  — Heating = amber, Ready = green, Cooling = blue, Brewing = white.
+//   * Motion  — Heating = fast building steam climbing high;
+//               Ready   = slow calm curl + a green check badge;
+//               Cooling = slow wide steam drifting and thinning;
+//               Brewing = strong steady steam (no fade), the "go" state.
 //
 // Built entirely here (not in the SquareLine-generated screen files) by parenting
-// the widgets onto the brew screen's content panel. The whole group lives in the
-// empty space just below the status caption (ui_BrewScreen_mainLabel3).
+// the widgets onto the brew screen's content panel, so the generated files stay
+// untouched. Sits where the caption used to be and fills the gap above
+// "Selected profile".
 // ---------------------------------------------------------------------------
 
+enum class BrewSteamState { None, Heating, Ready, Cooling, Brewing };
+
 constexpr int kSteamRootW = 120;
-constexpr int kSteamRootH = 62;
+constexpr int kSteamRootH = 96;
 // Vertical centre of the group within the (centre-aligned) content panel.
-// Sits in the gap below the caption; tweak by a few px if needed on-device.
-constexpr int kSteamRootY = -90;
+// Covers the old caption row plus the empty gap below it. Nudge a few px on-device.
+constexpr int kSteamRootY = -104;
 constexpr int kSteamWispCount = 3;
-constexpr int kSteamWispBottomY = 30; // start (low, near the cup rim)
-constexpr int kSteamWispTopY = 4;     // end (high, faded out)
-constexpr uint32_t kSteamRiseTime = 1500;
+
+struct BrewSteamMotion {
+    uint32_t riseTime; // one rise cycle (ms); smaller = faster/more energetic
+    int bottomY;       // wisp start Y (near the cup rim)
+    int topY;          // wisp end Y (lower number = climbs higher)
+    int spread;        // horizontal spread of the outer wisps
+    bool fade;         // true = each wisp fades in/out; false = steady full opacity
+};
+
+lv_color_t brewSteamColor(BrewSteamState s) {
+    switch (s) {
+    case BrewSteamState::Heating:
+        return lv_color_hex(0xFF9A3D); // amber — warming up
+    case BrewSteamState::Ready:
+        return lv_color_hex(0x55D17A); // green — good to go
+    case BrewSteamState::Cooling:
+        return lv_color_hex(0x5BB8FF); // blue — shedding heat / settling
+    case BrewSteamState::Brewing:
+        return lv_color_hex(0xFFFFFF); // white — actively pulling a shot
+    default:
+        return lv_color_hex(0xFFFFFF);
+    }
+}
+
+BrewSteamMotion brewSteamMotion(BrewSteamState s) {
+    switch (s) {
+    case BrewSteamState::Heating:
+        return BrewSteamMotion{1000, 30, 0, 14, true}; // fast, climbs high, building
+    case BrewSteamState::Ready:
+        return BrewSteamMotion{2600, 28, 10, 8, true}; // slow, gentle, narrow curl
+    case BrewSteamState::Cooling:
+        return BrewSteamMotion{2200, 28, 6, 22, true}; // slow, wide, drifting
+    case BrewSteamState::Brewing:
+        return BrewSteamMotion{850, 30, 0, 12, false}; // fast, steady, full opacity
+    default:
+        return BrewSteamMotion{1500, 30, 4, 14, true};
+    }
+}
 
 struct BrewSteamUI {
     lv_obj_t *root = nullptr;
     lv_obj_t *cup = nullptr;
+    lv_obj_t *check = nullptr; // badge shown only in the Ready state
     lv_obj_t *wisps[kSteamWispCount] = {nullptr};
+    BrewSteamState state = BrewSteamState::None;
 };
 BrewSteamUI g_brewSteam;
 
@@ -56,11 +105,48 @@ void brewSteamOpaCb(void *obj, int32_t v) {
     lv_obj_set_style_opa(static_cast<lv_obj_t *>(obj), static_cast<lv_opa_t>(v), LV_PART_MAIN | LV_STATE_DEFAULT);
 }
 
-void brewSteamRecolor(lv_obj_t *img) {
-    ui_object_set_themeable_style_property(img, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_IMG_RECOLOR,
-                                           _ui_theme_color_NiceWhite);
-    ui_object_set_themeable_style_property(img, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_IMG_RECOLOR_OPA,
-                                           _ui_theme_alpha_NiceWhite);
+// Direct recolour (overrides the theme's NiceWhite) so each state has its own hue.
+void brewSteamApplyColor(lv_obj_t *img, lv_color_t color) {
+    lv_obj_set_style_img_recolor(img, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_img_recolor_opa(img, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+// (Re)start the rise + fade animations for one wisp according to the state motion.
+void brewSteamStartWisp(lv_obj_t *w, int index, const BrewSteamMotion &m) {
+    lv_anim_del(w, nullptr); // cancel any previous rise/fade before restarting
+
+    const int centreX = kSteamRootW / 2;
+    const int offset = (index - 1) * m.spread; // -spread, 0, +spread
+    lv_obj_set_x(w, centreX + offset - ui_img_steamwisp.header.w / 2);
+    lv_obj_set_y(w, m.bottomY);
+
+    const uint32_t delay = (m.riseTime / kSteamWispCount) * index;
+
+    lv_anim_t rise;
+    lv_anim_init(&rise);
+    lv_anim_set_var(&rise, w);
+    lv_anim_set_values(&rise, m.bottomY, m.topY);
+    lv_anim_set_time(&rise, m.riseTime);
+    lv_anim_set_delay(&rise, delay);
+    lv_anim_set_repeat_count(&rise, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&rise, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&rise, reinterpret_cast<lv_anim_exec_xcb_t>(lv_obj_set_y));
+    lv_anim_start(&rise);
+
+    if (m.fade) {
+        lv_anim_t fade;
+        lv_anim_init(&fade);
+        lv_anim_set_var(&fade, w);
+        lv_anim_set_values(&fade, 0, LV_OPA_COVER);
+        lv_anim_set_time(&fade, m.riseTime / 2);
+        lv_anim_set_playback_time(&fade, m.riseTime / 2);
+        lv_anim_set_delay(&fade, delay);
+        lv_anim_set_repeat_count(&fade, LV_ANIM_REPEAT_INFINITE);
+        lv_anim_set_exec_cb(&fade, brewSteamOpaCb);
+        lv_anim_start(&fade);
+    } else {
+        lv_obj_set_style_opa(w, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
 }
 
 void brewSteamBuild(lv_obj_t *parent) {
@@ -73,46 +159,26 @@ void brewSteamBuild(lv_obj_t *parent) {
     lv_obj_add_flag(root, LV_OBJ_FLAG_HIDDEN);
     g_brewSteam.root = root;
 
-    // Wisps are created before the cup so the cup draws on top of their base,
-    // making the steam appear to rise out of the cup.
-    const int centreX = kSteamRootW / 2;
-    const int wispOffset[kSteamWispCount] = {-16, 0, 16};
-    const uint32_t wispDelay[kSteamWispCount] = {0, kSteamRiseTime / 3, (kSteamRiseTime * 2) / 3};
+    // Wisps first so the cup draws on top of their base (steam rises out of it).
     for (int i = 0; i < kSteamWispCount; i++) {
         lv_obj_t *w = lv_img_create(root);
         lv_img_set_src(w, &ui_img_steamwisp);
-        brewSteamRecolor(w);
-        lv_obj_set_pos(w, centreX + wispOffset[i] - ui_img_steamwisp.header.w / 2, kSteamWispBottomY);
         g_brewSteam.wisps[i] = w;
-
-        lv_anim_t rise;
-        lv_anim_init(&rise);
-        lv_anim_set_var(&rise, w);
-        lv_anim_set_values(&rise, kSteamWispBottomY, kSteamWispTopY);
-        lv_anim_set_time(&rise, kSteamRiseTime);
-        lv_anim_set_delay(&rise, wispDelay[i]);
-        lv_anim_set_repeat_count(&rise, LV_ANIM_REPEAT_INFINITE);
-        lv_anim_set_path_cb(&rise, lv_anim_path_ease_out);
-        lv_anim_set_exec_cb(&rise, reinterpret_cast<lv_anim_exec_xcb_t>(lv_obj_set_y));
-        lv_anim_start(&rise);
-
-        lv_anim_t fade;
-        lv_anim_init(&fade);
-        lv_anim_set_var(&fade, w);
-        lv_anim_set_values(&fade, 0, LV_OPA_COVER);
-        lv_anim_set_time(&fade, kSteamRiseTime / 2);
-        lv_anim_set_playback_time(&fade, kSteamRiseTime / 2);
-        lv_anim_set_delay(&fade, wispDelay[i]);
-        lv_anim_set_repeat_count(&fade, LV_ANIM_REPEAT_INFINITE);
-        lv_anim_set_exec_cb(&fade, brewSteamOpaCb);
-        lv_anim_start(&fade);
     }
 
     lv_obj_t *cup = lv_img_create(root);
     lv_img_set_src(cup, &ui_img_steamcup);
-    brewSteamRecolor(cup);
     lv_obj_align(cup, LV_ALIGN_BOTTOM_MID, 0, 0);
     g_brewSteam.cup = cup;
+
+    // "Ready" check badge, overlaid at the top; hidden in every other state.
+    lv_obj_t *check = lv_img_create(root);
+    lv_img_set_src(check, &ui_img_631115820); // assets/check-40x40
+    lv_obj_align(check, LV_ALIGN_TOP_MID, 0, -2);
+    lv_obj_add_flag(check, LV_OBJ_FLAG_HIDDEN);
+    g_brewSteam.check = check;
+
+    g_brewSteam.state = BrewSteamState::None;
 }
 
 // Make sure the steam group exists and is parented to the current brew panel.
@@ -129,15 +195,40 @@ void brewSteamEnsure(lv_obj_t *parent) {
     }
 }
 
-void brewSteamShow(bool show) {
+// Show the indicator in a given thermal/brew state (idempotent per state).
+void brewSteamSetState(BrewSteamState s) {
     if (g_brewSteam.root == nullptr || !lv_obj_is_valid(g_brewSteam.root)) {
         return;
     }
-    if (show) {
-        lv_obj_clear_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
+    if (s == g_brewSteam.state) {
+        return; // already in this state; let the running animation continue
     }
+    g_brewSteam.state = s;
+
+    const lv_color_t color = brewSteamColor(s);
+    const BrewSteamMotion motion = brewSteamMotion(s);
+    brewSteamApplyColor(g_brewSteam.cup, color);
+    for (int i = 0; i < kSteamWispCount; i++) {
+        brewSteamApplyColor(g_brewSteam.wisps[i], color);
+        brewSteamStartWisp(g_brewSteam.wisps[i], i, motion);
+    }
+
+    if (s == BrewSteamState::Ready) {
+        brewSteamApplyColor(g_brewSteam.check, color);
+        lv_obj_clear_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+// Hide the indicator (used for the text-only states like Venting / Freeze grace).
+void brewSteamHide() {
+    if (g_brewSteam.root == nullptr || !lv_obj_is_valid(g_brewSteam.root)) {
+        return;
+    }
+    lv_obj_add_flag(g_brewSteam.root, LV_OBJ_FLAG_HIDDEN);
+    g_brewSteam.state = BrewSteamState::None; // force re-apply next time it shows
 }
 } // namespace
 
@@ -327,7 +418,7 @@ void DefaultUI::init() {
         selectedProfileId = event.getString("id");
         targetDuration = profileManager->getSelectedProfile().getTotalDuration();
         targetVolume = profileManager->getSelectedProfile().getTotalVolume();
-        profileVolumetric = profileManager->getSelectedProfile().isVolumetric();
+        profileVolumetric = profileManager->getSelectedProfile().hasWeightTarget();
         reloadProfiles();
         rerender = true;
     });
@@ -457,7 +548,7 @@ void DefaultUI::onProfileSelect() {
 
 void DefaultUI::onVolumetricDelete() {
     controller->onVolumetricDelete();
-    profileVolumetric = profileManager->getSelectedProfile().isVolumetric();
+    profileVolumetric = profileManager->getSelectedProfile().hasWeightTarget();
     profileDirty = true;
 }
 
@@ -496,7 +587,7 @@ void DefaultUI::setupState() {
     pressureScaling = std::ceil(settings.getPressureScaling());
     selectedProfileId = settings.getSelectedProfile();
     profileManager->loadSelectedProfile(selectedProfile);
-    profileVolumetric = selectedProfile.isVolumetric();
+    profileVolumetric = selectedProfile.hasWeightTarget();
 }
 
 void DefaultUI::setupReactive() {
@@ -610,30 +701,33 @@ void DefaultUI::setupReactive() {
         [=]() {
             lv_obj_t *brewPanel = lv_obj_get_parent(ui_BrewScreen_mainLabel3);
             brewSteamEnsure(brewPanel);
+            // The animated cup carries the state wordlessly for the four thermal/brew
+            // states, so the label is cleared for those. Venting / Freeze grace are
+            // distinct contexts that keep a brief text and hide the animation.
             if (active != 0) {
-                brewSteamShow(false);
-                lv_label_set_text(ui_BrewScreen_mainLabel3, "Brew");
+                brewSteamSetState(BrewSteamState::Brewing); // white, strong steady steam
+                lv_label_set_text(ui_BrewScreen_mainLabel3, "");
                 return;
             }
             if (pidFreezeGraceActive != 0) {
-                brewSteamShow(false);
+                brewSteamHide();
                 lv_label_set_text(ui_BrewScreen_mainLabel3, "Freeze grace");
                 return;
             }
             if (pressureAvailable != 0 && brewIdleVenting != 0) {
-                brewSteamShow(false);
+                brewSteamHide();
                 lv_label_set_text(ui_BrewScreen_mainLabel3, "Venting...");
                 return;
             }
             if (stableTemp == 0) {
-                // Boiler still reaching target: show the animated steaming cup
-                // and a gentle caption (direction-aware, like the old up/down arrow).
-                brewSteamShow(true);
-                lv_label_set_text(ui_BrewScreen_mainLabel3, currentTemp > targetTemp ? "Settling" : "Warming up");
+                // Not at target yet: amber rising steam when below, blue drifting steam when above.
+                brewSteamSetState(currentTemp > targetTemp ? BrewSteamState::Cooling : BrewSteamState::Heating);
+                lv_label_set_text(ui_BrewScreen_mainLabel3, "");
                 return;
             }
-            brewSteamShow(false);
-            lv_label_set_text(ui_BrewScreen_mainLabel3, "Ready to brew");
+            // Stable at target: green calm steam + check badge.
+            brewSteamSetState(BrewSteamState::Ready);
+            lv_label_set_text(ui_BrewScreen_mainLabel3, "");
         },
         &active, &pidFreezeGraceActive, &brewIdleVenting, &stableTemp, &pressureAvailable, &currentTemp,
         &targetTemp);
@@ -980,8 +1074,8 @@ void DefaultUI::updateStatusScreen() const {
         lv_label_set_text_fmt(ui_StatusScreen_currentDuration, "00:00");
     }
 
-    if (brewProcess && brewProcess->target == ProcessTarget::VOLUMETRIC && phase.hasVolumetricTarget()) {
-        Target target = phase.getVolumetricTarget();
+    if (brewProcess && brewProcess->target == ProcessTarget::VOLUMETRIC && phase.hasWeightTarget()) {
+        Target target = phase.getDisplayWeightTarget();
         lv_bar_set_value(ui_StatusScreen_brewBar, brewProcess->currentVolume * 10.0, LV_ANIM_OFF);
         lv_bar_set_range(ui_StatusScreen_brewBar, 0, target.value * 10.0 + 1.0);
         lv_label_set_text_fmt(ui_StatusScreen_brewLabel, "%.1f / %.1fg", brewProcess->currentVolume, target.value);

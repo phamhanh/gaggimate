@@ -291,7 +291,9 @@ function buildPhaseAnnotations({
       if (lastPhase.exit && lastPhase.exit.reason) {
         let finalStopTime = maxTime;
         const isFinalWeightStop =
-          lastPhase.exit.type === 'weight' || lastPhase.exit.type === 'volumetric';
+          lastPhase.exit.type === 'weight' ||
+          lastPhase.exit.type === 'predicted_weight' ||
+          lastPhase.exit.type === 'volumetric';
         if (isFinalWeightStop) {
           const lastNonExtendedSample = samples.findLast(
             sample => !sample.systemInfo?.extendedRecording,
@@ -310,7 +312,9 @@ function buildPhaseAnnotations({
           label: {
             display: visibility.stops,
             content:
-              lastPhase.exit.type === 'weight' || lastPhase.exit.type === 'volumetric'
+              lastPhase.exit.type === 'weight' ||
+              lastPhase.exit.type === 'predicted_weight' ||
+              lastPhase.exit.type === 'volumetric'
                 ? 'WEIGHT STOP TRIGGERED'
                 : lastPhase.exit.reason.toUpperCase(),
             rotation: -90,

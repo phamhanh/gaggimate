@@ -107,6 +107,28 @@ With that in place the control architecture becomes clean:
 
 Combined with the three K-type probes (grouphead, boiler exit, live inlet), this would give fully independent control of each thermal stage and a genuinely stable shot temperature. The current Kff freeze approach is a software workaround for a hardware problem; this is the hardware solution.
 
+## Profile phase weight targets (`weight` vs `predicted_weight`)
+
+**If you use brew-by-weight with a Bluetooth scale and multi-phase profiles, read this.** Upstream Gaggimate has a single stop type, `volumetric`, for “stop when the cup reaches X grams.” In firmware that always meant **predicted** weight: current scale reading plus a lookahead from flow rate and **Predictive Scale Delay** (`brewDelay` in Settings). That is right for **final yield** (stop before overshoot when the scale lags) but wrong for **mid-shot** stops — e.g. “advance to extraction when the cup hits 6 g” on a long pressure ramp. With a high scale delay, the phase can end at ~4 g on the scale because the firmware already “sees” 6 g in the prediction.
+
+This fork splits that into two explicit target types (firmware, web profile editor, and shot analyzer):
+
+| JSON `type` | Meaning | When to use |
+|-------------|---------|-------------|
+| **`weight`** | Stop when the **scale reading** reaches the threshold | Ramps, drops, any phase where you care what is **on the cup now** |
+| **`predicted_weight`** | Stop when **scale + `brewDelay` lookahead** reaches the threshold | Shot end, final phase yield — same behaviour as upstream `volumetric` |
+| **`volumetric`** (legacy) | Not written on save | Still **loads** as `predicted_weight` so old profiles keep working |
+
+**Examples**
+
+- **Ramp to brew @ 6 g** → `weight` gte 6 (not `predicted_weight`).
+- **End shot @ 28 g** → `predicted_weight` gte 28 (compensates scale lag).
+- **The drop @ 0.2 g** → `weight` gte 0.2 if you want the phase to track the scale, not prediction.
+
+Requires brew-by-weight mode and a connected scale (same as upstream volumetric). Global **Predictive Scale Delay** still applies only to **`predicted_weight`** targets, not to **`weight`**.
+
+**Migration:** Open each profile in the web editor and save once — `volumetric` is upgraded to `predicted_weight` in memory on load. Edit phases that should wait on the real scale (ramps, drops) to **`weight`**. Schema detail: [`schema/profile.json`](../schema/profile.json).
+
 ## Pressure between shots
 
 On my boiler, pressure rises at startup and between shots as heat expands leftover air or as water boils. I should use **Flush**, but I often do not, so I added **brew idle pressure vent**: in brew mode, when idle and **stable**, the firmware opens the 3-way valve (pump off) until pressure drops.
@@ -154,6 +176,7 @@ If you landed here by accident, use [upstream Gaggimate](https://github.com/jnie
 
 ## See also
 
+- [schema/profile.json](../schema/profile.json) — `weight`, `predicted_weight`, and legacy `volumetric` target types
 - [thermal-kff-tuning.md](thermal-kff-tuning.md) — PID freeze, Kff, Settings variables
 - [README](../README.md) — upstream-shaped overview
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — release commands for this fork
