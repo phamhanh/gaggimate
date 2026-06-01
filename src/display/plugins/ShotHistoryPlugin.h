@@ -42,6 +42,7 @@ class ShotHistoryPlugin : public Plugin {
     void saveNotes(const String &id, const JsonDocument &notes);
     void loadNotes(const String &id, JsonDocument &notes);
     void startRecording();
+    void captureShotThermalSnapshot();
 
     uint16_t getSystemInfo(); // Helper to pack system state bits
 
@@ -83,6 +84,10 @@ class ShotHistoryPlugin : public Plugin {
 
     // Phase transition tracking (v5+)
     uint8_t lastRecordedPhase = 0xFF; // Invalid initial value to detect first phase
+
+    // Thermal snapshot captured at brew start (v6+ header)
+    ShotThermalSnapshot shotThermalSnapshot{};
+    bool shotThermalSnapshotValid = false;
 
     // Async rebuild state
     bool rebuildInProgress = false;

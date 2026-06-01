@@ -108,6 +108,27 @@ function parsePhaseTransitions(view, transitionCount) {
   return transitions;
 }
 
+const THERMAL_SNAPSHOT_OFFSET = 110 + 12 * 29 + 1; // after phaseTransitionCount
+
+function parseThermalSnapshot(view, version) {
+  if (version < 6 || view.byteLength < THERMAL_SNAPSHOT_OFFSET + 8) {
+    return undefined;
+  }
+  const offset = THERMAL_SNAPSHOT_OFFSET;
+  const inletTempC = view.getUint8(offset);
+  const kffEnabled = view.getUint8(offset + 1) !== 0;
+  const pumpFlow1Bar = view.getUint16(offset + 2, true) / 1000;
+  const pumpFlow9Bar = view.getUint16(offset + 4, true) / 1000;
+  const combinedKff = view.getUint16(offset + 6, true) / 1000;
+  return {
+    inletTempC,
+    kffEnabled,
+    pumpFlow1Bar,
+    pumpFlow9Bar,
+    combinedKff,
+  };
+}
+
 export function parseBinaryShot(arrayBuffer, id) {
   const view = new DataView(arrayBuffer);
 
@@ -161,6 +182,8 @@ export function parseBinaryShot(arrayBuffer, id) {
     const transitionCount = view.getUint8(110 + 12 * 29); // After 12 PhaseTransitions
     phaseTransitions = parsePhaseTransitions(view, transitionCount);
   }
+
+  const thermalSettings = parseThermalSnapshot(view, version);
 
   // Calculate expected sample size from fieldsMask
   const fieldCount = countSetBits(fieldsMask);
@@ -283,5 +306,6 @@ export function parseBinaryShot(arrayBuffer, id) {
     trailingBytes,
     samplesExpected: sampleCountHeader,
     phaseTransitions, // v5+ phase transition data
+    ...(thermalSettings ? { thermalSettings } : {}),
   };
 }

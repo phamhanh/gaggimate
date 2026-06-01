@@ -137,6 +137,42 @@ When flow stops, **`pidFreezeGraceMs`** (default **60000**) keeps the **same lat
 - **Gradual `tt` ramps** between phases — not in firmware yet; low value without better sensors.
 - **Overshoot guard** (`freezeBlocked`) — planned, not wired.
 
+## Shot export: `thermalSettings` (log v6+)
+
+From firmware **shot log version 6**, the display writes a compact snapshot at **brew start** into the `.slog` header: inlet temp, `kffEnabled`, pump model flows (1 / 9 bar), and PID **`combinedKff`**. The web parser exposes this on exported JSON as:
+
+```json
+"thermalSettings": {
+  "inletTempC": 23,
+  "kffEnabled": true,
+  "pumpFlow1Bar": 10.205,
+  "pumpFlow9Bar": 5.521,
+  "combinedKff": 1.0
+}
+```
+
+Older `.slog` files have no `thermalSettings`; replay tools need manual inputs.
+
+## CLI: `scripts/analyze_kff_shot.py`
+
+Replays **disturbance Kff** per profile phase from exported shot JSON (uses sample `tt` and `fl`, same formula as `Heater::calculateDisturbanceFeedforwardGain`).
+
+```bash
+# v6+ export — settings taken from thermalSettings
+python3 scripts/analyze_kff_shot.py shot-export.json
+
+# Pre-v6 or missing snapshot
+python3 scripts/analyze_kff_shot.py shot.json --inlet 25 --kff 1.0
+
+# Two shots, compare mean Kff per phase
+python3 scripts/analyze_kff_shot.py before.json after.json --compare
+
+# Machine-readable
+python3 scripts/analyze_kff_shot.py shot.json --json
+```
+
+Optional overrides: `--inlet`, `--kff`, `--flow-1bar`, `--flow-9bar`. Phases with “settle” in the name also get a **`settlePhaseCt`** summary.
+
 ## Related code
 
 - Heater freeze and Kff: [`lib/GaggiMateController/src/peripherals/Heater.cpp`](../lib/GaggiMateController/src/peripherals/Heater.cpp)

@@ -17,7 +17,7 @@
 // Older files may have fewer fields - use fieldsMask to determine layout.
 
 static constexpr uint32_t SHOT_LOG_MAGIC = 0x544F4853; // 'S''H''O''T' little-endian 0x54 0x4F 0x48 0x53
-static constexpr uint8_t SHOT_LOG_VERSION = 5;
+static constexpr uint8_t SHOT_LOG_VERSION = 6;
 static constexpr uint16_t SHOT_LOG_HEADER_SIZE = 512;
 static constexpr uint16_t SHOT_LOG_SAMPLE_INTERVAL_MS = 250; // nominal recording interval
 static constexpr uint32_t SHOT_LOG_FIELDS_MASK_ALL = 0x1FFF; // 13 fields present (removed phase number)
@@ -47,6 +47,15 @@ struct PhaseTransition {
     uint8_t reserved;     // Padding for alignment
     char phaseName[25];   // Phase name (24 chars + null terminator)
 }; // 29 bytes per transition
+
+// Version 6+ thermal snapshot (Kff tuning); written at brew start
+struct ShotThermalSnapshot {
+    uint8_t inletTempC;          // 5–40 °C
+    uint8_t kffEnabled;          // 0/1
+    uint16_t pumpFlow1Bar_x1000; // ml/s at 1 bar, e.g. 10.205 → 10205
+    uint16_t pumpFlow9Bar_x1000; // ml/s at 9 bar
+    uint16_t combinedKff_x1000;  // PID 4th field, e.g. 1.0 → 1000
+}; // 8 bytes
 #pragma pack(pop)
 
 #pragma pack(push, 1)
@@ -69,8 +78,11 @@ struct ShotLogHeader {
     PhaseTransition phaseTransitions[12]; // 12 × 29 = 348 bytes
     uint8_t phaseTransitionCount;         // 1 byte
 
+    // Version 6+ Kff snapshot; zeroed on older firmware
+    ShotThermalSnapshot thermal;
+
     // Future expansion - pad to 512 bytes total
-    uint8_t reserved_v5[53]; // Manual padding to reach 512 bytes
+    uint8_t reserved_v6[45];
 };
 #pragma pack(pop)
 

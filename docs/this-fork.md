@@ -88,6 +88,10 @@ Developed iteratively with AI:
 
 This fork includes upstream autotune (SIMC, Kff-from-wattage). **I did not autotune this Iberital Express.** The boiler element is **1000 W** (final). Fresh firmware defaults use **Kff = 1.0** in the PID CSV (`combinedKff = 1000 / 1000 W`). See [thermal-kff-tuning.md](thermal-kff-tuning.md) for all Settings names and defaults.
 
+### Shot log thermal snapshot (v6)
+
+New shots record **inlet temp, Kff gain, pump 1/9 bar flows, and `kffEnabled`** in the `.slog` header at brew start so exports carry the settings that were active **during that shot** (not today's live Settings). **`scripts/analyze_kff_shot.py`** replays per-phase Kff from JSON for tuning; details in [thermal-kff-tuning.md](thermal-kff-tuning.md).
+
 ### Planned hardware
 
 Three **1 mm K-type** sensors: grouphead brew path, boiler exit, and **live inlet** (the only one Kff really needs). Challenge: cheap double-ferrule 1 mm fittings.

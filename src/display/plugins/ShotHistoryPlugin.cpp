@@ -1,5 +1,6 @@
 #include "ShotHistoryPlugin.h"
 
+#include <NimBLEComm.h>
 #include <SD_MMC.h>
 #include <SPIFFS.h>
 #include <cmath>
@@ -116,6 +117,10 @@ void ShotHistoryPlugin::record() {
                 strncpy(header.profileName, profile.label.c_str(), sizeof(header.profileName) - 1);
                 header.profileName[sizeof(header.profileName) - 1] = '\0';
                 header.phaseTransitionCount = 0; // Initialize phase transition count
+                if (shotThermalSnapshotValid) {
+                    header.thermal = shotThermalSnapshot;
+                    shotThermalSnapshotValid = false;
+                }
                 // Write header placeholder
                 currentFile.write(reinterpret_cast<const uint8_t *>(&header), sizeof(header));
             }
@@ -279,6 +284,39 @@ void ShotHistoryPlugin::startRecording() {
 
     // Reset phase tracking for new shot
     lastRecordedPhase = 0xFF; // Invalid value to detect first phase
+    captureShotThermalSnapshot();
+}
+
+void ShotHistoryPlugin::captureShotThermalSnapshot() {
+    if (!controller) {
+        shotThermalSnapshotValid = false;
+        return;
+    }
+    Settings &settings = controller->getSettings();
+    const String &pid = settings.getPid();
+    const String &pmc = settings.getPumpModelCoeffs();
+    float combinedKff = 0.0f;
+    const String kfToken = get_token(pid, 3, ',');
+    if (kfToken.length() > 0) {
+        combinedKff = kfToken.toFloat();
+    }
+    if (!settings.isKffEnabled()) {
+        combinedKff = 0.0f;
+    }
+    const float oneBar = get_token(pmc, 0, ',').toFloat();
+    const float nineBar = get_token(pmc, 1, ',').toFloat();
+
+    shotThermalSnapshot = {};
+    shotThermalSnapshot.inletTempC =
+        static_cast<uint8_t>(constrain(settings.getIncomingWaterTempC(), 5, 40));
+    shotThermalSnapshot.kffEnabled = settings.isKffEnabled() ? 1 : 0;
+    shotThermalSnapshot.pumpFlow1Bar_x1000 =
+        static_cast<uint16_t>(lroundf(oneBar * 1000.0f));
+    shotThermalSnapshot.pumpFlow9Bar_x1000 =
+        static_cast<uint16_t>(lroundf(nineBar * 1000.0f));
+    shotThermalSnapshot.combinedKff_x1000 =
+        static_cast<uint16_t>(lroundf(combinedKff * 1000.0f));
+    shotThermalSnapshotValid = true;
 }
 
 unsigned long ShotHistoryPlugin::getTime() {
