@@ -54,6 +54,12 @@ constexpr int kSteamRootH = 96;
 constexpr int kSteamRootY = -104;
 constexpr int kSteamWispCount = 3;
 
+const lv_img_dsc_t *kSteamWispSrc[kSteamWispCount] = {
+    &ui_img_steamwisp_l,
+    &ui_img_steamwisp_m,
+    &ui_img_steamwisp_r,
+};
+
 struct BrewSteamMotion {
     uint32_t riseTime; // one rise cycle (ms); smaller = faster/more energetic
     int bottomY;       // wisp start Y (near the cup rim)
@@ -84,13 +90,13 @@ lv_color_t brewSteamColor(BrewSteamState s) {
 BrewSteamMotion brewSteamMotion(BrewSteamState s) {
     switch (s) {
     case BrewSteamState::Heating:
-        return BrewSteamMotion{1000, 30, 0, 14, true}; // fast, climbs high, building
+        return BrewSteamMotion{1000, 32, 2, 11, true}; // fast, climbs high, building
     case BrewSteamState::Ready:
-        return BrewSteamMotion{2600, 28, 10, 8, true}; // slow, gentle, narrow curl
+        return BrewSteamMotion{2600, 30, 12, 7, true}; // slow, gentle, narrow curl
     case BrewSteamState::Cooling:
-        return BrewSteamMotion{2200, 28, 6, 22, true}; // slow, wide, drifting
+        return BrewSteamMotion{2200, 30, 8, 13, true}; // slow, wide, drifting
     case BrewSteamState::Brewing:
-        return BrewSteamMotion{850, 30, 0, 12, false}; // fast, steady, full opacity
+        return BrewSteamMotion{850, 32, 0, 10, false}; // fast, steady, full opacity
     default:
         return BrewSteamMotion{1500, 30, 4, 14, true};
     }
@@ -243,11 +249,13 @@ void brewSteamStartColorShift(const BrewColorGradient &g) {
 
 // (Re)start the rise + fade animations for one wisp according to the state motion.
 void brewSteamStartWisp(lv_obj_t *w, int index, const BrewSteamMotion &m) {
-    lv_anim_del(w, nullptr); // cancel any previous rise/fade before restarting
+    lv_anim_del(w, nullptr); // cancel any previous rise/fade/sway before restarting
 
+    const lv_img_dsc_t *src = kSteamWispSrc[index];
     const int centreX = kSteamRootW / 2;
     const int offset = (index - 1) * m.spread; // -spread, 0, +spread
-    lv_obj_set_x(w, centreX + offset - ui_img_steamwisp.header.w / 2);
+    const int baseX = centreX + offset - src->header.w / 2;
+    lv_obj_set_x(w, baseX);
     lv_obj_set_y(w, m.bottomY);
 
     const uint32_t delay = (m.riseTime / kSteamWispCount) * index;
@@ -262,6 +270,18 @@ void brewSteamStartWisp(lv_obj_t *w, int index, const BrewSteamMotion &m) {
     lv_anim_set_path_cb(&rise, lv_anim_path_ease_out);
     lv_anim_set_exec_cb(&rise, reinterpret_cast<lv_anim_exec_xcb_t>(lv_obj_set_y));
     lv_anim_start(&rise);
+
+    lv_anim_t sway;
+    lv_anim_init(&sway);
+    lv_anim_set_var(&sway, w);
+    lv_anim_set_values(&sway, baseX - 3, baseX + 3);
+    lv_anim_set_time(&sway, static_cast<uint32_t>(m.riseTime * 6 / 5));
+    lv_anim_set_playback_time(&sway, static_cast<uint32_t>(m.riseTime * 6 / 5));
+    lv_anim_set_delay(&sway, delay + index * 80);
+    lv_anim_set_repeat_count(&sway, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&sway, lv_anim_path_ease_in_out);
+    lv_anim_set_exec_cb(&sway, reinterpret_cast<lv_anim_exec_xcb_t>(lv_obj_set_x));
+    lv_anim_start(&sway);
 
     if (m.fade) {
         lv_anim_t fade;
@@ -336,7 +356,7 @@ void brewSteamBuild(lv_obj_t *parent) {
     // Wisps first so the cup draws on top of their base (steam rises out of it).
     for (int i = 0; i < kSteamWispCount; i++) {
         lv_obj_t *w = lv_img_create(root);
-        lv_img_set_src(w, &ui_img_steamwisp);
+        lv_img_set_src(w, kSteamWispSrc[i]);
         g_brewSteam.wisps[i] = w;
     }
 
