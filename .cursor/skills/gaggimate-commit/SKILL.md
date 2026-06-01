@@ -66,5 +66,28 @@ Deploy/release script refactors, semver/tag logic, agent skill changes, CI, bugf
 1. Run the gate question on pending changes.
 2. If it passes, update this-fork in the **same commit** as the code (stage together).
 3. Suggest a commit message focused on the **why**, not a file list.
+4. When the user asks to commit, follow **Git workflow** below (including the mandatory unlock at the end).
 
 Do not duplicate long technical detail already in sibling docs; do not rewrite unrelated sections.
+
+## Git workflow (required when committing)
+
+Agent commits often leave a stale `.git/index.lock`. **Always** bookend mutating git with `./scripts/git-ensure-unlocked.sh` — especially **after** add/commit, even on success.
+
+1. **Read-only prep in parallel is OK** (`git status`, `git diff`, `git log`). Never parallelize index **writes** (`add`, `commit`, `reset`, `stash`, `merge`).
+2. **One shell, one chain** for add + commit (do not split across tool calls):
+
+   ```bash
+   ./scripts/git-ensure-unlocked.sh
+   git add <paths> && git commit -m "$(cat <<'EOF'
+   message
+   EOF
+   )"
+   ./scripts/git-ensure-unlocked.sh
+   ```
+
+3. **Mandatory final step:** run `./scripts/git-ensure-unlocked.sh` again in its **own** shell call after the commit chain — success, failure, or user cancelled mid-commit. This cleans up locks the agent workflow leaves behind. Do not skip because the commit “succeeded.”
+4. If the script exits 1 (lock exists and git is still running), wait or stop the other git process; do not `rm` the lock manually while Source Control or another terminal may be committing.
+5. If add/commit failed with *Unable to create '.git/index.lock'*, run `./scripts/git-ensure-unlocked.sh` before retrying.
+
+**On your machine:** avoid staging/committing in the Source Control panel while the agent is committing the same repo.

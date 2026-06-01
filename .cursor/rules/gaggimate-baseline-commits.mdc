@@ -1,0 +1,68 @@
+---
+description: Baseline commits for comparing upstream Gaggimate vs this fork ("originally", "before our changes")
+alwaysApply: true
+---
+
+# Gaggimate baseline commits
+
+Use these when the user asks how something worked **originally**, **in upstream**, **before our changes**, **before the fork**, or similar.
+
+Full reference: [docs/baseline-commits.md](../../docs/baseline-commits.md)
+
+## Fixed baselines
+
+| Name | Commit | Git ref (if tagged) | Meaning |
+|------|--------|---------------------|---------|
+| **upstream-original** | `69ce0c003279` | `upstream-original` | **Gaggimate original code** — tree at `git clone git@github.com:jniebuhr/gaggimate.git` (May 2026). Compare here for true upstream behavior. |
+| **upstream-remote** | (moving) | `upstream/master` | Current upstream `master`; run `git fetch upstream` first. |
+
+## Fork baselines (moving)
+
+| Name | Ref | Meaning |
+|------|-----|---------|
+| **fork-published** | `origin/master` | Latest commit pushed to `git@github.com:phamhanh/gaggimate.git`. Run `git fetch origin` first. |
+| **fork-head** | `HEAD` | Latest local commit (may be unpushed). |
+| **working-tree** | (uncommitted) | Changes on disk not yet in `fork-head`. |
+
+## How to interpret user wording
+
+| User says | Default baseline | Compare with |
+|-----------|------------------|--------------|
+| originally, original Gaggimate, upstream, stock, at clone | **upstream-original** (`69ce0c00`) | current file or `fork-head` |
+| before our fork / since I forked (whole repo) | **upstream-original** | `fork-head` or path |
+| before our changes (single feature, this repo) | **upstream-original** unless context is clearly only recent work | `fork-head` or working-tree |
+| before the last commit / before I committed X | `HEAD~1` or named commit | `fork-head` |
+| before what's on GitHub / before I pushed | **fork-published** | `fork-head` |
+| before this chat / this session | Not stored reliably; use **fork-head** + `git diff` / `git status`, or ask | working-tree |
+
+If ambiguous between **upstream-original** and **fork-published**, prefer **upstream-original** for "original" and **fork-published** for "what I last shipped."
+
+## Commands (prefer these)
+
+```bash
+# File at upstream-original
+git show 69ce0c00:path/to/file
+
+# Diff one file vs upstream-original
+git diff 69ce0c00 -- path/to/file
+
+# Diff whole tree vs upstream-original
+git diff 69ce0c00
+
+# Same if local tag exists
+git diff upstream-original -- path/to/file
+```
+
+When explaining behavior, cite both the baseline name and the short hash (`69ce0c00`).
+
+## Clone commands (reference)
+
+```bash
+# Upstream (original project) — baseline commit above
+git clone git@github.com:jniebuhr/gaggimate.git
+
+# This fork (OTA / Iberital Express)
+git clone git@github.com:phamhanh/gaggimate.git
+```
+
+Remotes in this workspace: `origin` → phamhanh fork, `upstream` → jniebuhr (fetch only).
