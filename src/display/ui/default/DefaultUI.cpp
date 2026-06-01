@@ -254,7 +254,9 @@ void brewSteamStartWisp(lv_obj_t *w, int index, const BrewSteamMotion &m) {
     const lv_img_dsc_t *src = kSteamWispSrc[index];
     const int centreX = kSteamRootW / 2;
     const int offset = (index - 1) * m.spread; // -spread, 0, +spread
-    const int baseX = centreX + offset - src->header.w / 2;
+    // Nudge the trio right by 1/4 of the span between outer wisps (steam 1 ↔ steam 3).
+    const int shiftX = (2 * m.spread) / 4;
+    const int baseX = centreX + offset + shiftX - src->header.w / 2;
     lv_obj_set_x(w, baseX);
     lv_obj_set_y(w, m.bottomY);
 

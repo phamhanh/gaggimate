@@ -20,8 +20,9 @@ Regenerate everything (writes straight into the LVGL images folder):
     python3 scripts/gen_steam_icons.py src/display/ui/default/lvgl/images
 Preview only (ASCII, no files written):
     python3 scripts/gen_steam_icons.py . --preview
-Docs PNG previews (glyphs + animation strips for Freeze grace / Venting):
-    python3 scripts/gen_steam_icons.py --export-previews
+Docs PNG previews (Freeze grace / Venting animation strips + waves glyph):
+    python3 scripts/export_brew_anim_previews.py
+    # or: python3 scripts/gen_steam_icons.py --export-previews
 Optional master SVG:
     python3 scripts/gen_steam_icons.py OUT --svg icons/brew-steam-cup.svg
 """
@@ -455,12 +456,11 @@ def load_espresso_cup_potrace(svg_path: Path) -> dict[str, list[Polygon]]:
     if len(polygons) < 6:
         raise ValueError(f"expected 6 potrace paths in {svg_path}, got {len(polygons)}")
 
-    # Paths 0,2,1 ordered left→right by min-x; paths 3–5 are the cup body.
-    steam_order = sorted([0, 2, 1], key=lambda i: polygons_bbox([polygons[i]])[0])
+    # Potrace steam paths 0,1,2 → screen left→right must be 3, 1, 2 (path indices 2, 0, 1).
     return {
-        "steam-left": [polygons[steam_order[0]]],
-        "steam-mid": [polygons[steam_order[1]]],
-        "steam-right": [polygons[steam_order[2]]],
+        "steam-left": [polygons[2]],
+        "steam-mid": [polygons[0]],
+        "steam-right": [polygons[1]],
         "cup": [polygons[3], polygons[4], polygons[5]],
     }
 
@@ -759,175 +759,8 @@ def export_preview_png(path: Path, W: int, H: int, fn) -> None:
     path.write_bytes(png)
 
 
-# ---------- Brew-screen animation previews (match DefaultUI.cpp) ----------
-
-STEAM_ROOT_W = 120
-STEAM_ROOT_H = 96
-WAVES_W = WAVES_ICON[1]
-WAVES_H = WAVES_ICON[2]
-WAVES_BASE_X = (STEAM_ROOT_W - WAVES_W) // 2
-WAVES_BASE_Y = (STEAM_ROOT_H - WAVES_H) // 2
-WIND_C = REPO_ROOT / "src/display/ui/default/lvgl/images/ui_img_783005998.c"
-WIND_ZOOM = 176  # LVGL: 256 = 100%
 PREVIEW_DIR = REPO_ROOT / "docs" / "previews"
-ANIM_FRAMES = 8
-ANIM_SCALE = 4  # per-frame upscale inside each 120x96 cell
-
-
-def ease_in_out(u: float) -> float:
-    return u * u * (3.0 - 2.0 * u)
-
-
-def lvgl_ping_pong(t_ms: int, fwd_ms: int, back_ms: int, v0: float, v1: float, *, ease: bool) -> float:
-    period = fwd_ms + back_ms
-    t = t_ms % period if period else 0
-    if t <= fwd_ms:
-        u = (t / fwd_ms) if fwd_ms else 1.0
-        if ease:
-            u = ease_in_out(u)
-        return v0 + (v1 - v0) * u
-    u = ((t - fwd_ms) / back_ms) if back_ms else 1.0
-    if ease:
-        u = ease_in_out(u)
-    return v1 + (v0 - v1) * u
-
-
-def gradient_rgb(stops: list[int], t_ms: int, cycle_ms: int, *, smooth: bool) -> tuple[int, int, int]:
-    step = 256
-    max_pos = (len(stops) - 1) * step
-    period = cycle_ms * 2
-    t = t_ms % period if period else 0
-    u = (t / cycle_ms) if t < cycle_ms else (1.0 - (t - cycle_ms) / cycle_ms)
-    if smooth:
-        u = ease_in_out(u)
-    pos = int(round(u * max_pos))
-    pos = int(clamp(pos, 0, max_pos))
-    seg = pos // step
-    frac = pos % step
-    seg_next = min(seg + 1, len(stops) - 1)
-    c0, c1 = stops[seg], stops[seg_next]
-    r = ((c0 >> 16) & 0xFF) + (((c1 >> 16) & 0xFF) - ((c0 >> 16) & 0xFF)) * frac // 255
-    g = ((c0 >> 8) & 0xFF) + (((c1 >> 8) & 0xFF) - ((c0 >> 8) & 0xFF)) * frac // 255
-    b = (c0 & 0xFF) + ((c1 & 0xFF) - (c0 & 0xFF)) * frac // 255
-    return r, g, b
-
-
-def rasterize_pil_image(W: int, H: int, fn):
-    from PIL import Image
-
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    px = img.load()
-    for y in range(H):
-        for x in range(W):
-            acc = 0.0
-            for sy in range(SS):
-                for sx in range(SS):
-                    acc += fn(x + (sx + 0.5) / SS, y + (sy + 0.5) / SS, W, H)
-            a = clamp(int(round(255.0 * acc / (SS * SS))), 0, 255)
-            if a:
-                px[x, y] = (255, 255, 255, a)
-    return img
-
-
-def load_lvgl_white_image(c_path: Path):
-    from PIL import Image
-
-    text = c_path.read_text(encoding="utf-8")
-    w = int(re.search(r"\.header\.w = (\d+)", text).group(1))
-    h = int(re.search(r"\.header\.h = (\d+)", text).group(1))
-    block = text.split("_data[]", 1)[1].split("};", 1)[0]
-    raw = [int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", block)]
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    px = img.load()
-    i = 0
-    for y in range(h):
-        for x in range(w):
-            _, _, a = raw[i], raw[i + 1], raw[i + 2]
-            i += 3
-            if a:
-                px[x, y] = (255, 255, 255, a)
-    return img
-
-
-def tint_layer(base, layer, x: int, y: int, rgb: tuple[int, int, int], opa: int):
-    from PIL import Image
-
-    if opa <= 0:
-        return
-    r, g, b = rgb
-    coloured = Image.new("RGBA", layer.size, (r, g, b, 0))
-    coloured.putalpha(layer.split()[3])
-    alpha = coloured.split()[3].point(lambda a: (a * opa) // 255)
-    coloured.putalpha(alpha)
-    base.paste(coloured, (x, y), coloured)
-
-
-def scale_nearest(img, size: int):
-    from PIL import Image
-
-    return img.resize((size, size), Image.Resampling.NEAREST)
-
-
-def freeze_grace_frame(t_ms: int, waves_fn):
-    from PIL import Image
-
-    x = int(round(lvgl_ping_pong(t_ms, 2000, 2000, WAVES_BASE_X - 5, WAVES_BASE_X + 5, ease=True)))
-    opa = int(round(lvgl_ping_pong(t_ms, 1600, 1600, 150, 255, ease=True)))
-    rgb = gradient_rgb([0xA5F2F3, 0xE0E0FF, 0x7FFFD4], t_ms, 2600, smooth=True)
-    frame = Image.new("RGBA", (STEAM_ROOT_W, STEAM_ROOT_H), (0, 0, 0, 0))
-    waves = rasterize_pil_image(WAVES_W, WAVES_H, waves_fn)
-    tint_layer(frame, waves, x, WAVES_BASE_Y, rgb, opa)
-    return frame
-
-
-def venting_frame(t_ms: int, wind_img):
-    from PIL import Image
-
-    opa = int(round(lvgl_ping_pong(t_ms, 220, 180, 110, 255, ease=False)))
-    rgb = gradient_rgb([0xFFFFFF, 0xD3D3D3, 0xA0C0F0], t_ms, 280, smooth=False)
-    draw = round(wind_img.width * WIND_ZOOM / 256)
-    scaled = scale_nearest(wind_img, draw)
-    x = (STEAM_ROOT_W - draw) // 2
-    y = (STEAM_ROOT_H - draw) // 2
-    frame = Image.new("RGBA", (STEAM_ROOT_W, STEAM_ROOT_H), (0, 0, 0, 0))
-    tint_layer(frame, scaled, x, y, rgb, opa)
-    return frame
-
-
-def export_anim_strip(path: Path, frames: list) -> None:
-    from PIL import Image
-
-    cell_w, cell_h = STEAM_ROOT_W * ANIM_SCALE, STEAM_ROOT_H * ANIM_SCALE
-    strip = Image.new("RGBA", (cell_w * len(frames), cell_h), (0, 0, 0, 0))
-    for i, fr in enumerate(frames):
-        up = fr.resize((cell_w, cell_h), Image.Resampling.NEAREST)
-        strip.paste(up, (i * cell_w, 0), up)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    strip.save(path)
-    print(f"wrote {path}")
-
-
-def export_all_previews(_svg_path: Path | None) -> None:
-    try:
-        from PIL import Image  # noqa: F401
-    except ImportError:
-        sys.exit("Pillow required for --export-previews. Run: pip install Pillow")
-
-    waves_fn = WAVES_ICON[3]
-    _, w_w, w_h, _, _ = WAVES_ICON
-    export_preview_png(PREVIEW_DIR / "ui_img_steamwaves.png", w_w, w_h, waves_fn)
-    print(f"wrote {PREVIEW_DIR / 'ui_img_steamwaves.png'}")
-
-    if not WIND_C.is_file():
-        sys.exit(f"wind asset not found: {WIND_C}")
-
-    wind = load_lvgl_white_image(WIND_C)
-    period_freeze = 4000  # dominant loop: sway 4s
-    period_vent = 400  # flicker 220+180 ms
-    freeze_frames = [freeze_grace_frame(int(i * period_freeze / ANIM_FRAMES), waves_fn) for i in range(ANIM_FRAMES)]
-    vent_frames = [venting_frame(int(i * period_vent / ANIM_FRAMES), wind) for i in range(ANIM_FRAMES)]
-    export_anim_strip(PREVIEW_DIR / "brew_freeze_grace.png", freeze_frames)
-    export_anim_strip(PREVIEW_DIR / "brew_venting.png", vent_frames)
+BREW_ANIM_PREVIEW_SCRIPT = REPO_ROOT / "scripts" / "export_brew_anim_previews.py"
 
 
 def parse_cli(argv: list[str]) -> tuple[Path, Path | None, bool, bool, bool]:
@@ -965,7 +798,9 @@ if __name__ == "__main__":
     out_dir, svg_path, preview_only, export_cup_png, export_previews = parse_cli(sys.argv[1:])
 
     if export_previews:
-        export_all_previews(svg_path)
+        import subprocess
+
+        subprocess.run([sys.executable, str(BREW_ANIM_PREVIEW_SCRIPT)], check=True)
         sys.exit(0)
 
     icons = build_icon_list(svg_path)
