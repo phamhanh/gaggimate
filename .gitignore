@@ -15,3 +15,4 @@ src/version.h
 src/display/ui/default/lvgl/project.info
 .DS_Store
 out/
+shots/
