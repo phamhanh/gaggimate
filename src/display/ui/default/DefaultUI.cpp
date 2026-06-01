@@ -35,7 +35,7 @@ void setTempLabel(lv_obj_t *label, const float celsius) {
 // colour-blindness / glare):
 //   * Colour  — Heating = amber, Ready = green, Cooling = blue, Brewing = white.
 //   * Motion  — Heating = fast building steam climbing high;
-//               Ready   = slow calm curl + a green check badge;
+//               Ready   = slow calm curl, green cup;
 //               Cooling = slow wide steam drifting and thinning;
 //               Brewing = strong steady steam (no fade), the "go" state.
 //
@@ -99,7 +99,6 @@ BrewSteamMotion brewSteamMotion(BrewSteamState s) {
 struct BrewSteamUI {
     lv_obj_t *root = nullptr;
     lv_obj_t *cup = nullptr;
-    lv_obj_t *check = nullptr; // badge shown only in the Ready state
     lv_obj_t *waves = nullptr; // settling water, shown only in Freeze grace
     lv_obj_t *wind = nullptr;  // wind gust, shown only while Venting
     lv_obj_t *wisps[kSteamWispCount] = {nullptr};
@@ -346,13 +345,6 @@ void brewSteamBuild(lv_obj_t *parent) {
     lv_obj_align(cup, LV_ALIGN_BOTTOM_MID, 0, 0);
     g_brewSteam.cup = cup;
 
-    // "Ready" check badge, overlaid at the top; hidden in every other state.
-    lv_obj_t *check = lv_img_create(root);
-    lv_img_set_src(check, &ui_img_631115820); // assets/check-40x40
-    lv_obj_align(check, LV_ALIGN_TOP_MID, 0, -2);
-    lv_obj_add_flag(check, LV_OBJ_FLAG_HIDDEN);
-    g_brewSteam.check = check;
-
     // Freeze grace: settling waves (wild river -> calm stream). Centred, hidden
     // until that state. Its own gentle sway + breathing fade convey "waiting".
     lv_obj_t *waves = lv_img_create(root);
@@ -407,11 +399,9 @@ void brewSteamSetState(BrewSteamState s) {
     g_brewSteam.colorGradient = nullptr;
     g_brewSteam.hasDynamicColor = false; // force the new state's first frame to paint
     lv_anim_del(g_brewSteam.cup, nullptr);
-    lv_anim_del(g_brewSteam.check, nullptr);
     lv_anim_del(g_brewSteam.waves, nullptr);
     lv_anim_del(g_brewSteam.wind, nullptr);
     lv_obj_add_flag(g_brewSteam.cup, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(g_brewSteam.waves, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(g_brewSteam.wind, LV_OBJ_FLAG_HIDDEN);
     for (int i = 0; i < kSteamWispCount; i++) {
@@ -455,12 +445,6 @@ void brewSteamSetState(BrewSteamState s) {
         brewSteamStartColorShift(kHeatingGradient);
     } else if (s == BrewSteamState::Cooling) {
         brewSteamStartColorShift(kCoolingGradient);
-    }
-
-    // Ready: a green check badge alongside the calm cup.
-    if (s == BrewSteamState::Ready) {
-        brewSteamApplyColor(g_brewSteam.check, color);
-        lv_obj_clear_flag(g_brewSteam.check, LV_OBJ_FLAG_HIDDEN);
     }
 }
 } // namespace
@@ -947,7 +931,7 @@ void DefaultUI::setupReactive() {
                 // Not at target yet: amber rising steam when below, blue drifting steam when above.
                 brewSteamSetState(currentTemp > targetTemp ? BrewSteamState::Cooling : BrewSteamState::Heating);
             } else {
-                brewSteamSetState(BrewSteamState::Ready); // green calm steam + check badge
+                brewSteamSetState(BrewSteamState::Ready); // green calm steam
             }
         },
         &active, &pidFreezeGraceActive, &brewIdleVenting, &stableTemp, &pressureAvailable, &currentTemp,
@@ -1152,7 +1136,7 @@ void DefaultUI::setupReactive() {
                             brewScreenState == BrewScreenState::Brew && volumetricAvailable);
             // Move the control container (weight/scale row) below the steam cup during brew so the
             // weight label is not occluded by the cup graphic; restore default position otherwise.
-            lv_obj_set_y(ui_BrewScreen_controlContainer, brewScreenState == BrewScreenState::Brew ? 70 : -10);
+            lv_obj_set_y(ui_BrewScreen_controlContainer, brewScreenState == BrewScreenState::Brew ? 40 : -10);
             if (volumetricAvailable) {
                 lv_img_set_src(ui_BrewScreen_volumetricButton, bluetoothScales ? &ui_img_1424216268 : &ui_img_flowmeter_png);
             }
