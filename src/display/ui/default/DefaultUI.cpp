@@ -1150,6 +1150,9 @@ void DefaultUI::setupReactive() {
             _ui_flag_modify(ui_BrewScreen_profileInfo, LV_OBJ_FLAG_HIDDEN, brewScreenState == BrewScreenState::Brew);
             _ui_flag_modify(ui_BrewScreen_modeSwitch, LV_OBJ_FLAG_HIDDEN,
                             brewScreenState == BrewScreenState::Brew && volumetricAvailable);
+            // Move the control container (weight/scale row) below the steam cup during brew so the
+            // weight label is not occluded by the cup graphic; restore default position otherwise.
+            lv_obj_set_y(ui_BrewScreen_controlContainer, brewScreenState == BrewScreenState::Brew ? 70 : -10);
             if (volumetricAvailable) {
                 lv_img_set_src(ui_BrewScreen_volumetricButton, bluetoothScales ? &ui_img_1424216268 : &ui_img_flowmeter_png);
             }
