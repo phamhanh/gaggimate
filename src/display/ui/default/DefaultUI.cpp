@@ -105,6 +105,8 @@ struct BrewSteamUI {
     lv_obj_t *wisps[kSteamWispCount] = {nullptr};
     BrewSteamState state = BrewSteamState::None;
     const struct BrewColorGradient *colorGradient = nullptr; // active multi-colour shift, or null for a static hue
+    lv_color_t lastDynamicColor{}; // last hue the colour-shift anim actually pushed
+    bool hasDynamicColor = false;  // false until the first dynamic frame of a state
 };
 BrewSteamUI g_brewSteam;
 
@@ -113,9 +115,19 @@ void brewSteamOpaCb(void *obj, int32_t v) {
 }
 
 // Direct recolour (overrides the theme's NiceWhite) so each state has its own hue.
+// Writes both the hue and the (constant) recolor opacity, so it's the one-time
+// setter used on state entry. Each lv_obj_set_style_* call invalidates the object,
+// so the per-frame colour-shift path must NOT use this — see brewSteamApplyHue.
 void brewSteamApplyColor(lv_obj_t *img, lv_color_t color) {
     lv_obj_set_style_img_recolor(img, color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_img_recolor_opa(img, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+// Per-frame hue update for the colour-shift animation. Only the recolor hue is
+// touched (recolor_opa is already LV_OPA_COVER from the state-entry call and never
+// changes), so each frame costs a single style invalidation instead of two.
+void brewSteamApplyHue(lv_obj_t *img, lv_color_t color) {
+    lv_obj_set_style_img_recolor(img, color, LV_PART_MAIN | LV_STATE_DEFAULT);
 }
 
 // ---------------------------------------------------------------------------
@@ -171,20 +183,32 @@ constexpr BrewColorGradient kFreezeGradient{kFreezeStops, 3, 2600, true};   // s
 constexpr BrewColorGradient kVentingGradient{kVentingStops, 3, 280, false}; // rapid chaotic vapour jitter
 
 // Push a freshly-computed colour onto whichever widgets the active state draws.
+// The gradient is sampled every animation tick, but on the round 360x360 display
+// a redraw of the recoloured images forces a full DMA flush that reads as a
+// whole-screen flicker. Most ticks produce a colour that maps to the *same*
+// RGB565 value as the previous frame (ease-in-out dwells at the stops, and 16-bit
+// colour is coarse), so we skip those frames entirely and only invalidate the
+// widgets when the displayed hue genuinely changes.
 void brewSteamApplyDynamicColor(lv_color_t c) {
+    if (g_brewSteam.hasDynamicColor && g_brewSteam.lastDynamicColor.full == c.full) {
+        return; // identical to the last painted frame — nothing to redraw
+    }
+    g_brewSteam.lastDynamicColor = c;
+    g_brewSteam.hasDynamicColor = true;
+
     switch (g_brewSteam.state) {
     case BrewSteamState::Heating:
     case BrewSteamState::Cooling:
-        brewSteamApplyColor(g_brewSteam.cup, c);
+        brewSteamApplyHue(g_brewSteam.cup, c);
         for (int i = 0; i < kSteamWispCount; i++) {
-            brewSteamApplyColor(g_brewSteam.wisps[i], c);
+            brewSteamApplyHue(g_brewSteam.wisps[i], c);
         }
         break;
     case BrewSteamState::FreezeGrace:
-        brewSteamApplyColor(g_brewSteam.waves, c);
+        brewSteamApplyHue(g_brewSteam.waves, c);
         break;
     case BrewSteamState::Venting:
-        brewSteamApplyColor(g_brewSteam.wind, c);
+        brewSteamApplyHue(g_brewSteam.wind, c);
         break;
     default:
         break;
@@ -381,6 +405,7 @@ void brewSteamSetState(BrewSteamState s) {
     // Reset: stop every sub-animation and hide every sub-widget.
     lv_anim_del(g_brewSteam.root, nullptr); // cancels the colour-shift anim (anchored to root)
     g_brewSteam.colorGradient = nullptr;
+    g_brewSteam.hasDynamicColor = false; // force the new state's first frame to paint
     lv_anim_del(g_brewSteam.cup, nullptr);
     lv_anim_del(g_brewSteam.check, nullptr);
     lv_anim_del(g_brewSteam.waves, nullptr);
@@ -762,10 +787,6 @@ void DefaultUI::onVolumetricDelete() {
 
 void DefaultUI::setupPanel() {
     ui_init();
-    // The brew-status icon/animation now carries the state and reclaims this row,
-    // so the static "Selected profile" caption is hidden for good. (We touch it
-    // here rather than in the SquareLine-generated screen file.)
-    lv_obj_add_flag(ui_BrewScreen_Label1, LV_OBJ_FLAG_HIDDEN);
     lv_task_handler();
 
     delay(100);
@@ -1165,6 +1186,10 @@ void DefaultUI::handleScreenChange() {
         }
 
         _ui_screen_change(targetScreen, LV_SCR_LOAD_ANIM_NONE, 0, 0, targetScreenInit);
+        // Brew screen is lazy-init; hide the static caption after each creation.
+        if (*targetScreen == ui_BrewScreen && ui_BrewScreen_Label1 != nullptr) {
+            lv_obj_add_flag(ui_BrewScreen_Label1, LV_OBJ_FLAG_HIDDEN);
+        }
         lv_obj_del(current);
         rerender = true;
     }
