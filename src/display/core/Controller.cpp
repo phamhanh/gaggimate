@@ -147,17 +147,20 @@ void Controller::setupBluetooth() {
             modeBeforeDisconnect = mode;
         }
     });
-    clientController.registerSensorCallback(
-        [this](const float temp, const float pressure, const float puckFlow, const float pumpFlow, const float puckResistance) {
-            onTempRead(temp);
-            this->pressure = pressure;
-            this->currentPuckFlow = puckFlow;
-            this->currentPumpFlow = pumpFlow;
-            pluginManager->trigger("boiler:pressure:change", "value", pressure);
-            pluginManager->trigger("pump:puck-flow:change", "value", puckFlow);
-            pluginManager->trigger("pump:flow:change", "value", pumpFlow);
-            pluginManager->trigger("pump:puck-resistance:change", "value", puckResistance);
-        });
+    clientController.registerSensorCallback([this](const float temp, const float pressure, const float puckFlow,
+                                                 const float pumpFlow, const float puckResistance, const float pumpPower,
+                                                 const float heaterPower) {
+        onTempRead(temp);
+        this->pressure = pressure;
+        this->currentPuckFlow = puckFlow;
+        this->currentPumpFlow = pumpFlow;
+        this->currentPumpPower = pumpPower;
+        this->currentHeaterPower = heaterPower;
+        pluginManager->trigger("boiler:pressure:change", "value", pressure);
+        pluginManager->trigger("pump:puck-flow:change", "value", puckFlow);
+        pluginManager->trigger("pump:flow:change", "value", pumpFlow);
+        pluginManager->trigger("pump:puck-resistance:change", "value", puckResistance);
+    });
     clientController.registerBrewBtnCallback([this](const int brewButtonStatus) { handleBrewButton(brewButtonStatus); });
     clientController.registerSteamBtnCallback([this](const int steamButtonStatus) { handleSteamButton(steamButtonStatus); });
     clientController.registerRemoteErrorCallback([this](const int error) {
@@ -836,7 +839,7 @@ void Controller::deactivate() {
     lastProcess = currentProcess;
     currentProcess = nullptr;
     if (lastProcess->getType() == MODE_BREW) {
-        if (settings.getPidFreezeGraceMs() > 0) {
+        if (settings.isPidFreezeEnabled() && settings.isPidGraceEnabled() && settings.getPidFreezeGraceMs() > 0) {
             pidFreezeGraceUntil = millis() + settings.getPidFreezeGraceMs();
         }
         pluginManager->trigger("controller:brew:end");

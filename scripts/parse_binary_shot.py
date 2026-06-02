@@ -62,7 +62,7 @@ def _decode_cstring(data: bytes) -> str:
 
 
 def _count_set_bits(value: int) -> int:
-    return value.bit_count()
+    return bin(value).count("1")
 
 
 def _read_uint16(data: bytes, offset: int, signed: bool) -> int:

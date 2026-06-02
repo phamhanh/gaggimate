@@ -1,7 +1,9 @@
 #include "WebUIPlugin.h"
 #include <DNSServer.h>
+#include <NimBLEComm.h>
 #include <SPIFFS.h>
 #include <display/core/Controller.h>
+#include <display/core/constants.h>
 #include <display/core/ProfileManager.h>
 #include <display/core/process/BrewProcess.h>
 #include <display/core/process/GrindProcess.h>
@@ -31,6 +33,46 @@ static void appendWifiStatus(JsonDocument &doc, Controller *controller, Settings
     doc["wifiLastDisconnectReason"] = controller->getWifiLastDisconnectReasonName();
     doc["wifiApFallback"] = controller->isWifiApFallback();
     doc["wifiApTimeout"] = settings.getWifiApTimeout() / 60000;
+}
+
+/** Shared fields for GET /api/status (and polling scripts). */
+static void appendApiStatusFields(JsonDocument &doc, Controller *controller, float bluetoothWeight) {
+    Settings const &settings = controller->getSettings();
+    doc["mode"] = controller->getMode();
+    doc["ct"] = controller->getCurrentTemp();
+    doc["tt"] = controller->getTargetTemp();
+    doc["pr"] = controller->getCurrentPressure();
+    doc["pt"] = controller->getTargetPressure();
+    doc["fl"] = controller->getCurrentPumpFlow();
+
+    float weight = 0.0f;
+    if (BLEScales.isConnected()) {
+        weight = bluetoothWeight;
+    } else if (Process *process = controller->getProcess()) {
+        if (process->getType() == MODE_BREW) {
+            weight = static_cast<BrewProcess *>(process)->currentVolume;
+        } else if (process->getType() == MODE_GRIND) {
+            weight = static_cast<GrindProcess *>(process)->currentVolume;
+        }
+    }
+    doc["weight"] = weight;
+
+    const String &pid = settings.getPid();
+    doc["kp"] = get_token(pid, 0, ',').toFloat();
+    doc["ki"] = get_token(pid, 1, ',').toFloat();
+    doc["kd"] = get_token(pid, 2, ',').toFloat();
+    float kff = get_token(pid, 3, ',').toFloat();
+    if (!settings.isKffEnabled()) {
+        kff = 0.0f;
+    }
+    doc["kff"] = kff;
+
+    const float pumpPower = controller->getCurrentPumpPower();
+    const float heaterPower = controller->getCurrentHeaterPower();
+    doc["pumpPower"] = pumpPower;
+    doc["heaterPower"] = heaterPower;
+    // Combined 0–200 scale: pump 0–100 % + heater 0–100 % (heaterPower / 10).
+    doc["totalPower"] = pumpPower + heaterPower / 10.0f;
 }
 
 WebUIPlugin::WebUIPlugin() : server(80), ws("/ws") { g_webUIPlugin = this; }
@@ -212,9 +254,7 @@ void WebUIPlugin::setupServer() {
     server.on("/api/status", [this](AsyncWebServerRequest *request) {
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         JsonDocument doc;
-        doc["mode"] = controller->getMode();
-        doc["tt"] = controller->getTargetTemp();
-        doc["ct"] = controller->getCurrentTemp();
+        appendApiStatusFields(doc, controller, currentBluetoothWeight);
         serializeJson(doc, *response);
         request->send(response);
     });
@@ -507,6 +547,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 settings->setStableDurationMs(request->arg("stableDurationMs").toInt());
             if (request->hasArg("pidFreezeGraceMs"))
                 settings->setPidFreezeGraceMs(request->arg("pidFreezeGraceMs").toInt());
+            settings->setPidFreezeEnabled(request->hasArg("pidFreezeEnabled"));
+            settings->setPidGraceEnabled(request->hasArg("pidGraceEnabled"));
             settings->setKffEnabled(request->hasArg("kffEnabled"));
             if (request->hasArg("incomingWaterTempC"))
                 settings->setIncomingWaterTempC(request->arg("incomingWaterTempC").toInt());
@@ -652,6 +694,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["stableOffsetC"] = settings.getStableOffsetC();
     doc["stableDurationMs"] = settings.getStableDurationMs();
     doc["pidFreezeGraceMs"] = settings.getPidFreezeGraceMs();
+    doc["pidFreezeEnabled"] = settings.isPidFreezeEnabled();
+    doc["pidGraceEnabled"] = settings.isPidGraceEnabled();
     doc["kffEnabled"] = settings.isKffEnabled();
     doc["incomingWaterTempC"] = settings.getIncomingWaterTempC();
     doc["pumpModelCoeffs"] = settings.getPumpModelCoeffs();

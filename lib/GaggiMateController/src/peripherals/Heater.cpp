@@ -91,6 +91,10 @@ void Heater::setFeedforwardScale(float combinedKff) {
 
 void Heater::setPidFreezeGraceMs(uint32_t graceMs) { pidFreezeGraceMs = graceMs; }
 
+void Heater::setPidFreezeEnabled(bool enabled) { pidFreezeEnabled = enabled; }
+
+void Heater::setPidGraceEnabled(bool enabled) { pidGraceEnabled = enabled; }
+
 void Heater::setKffEnabled(bool enabled) { kffEnabled = enabled; }
 
 void Heater::setIncomingWaterTemp(float tempC) { incomingWaterTemp = tempC; }
@@ -110,38 +114,49 @@ void Heater::loopPid() {
 
     const bool kffWouldApply = kffEnabled && combinedKff > 0.0f && waterFlowing && pumpRunning;
 
-    if (waterFlowing && !freezeLatched && !freezeBlocked) {
-        simplePid->captureFrozenFeedback();
-        freezeLatched = true;
-        const float flow = pumpFlowRate ? *pumpFlowRate : 0.0f;
-        ESP_LOGI(LOG_TAG,
-                 "PID freeze latched: T=%.2f SP=%.2f flow=%.2f ml/s frozenPid=%.2f kffEn=%d combinedKff=%.3f",
-                 temperature, setpoint, flow, simplePid->getFrozenPidSum(), kffEnabled ? 1 : 0, combinedKff);
-    } else if (!waterFlowing && wasValveOpen) {
-        if (pidFreezeGraceMs > 0) {
-            pidFreezeGraceUntil = millis() + pidFreezeGraceMs;
+    if (!pidFreezeEnabled) {
+        if (freezeLatched || pidFreezeGraceUntil != 0) {
+            freezeLatched = false;
+            pidFreezeGraceUntil = 0;
+            freezeBlocked = false;
+        }
+        wasValveOpen = waterFlowing;
+        simplePid->setPidFrozen(false);
+    } else {
+        if (waterFlowing && !freezeLatched && !freezeBlocked) {
+            simplePid->captureFrozenFeedback();
+            freezeLatched = true;
+            const float flow = pumpFlowRate ? *pumpFlowRate : 0.0f;
             ESP_LOGI(LOG_TAG,
-                     "PID freeze grace started: duration=%lu ms T=%.2f output=%.2f frozenPid=%.2f",
-                     static_cast<unsigned long>(pidFreezeGraceMs), temperature, output, simplePid->getFrozenPidSum());
-        } else {
+                     "PID freeze latched: T=%.2f SP=%.2f flow=%.2f ml/s frozenPid=%.2f kffEn=%d combinedKff=%.3f",
+                     temperature, setpoint, flow, simplePid->getFrozenPidSum(), kffEnabled ? 1 : 0, combinedKff);
+        } else if (!waterFlowing && wasValveOpen) {
+            if (pidGraceEnabled && pidFreezeGraceMs > 0) {
+                pidFreezeGraceUntil = millis() + pidFreezeGraceMs;
+                ESP_LOGI(LOG_TAG,
+                         "PID freeze grace started: duration=%lu ms T=%.2f output=%.2f frozenPid=%.2f",
+                         static_cast<unsigned long>(pidFreezeGraceMs), temperature, output,
+                         simplePid->getFrozenPidSum());
+            } else {
+                freezeLatched = false;
+                simplePid->setPidFrozen(false);
+                pidFreezeGraceUntil = 0;
+                freezeBlocked = false;
+                ESP_LOGI(LOG_TAG, "PID freeze ended (no grace): T=%.2f output=%.2f", temperature, output);
+            }
+        }
+        wasValveOpen = waterFlowing;
+
+        if (freezeLatched && pidFreezeGraceUntil != 0 && millis() >= pidFreezeGraceUntil) {
             freezeLatched = false;
             simplePid->setPidFrozen(false);
             pidFreezeGraceUntil = 0;
             freezeBlocked = false;
-            ESP_LOGI(LOG_TAG, "PID freeze ended (no grace): T=%.2f output=%.2f", temperature, output);
+            ESP_LOGI(LOG_TAG, "PID freeze grace ended (timer): T=%.2f output=%.2f", temperature, output);
         }
-    }
-    wasValveOpen = waterFlowing;
 
-    if (freezeLatched && pidFreezeGraceUntil != 0 && millis() >= pidFreezeGraceUntil) {
-        freezeLatched = false;
-        simplePid->setPidFrozen(false);
-        pidFreezeGraceUntil = 0;
-        freezeBlocked = false;
-        ESP_LOGI(LOG_TAG, "PID freeze grace ended (timer): T=%.2f output=%.2f", temperature, output);
+        simplePid->setPidFrozen(freezeLatched);
     }
-
-    simplePid->setPidFrozen(freezeLatched);
 
     if (kffWouldApply) {
         lastKffGainPerFlow = calculateDisturbanceFeedforwardGain();

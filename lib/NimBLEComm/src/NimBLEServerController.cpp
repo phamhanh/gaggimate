@@ -89,10 +89,10 @@ void NimBLEServerController::loop() {
 }
 
 void NimBLEServerController::sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow,
-                                            float puckResistance) {
+                                            float puckResistance, float pumpPower, float heaterPower) {
     if (deviceConnected && sensorChar != nullptr) {
-        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer), "%.3f,%.3f,%.3f,%.3f,%.3f", temperature, pressure, puckFlow,
-                 pumpFlow, puckResistance);
+        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f", temperature, pressure,
+                 puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower);
         sensorChar->setValue(sensorDataBuffer);
         sensorChar->notify();
     }
@@ -272,11 +272,26 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
             incomingWaterTempC = inletToken.toFloat();
         }
 
+        bool pidFreezeEnabled = true;
+        String pidFreezeEnabledToken = get_token(pid, 7, ',');
+        if (pidFreezeEnabledToken.length() > 0) {
+            pidFreezeEnabled = pidFreezeEnabledToken.toInt() != 0;
+        }
+
+        bool pidGraceEnabled = true;
+        String pidGraceEnabledToken = get_token(pid, 8, ',');
+        if (pidGraceEnabledToken.length() > 0) {
+            pidGraceEnabled = pidGraceEnabledToken.toInt() != 0;
+        }
+
         ESP_LOGI(LOG_TAG, "BLE received PID string: '%s'", pid.c_str());
-        ESP_LOGI(LOG_TAG, "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f", Kp, Ki, Kd,
-                 Kf, static_cast<unsigned long>(pidFreezeGraceMs), kffEnabled ? 1 : 0, incomingWaterTempC);
+        ESP_LOGI(LOG_TAG,
+                 "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f frzEn=%d graceEn=%d",
+                 Kp, Ki, Kd, Kf, static_cast<unsigned long>(pidFreezeGraceMs), kffEnabled ? 1 : 0, incomingWaterTempC,
+                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0);
         if (pidSettingsCallback != nullptr) {
-            pidSettingsCallback(Kp, Ki, Kd, Kf, pidFreezeGraceMs, kffEnabled, incomingWaterTempC);
+            pidSettingsCallback(Kp, Ki, Kd, Kf, pidFreezeGraceMs, kffEnabled, incomingWaterTempC, pidFreezeEnabled,
+                                pidGraceEnabled);
         }
     } else if (pCharacteristic->getUUID().equals(NimBLEUUID(PUMP_MODEL_COEFFS_CHAR_UUID))) {
         auto pumpModelCoeffs = String(pCharacteristic->getValue().c_str());

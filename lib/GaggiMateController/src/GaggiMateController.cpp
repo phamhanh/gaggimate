@@ -122,14 +122,17 @@ void GaggiMateController::setup() {
             dimmedPump->setValveState(valve);
         });
     _ble.registerAltControlCallback([this](bool state) { this->alt->set(state); });
-    _ble.registerPidSettingsCallback(
-        [this](float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs, bool kffEnabled, float incomingWaterTempC) {
-            this->heater->setTunings(Kp, Ki, Kd);
-            this->heater->setFeedforwardScale(Kf);
-            this->heater->setPidFreezeGraceMs(pidFreezeGraceMs);
-            this->heater->setKffEnabled(kffEnabled);
-            this->heater->setIncomingWaterTemp(incomingWaterTempC);
-        });
+    _ble.registerPidSettingsCallback([this](float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
+                                            bool kffEnabled, float incomingWaterTempC, bool pidFreezeEnabled,
+                                            bool pidGraceEnabled) {
+        this->heater->setTunings(Kp, Ki, Kd);
+        this->heater->setFeedforwardScale(Kf);
+        this->heater->setPidFreezeGraceMs(pidFreezeGraceMs);
+        this->heater->setPidFreezeEnabled(pidFreezeEnabled);
+        this->heater->setPidGraceEnabled(pidGraceEnabled);
+        this->heater->setKffEnabled(kffEnabled);
+        this->heater->setIncomingWaterTemp(incomingWaterTempC);
+    });
     _ble.registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
         if (_config.capabilites.dimming) {
             auto dimmedPump = static_cast<DimmedPump *>(pump);
@@ -235,15 +238,23 @@ void GaggiMateController::thermalRunawayShutdown() {
 }
 
 void GaggiMateController::sendSensorData() {
+    const float heaterPower = this->heater->getOutput();
+    float pumpPower = 0.0f;
+    if (_config.capabilites.dimming) {
+        pumpPower = static_cast<DimmedPump *>(pump)->getPowerTarget();
+    } else {
+        pumpPower = static_cast<SimplePump *>(pump)->getPowerPercent();
+    }
+
     if (_config.capabilites.pressure) {
         auto dimmedPump = static_cast<DimmedPump *>(pump);
         _ble.sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
-                            dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance());
+                            dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance(), pumpPower, heaterPower);
         if (this->valve->getState()) {
             _ble.sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
         }
     } else {
-        _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f);
+        _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f, pumpPower, heaterPower);
     }
 }
 

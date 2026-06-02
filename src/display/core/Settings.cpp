@@ -111,6 +111,8 @@ Settings::Settings() {
     stableOffsetC = preferences.getFloat("stab_off", 0.4f);
     stableDurationMs = preferences.getULong("stab_dur", 8000);
     pidFreezeGraceMs = preferences.getULong("pid_grace", 60000);
+    pidFreezeEnabled = preferences.getBool("pid_frz_en", true);
+    pidGraceEnabled = preferences.getBool("pid_grace_en", true);
     kffEnabled = preferences.getBool("kff_en", true);
     incomingWaterTempC = preferences.getInt("inlet_tw", 23);
 
@@ -461,6 +463,16 @@ void Settings::setPidFreezeGraceMs(const unsigned long graceMs) {
     save();
 }
 
+void Settings::setPidFreezeEnabled(const bool enabled) {
+    pidFreezeEnabled = enabled;
+    save();
+}
+
+void Settings::setPidGraceEnabled(const bool enabled) {
+    pidGraceEnabled = enabled;
+    save();
+}
+
 void Settings::setKffEnabled(const bool enabled) {
     kffEnabled = enabled;
     save();
@@ -496,8 +508,8 @@ String Settings::buildPidBlePayload() const {
         Kff = 0.0f;
     }
     char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d", Kp, Ki, Kd, Kff, pidFreezeGraceMs, kffEnabled ? 1 : 0,
-             incomingWaterTempC);
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
+             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0);
     return String(buffer);
 }
 
@@ -588,6 +600,8 @@ void Settings::doSave() {
     preferences.putFloat("stab_off", stableOffsetC);
     preferences.putULong("stab_dur", stableDurationMs);
     preferences.putULong("pid_grace", pidFreezeGraceMs);
+    preferences.putBool("pid_frz_en", pidFreezeEnabled);
+    preferences.putBool("pid_grace_en", pidGraceEnabled);
     preferences.putBool("kff_en", kffEnabled);
     preferences.putInt("inlet_tw", incomingWaterTempC);
 

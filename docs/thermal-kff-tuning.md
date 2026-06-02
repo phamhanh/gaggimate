@@ -103,7 +103,9 @@ While not stable, the brew screen shows **stabilizing** with **↑** (heating to
 
 ## After the shot: PID freeze grace
 
-When flow stops, **`pidFreezeGraceMs`** (default **60000**) keeps the **same latched I** (no Kff, no new P/D from probe). Brew screen: **Freeze grace**.
+When flow stops and **`pidGraceEnabled`** is on, **`pidFreezeGraceMs`** (default **60000**) keeps the **same latched I** (no Kff, no new P/D from probe). Brew screen: **Freeze grace**. Turn grace off in web Settings while keeping the duration field if you want immediate release on flow stop without losing your saved seconds.
+
+During flow, **`pidFreezeEnabled`** (default on) controls whether P/D latch at all; when off, PID updates from the probe for the whole shot (stock upstream behavior).
 
 - **Purpose:** Prevent **PID** from adding heat based on a probe that still lags after flow stops.
 - **Expected:** temperature drifts toward target and stabilizes without a large overshoot.
@@ -114,8 +116,10 @@ When flow stops, **`pidFreezeGraceMs`** (default **60000**) keeps the **same lat
 | Setting / variable                | NVS / default (fresh flash)    | Purpose                                                          |
 | --------------------------------- | ------------------------------ | ---------------------------------------------------------------- |
 | `kffEnabled`                      | `true` (`kff_en`)              | Master switch; when off, Kff sent as 0 over BLE                  |
+| `pidFreezeEnabled`                | `true` (`pid_frz_en`)          | Latch P/D during flow; when off, full PID during shot            |
+| `pidGraceEnabled`                 | `true` (`pid_grace_en`)        | Post-shot grace; when off, release latch when flow stops           |
 | `incomingWaterTempC`              | **23** (`inlet_tw`)            | Fixed inlet for Kff gain; see inlet caveat above                 |
-| `pidFreezeGraceMs`                | **60000** (`pid_grace`)        | Post-shot I-only freeze duration (web: seconds)                  |
+| `pidFreezeGraceMs`                | **60000** (`pid_grace`)        | Grace duration when `pidGraceEnabled` (web: seconds)             |
 | PID CSV `Kp,Ki,Kd,Kff`            | see `DEFAULT_PID` in constants | **`Kff` default 1.0** for 1000 W element (`combinedKff`)         |
 | `stableOffsetC`                   | **0.4**                        | Max \|temp − setpoint\| while counting toward stable             |
 | `stableDurationMs`                | **8000**                       | Time in band before stable (web: seconds)                        |
@@ -129,7 +133,7 @@ When flow stops, **`pidFreezeGraceMs`** (default **60000**) keeps the **same lat
 
 **Display UI:** Brew screen **±** for inlet temp; dials to **0.1 °C**; stabilizing **↑ / ↓**; **Ready to brew**; **Venting...**; **Freeze grace**.
 
-**BLE PID payload (7 fields):** `Kp,Ki,Kd,Kff,graceMs,kffEnabled,inletWaterTempC` — see [`Settings.cpp`](../src/display/core/Settings.cpp) `buildPidBlePayload()`.
+**BLE PID payload (9 fields):** `Kp,Ki,Kd,Kff,graceMs,kffEnabled,inletWaterTempC,pidFreezeEnabled,pidGraceEnabled` — older display firmware may send only 7 fields; controller defaults missing tokens to on. See [`Settings.cpp`](../src/display/core/Settings.cpp) `buildPidBlePayload()`.
 
 ## What we explored but did not ship
 

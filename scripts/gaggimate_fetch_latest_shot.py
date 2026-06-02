@@ -11,6 +11,7 @@ Uses HTTP /api/history/index.bin and /api/history/{id}.slog (stdlib only).
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import os
 import sys
@@ -130,16 +131,26 @@ def pick_latest_shot(shots: list[ShotIndexEntry]) -> ShotIndexEntry:
     return max(shots, key=lambda shot: (shot.timestamp, shot.id))
 
 
+def _decode_notes_bytes(notes_bytes: bytes) -> dict[str, Any] | None:
+    if notes_bytes[:2] == b"\x1f\x8b":
+        try:
+            notes_bytes = gzip.decompress(notes_bytes)
+        except OSError:
+            return None
+    try:
+        payload = json.loads(notes_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def load_notes_json(history_url: str, shot_id: str, *, http_timeout: float) -> dict[str, Any] | None:
     for notes_url in note_url_candidates(history_url, shot_id):
         notes_bytes = http_get_bytes(notes_url, http_timeout)
         if notes_bytes is None:
             continue
-        try:
-            payload = json.loads(notes_bytes.decode("utf-8"))
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
+        payload = _decode_notes_bytes(notes_bytes)
+        if payload is not None:
             return payload
     return None
 

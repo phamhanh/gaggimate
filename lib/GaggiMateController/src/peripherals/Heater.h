@@ -29,6 +29,8 @@ class Heater {
 
     void setSetpoint(float setpoint);
     float getSetpoint() { return setpoint; };
+    /** Heater duty command 0–1000 (matches PID `output` / soft-PWM window). */
+    float getOutput() const { return output; }
     void setTunings(float Kp, float Ki, float Kd);
     void autotune(int testTimeSec, int windowSize, int heaterWattage);
 
@@ -36,6 +38,8 @@ class Heater {
     void setThermalFeedforward(float *pumpFlowPtr = nullptr, float incomingWaterTemp = 23.0f, int *valveStatusPtr = nullptr);
     void setFeedforwardScale(float combinedKff); // Set combined Kff value (output units per watt)
     void setPidFreezeGraceMs(uint32_t graceMs);
+    void setPidFreezeEnabled(bool enabled);
+    void setPidGraceEnabled(bool enabled);
     void setKffEnabled(bool enabled);
     void setIncomingWaterTemp(float tempC);
 
@@ -86,6 +90,8 @@ class Heater {
     float heatLossWatts = 5.0f;     // 5W heat loss (well-insulated boiler)
     float combinedKff = 0.0f;       // Combined feedforward gain (output units per watt) - disabled by default
     uint32_t pidFreezeGraceMs = 60000;
+    bool pidFreezeEnabled = true;
+    bool pidGraceEnabled = true;
     bool kffEnabled = true;
     unsigned long pidFreezeGraceUntil = 0;
     bool freezeLatched = false;

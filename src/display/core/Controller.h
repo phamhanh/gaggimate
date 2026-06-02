@@ -52,6 +52,10 @@ class Controller {
     virtual float getCurrentPressure() const { return pressure; }
     virtual float getCurrentPuckFlow() const { return currentPuckFlow; }
     virtual float getCurrentPumpFlow() const { return currentPumpFlow; }
+    /** Pump duty 0–100 % (from controller BLE telemetry). */
+    virtual float getCurrentPumpPower() const { return currentPumpPower; }
+    /** Heater duty 0–1000 (from controller BLE telemetry). */
+    virtual float getCurrentHeaterPower() const { return currentHeaterPower; }
 
     /// Idle brew-mode pressure vent latch (UI may reflect valve-open bleed between shots).
     bool isBrewIdleVenting() const { return brewIdleVenting; }
@@ -170,6 +174,8 @@ class Controller {
     float targetPressure = 0.0f;
     float currentPuckFlow = 0.0f;
     float currentPumpFlow = 0.0f;
+    float currentPumpPower = 0.0f;
+    float currentHeaterPower = 0.0f;
     float targetFlow = 0.0f;
     int tofDistance = 0;
 

@@ -191,6 +191,12 @@ export function Settings() {
       if (key === 'kffEnabled') {
         value = formData.kffEnabled === false;
       }
+      if (key === 'pidFreezeEnabled') {
+        value = formData.pidFreezeEnabled === false;
+      }
+      if (key === 'pidGraceEnabled') {
+        value = formData.pidGraceEnabled === false;
+      }
       if (key === 'ventEnabled') {
         value = formData.ventEnabled === false;
       }
@@ -787,6 +793,41 @@ export function Settings() {
               </p>
             </div>
             <div className='form-control mb-4'>
+              <label className='label cursor-pointer'>
+                <span className='label-text'>Enable PID freeze during flow</span>
+                <input
+                  id='pidFreezeEnabled'
+                  name='pidFreezeEnabled'
+                  type='checkbox'
+                  className='toggle toggle-primary'
+                  checked={formData.pidFreezeEnabled !== false}
+                  onChange={onChange('pidFreezeEnabled')}
+                />
+              </label>
+              <p className='mt-1 text-xs opacity-70'>
+                When on, P and D stop updating from the probe during flow; output uses a latched I baseline (plus K
+                <sub>ff</sub> when enabled). When off, PID behaves like stock upstream during the shot.
+              </p>
+            </div>
+            <div className='form-control mb-4'>
+              <label className='label cursor-pointer'>
+                <span className='label-text'>Enable post-shot PID freeze grace</span>
+                <input
+                  id='pidGraceEnabled'
+                  name='pidGraceEnabled'
+                  type='checkbox'
+                  className='toggle toggle-primary'
+                  checked={formData.pidGraceEnabled !== false}
+                  onChange={onChange('pidGraceEnabled')}
+                />
+              </label>
+              <p className='mt-1 text-xs opacity-70'>
+                When on, the same latched I is held after flow stops for the grace duration below (no K
+                <sub>ff</sub>). When off, freeze releases as soon as flow ends; the duration field is kept for when you
+                turn grace back on.
+              </p>
+            </div>
+            <div className='form-control mb-4'>
               <label htmlFor='incomingWaterTempC' className='mb-2 block text-sm font-medium'>
                 Water inlet temperature (°C)
               </label>
@@ -810,7 +851,7 @@ export function Settings() {
             </div>
             <div className='form-control mb-4'>
               <label htmlFor='pidFreezeGraceSec' className='mb-2 block text-sm font-medium'>
-                Post-shot Kff PID freeze grace (seconds)
+                Post-shot PID freeze grace (seconds)
               </label>
               <input
                 id='pidFreezeGraceSec'
@@ -819,14 +860,14 @@ export function Settings() {
                 step='1'
                 min='0'
                 className='input input-bordered w-full'
+                disabled={formData.pidGraceEnabled === false}
                 value={formData.pidFreezeGraceSec ?? 60}
                 onChange={onChange('pidFreezeGraceSec')}
               />
               <p className='mt-1 text-xs opacity-70'>
-                After flow stops: same latched I, no K<sub>ff</sub>, P/D still frozen — so PID cannot
-                over-correct on a lagging probe. A large spike above target usually means K
-                <sub>ff</sub> was too strong <em>during</em> the shot. Set to 0 to release freeze
-                when flow ends.
+                Used only when post-shot grace is enabled above. After flow stops: same latched I, no K
+                <sub>ff</sub>, P/D still frozen — so PID cannot over-correct on a lagging probe. Set to 0 for an
+                immediate release when grace is on.
               </p>
             </div>
             <div className='divider'>Idle vent &amp; boiler stability</div>

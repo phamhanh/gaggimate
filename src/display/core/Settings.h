@@ -175,6 +175,8 @@ class Settings {
     float getStableOffsetC() const { return stableOffsetC; }
     unsigned long getStableDurationMs() const { return stableDurationMs; }
     unsigned long getPidFreezeGraceMs() const { return pidFreezeGraceMs; }
+    bool isPidFreezeEnabled() const { return pidFreezeEnabled; }
+    bool isPidGraceEnabled() const { return pidGraceEnabled; }
     bool isKffEnabled() const { return kffEnabled; }
     int getIncomingWaterTempC() const { return incomingWaterTempC; }
     void setVentEnabled(bool enabled);
@@ -183,9 +185,11 @@ class Settings {
     void setStableOffsetC(float offsetC);
     void setStableDurationMs(unsigned long durationMs);
     void setPidFreezeGraceMs(unsigned long graceMs);
+    void setPidFreezeEnabled(bool enabled);
+    void setPidGraceEnabled(bool enabled);
     void setKffEnabled(bool enabled);
     void setIncomingWaterTempC(int tempC);
-    /** BLE PID characteristic payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletWaterTempC). */
+    /** BLE PID payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletC,pidFreezeEn,pidGraceEn). */
     String buildPidBlePayload() const;
     /** BLE pump model payload: flow@1bar, flow@9bar (dimmed pump). */
     String buildPumpModelBlePayload() const;
@@ -262,6 +266,8 @@ class Settings {
     float stableOffsetC = 0.4f;
     unsigned long stableDurationMs = 8000;
     unsigned long pidFreezeGraceMs = 60000;
+    bool pidFreezeEnabled = true;
+    bool pidGraceEnabled = true;
     bool kffEnabled = true;
     int incomingWaterTempC = 23;
 
