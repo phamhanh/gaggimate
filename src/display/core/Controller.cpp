@@ -149,13 +149,19 @@ void Controller::setupBluetooth() {
     });
     clientController.registerSensorCallback([this](const float temp, const float pressure, const float puckFlow,
                                                  const float pumpFlow, const float puckResistance, const float pumpPower,
-                                                 const float heaterPower) {
+                                                 const float heaterPower, const float pidP, const float pidI,
+                                                 const float pidD, const float kffOut, const bool pidFrozen) {
         onTempRead(temp);
         this->pressure = pressure;
         this->currentPuckFlow = puckFlow;
         this->currentPumpFlow = pumpFlow;
         this->currentPumpPower = pumpPower;
         this->currentHeaterPower = heaterPower;
+        this->pidLiveP = pidP;
+        this->pidLiveI = pidI;
+        this->pidLiveD = pidD;
+        this->pidLiveKff = kffOut;
+        this->pidLiveFrozen = pidFrozen;
         pluginManager->trigger("boiler:pressure:change", "value", pressure);
         pluginManager->trigger("pump:puck-flow:change", "value", puckFlow);
         pluginManager->trigger("pump:flow:change", "value", pumpFlow);

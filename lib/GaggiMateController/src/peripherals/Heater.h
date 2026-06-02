@@ -31,6 +31,11 @@ class Heater {
     float getSetpoint() { return setpoint; };
     /** Heater duty command 0–1000 (matches PID `output` / soft-PWM window). */
     float getOutput() const { return output; }
+    float getPidP() const { return simplePid ? simplePid->getLastP() : 0.0f; }
+    float getPidI() const { return simplePid ? simplePid->getLastI() : 0.0f; }
+    float getPidD() const { return simplePid ? simplePid->getLastD() : 0.0f; }
+    float getKffOutput() const { return lastKffOutput; }
+    bool isPidFrozenLatched() const { return freezeLatched; }
     void setTunings(float Kp, float Ki, float Kd);
     void autotune(int testTimeSec, int windowSize, int heaterWattage);
 

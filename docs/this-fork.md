@@ -156,6 +156,7 @@ The cup sits high on the panel (`LV_ALIGN_CENTER`, y = −104), and the `control
 - **BLE disconnect grace** — a brief BLE drop sent the display to standby while the UI still looked like brew and the boiler cooled. Now it waits before standby.
 - **Web Settings pump flow** at 1 / 9 bar gated on **pressure capability**, not dimming.
 - **Profile editor** — insert a phase **after the current one** (pre-infusion splits).
+- **PID telemetry API** — live `pidLive` (P/I/D/Kff/out/frozen) on `evt:status` and `GET /api/status`; WebSocket `req:set-pid` and `req:set-target-temp` for Plan 2 tuning agents. Contract: [pid-telemetry-api.md](pid-telemetry-api.md).
 
 ## Two dead heater elements
 
@@ -186,6 +187,8 @@ If you landed here by accident, use [upstream Gaggimate](https://github.com/jnie
 
 - [schema/profile.json](../schema/profile.json) — `weight`, `predicted_weight`, and legacy `volumetric` target types
 - [thermal-kff-tuning.md](thermal-kff-tuning.md) — PID freeze, Kff, Settings variables
+- [pid-telemetry-api.md](pid-telemetry-api.md) — live `pidLive` on `evt:status`, set PID/TT over WebSocket
+- [pid-tuning-agent.md](pid-tuning-agent.md) — Python tuning workflow (Plan 2) using that API
 - [README](../README.md) — upstream-shaped overview
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — release commands for this fork
 - **Motorized MHW-3BOMBER R3 hand grinder** (same author): [Instructables build](https://www.instructables.com/Motorizing-Coffee-Hand-Grinder-MHW-3BOMBER-R3-Into/) · [Reddit thread](https://www.reddit.com/r/espresso/comments/1ret457/diy_motorizing_hand_grinder_mhw3bomber_r3_for/)

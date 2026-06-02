@@ -11,7 +11,8 @@ import time
 from base64 import b64encode
 from dataclasses import dataclass
 from typing import Any, Iterator
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
+from urllib.request import Request, urlopen
 
 DEFAULT_HOST = "gaggimate.local"
 DEFAULT_PORT = 80
@@ -258,3 +259,164 @@ class GaggimateWsClient:
     def start_ota(self, component: str) -> None:
         """Fire-and-forget; firmware does not ack req:ota-start."""
         self._send_text(json.dumps({"tp": "req:ota-start", "cp": component}))
+
+    def send_json(self, payload: dict[str, Any]) -> None:
+        self._send_text(json.dumps(payload))
+
+    def set_pid(
+        self,
+        kp: float,
+        ki: float | None = None,
+        kd: float | None = None,
+        *,
+        kff: float | None = None,
+        persist: bool = False,
+    ) -> None:
+        """Apply PID via req:set-pid (see docs/pid-telemetry-api.md)."""
+        body: dict[str, Any] = {"tp": "req:set-pid", "kp": kp, "persist": persist}
+        if ki is not None:
+            body["ki"] = ki
+        if kd is not None:
+            body["kd"] = kd
+        if kff is not None:
+            body["kff"] = kff
+        self.send_json(body)
+
+    def set_target_temp(self, temp: float) -> None:
+        self.send_json({"tp": "req:set-target-temp", "temp": temp})
+
+    def set_mode(self, mode: int) -> None:
+        """MODE_STANDBY=0, MODE_BREW=1 (see src/display/core/constants.h)."""
+        self.send_json({"tp": "req:change-mode", "mode": int(mode)})
+
+    def stream_status(
+        self,
+        duration: float = 60.0,
+        *,
+        on_status: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """Collect evt:status messages for up to duration seconds."""
+        ticks: list[dict[str, Any]] = []
+        deadline = time.time() + duration
+        while time.time() < deadline:
+            remaining = deadline - time.time()
+            if self._sock is not None:
+                self._sock.settimeout(max(0.1, min(remaining, 2.0)))
+            try:
+                message = json.loads(self._recv_text())
+            except socket.timeout:
+                continue
+            if message.get("tp") != "evt:status":
+                continue
+            ticks.append(message)
+            if on_status is not None:
+                on_status(message)
+        return ticks
+
+    def wait_status(self, timeout: float = 10.0) -> dict[str, Any]:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            remaining = deadline - time.time()
+            if self._sock is not None:
+                self._sock.settimeout(max(0.1, min(remaining, 2.0)))
+            try:
+                message = json.loads(self._recv_text())
+            except socket.timeout:
+                continue
+            if message.get("tp") == "evt:status":
+                return message
+        raise TimeoutError("Timed out waiting for evt:status")
+
+
+def fetch_api_status(host: str, port: int = DEFAULT_PORT, timeout: float = 10.0) -> dict[str, Any]:
+    ip_host = host
+    try:
+        socket.inet_pton(socket.AF_INET, host)
+    except OSError:
+        ip_host = socket.gethostbyname(host)
+    url = f"http://{ip_host}:{port}/api/status" if port != 80 else f"http://{ip_host}/api/status"
+    with urlopen(url, timeout=timeout) as response:
+        return json.loads(response.read().decode())
+
+
+def fetch_api_settings(host: str, port: int = DEFAULT_PORT, timeout: float = 10.0) -> dict[str, Any]:
+    ip_host = host
+    try:
+        socket.inet_pton(socket.AF_INET, host)
+    except OSError:
+        ip_host = socket.gethostbyname(host)
+    url = f"http://{ip_host}:{port}/api/settings" if port != 80 else f"http://{ip_host}/api/settings"
+    with urlopen(url, timeout=timeout) as response:
+        return json.loads(response.read().decode())
+
+
+def post_api_settings(host: str, fields: dict[str, str], port: int = DEFAULT_PORT, timeout: float = 15.0) -> dict[str, Any]:
+    """POST application/x-www-form-urlencoded to /api/settings (always persists)."""
+    ip_host = host
+    try:
+        socket.inet_pton(socket.AF_INET, host)
+    except OSError:
+        ip_host = socket.gethostbyname(host)
+    url = f"http://{ip_host}:{port}/api/settings" if port != 80 else f"http://{ip_host}/api/settings"
+    data = urlencode(fields).encode()
+    request = Request(url, data=data, method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"})
+    with urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode())
+
+
+def parse_pid_csv(pid: str) -> tuple[float, float, float, float]:
+    parts = [part.strip() for part in pid.split(",")]
+    while len(parts) < 4:
+        parts.append("0")
+    return float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])
+
+
+def parse_status_tick(message: dict[str, Any], *, t: float | None = None) -> dict[str, Any]:
+    """Normalize evt:status / GET /api/status to flat tick dict (docs/pid-telemetry-api.md)."""
+    live = message.get("pidLive") or {}
+    return {
+        "t": time.time() if t is None else t,
+        "ct": float(message.get("ct", 0)),
+        "tt": float(message.get("tt", 0)),
+        "p": float(live.get("p", 0)),
+        "i": float(live.get("i", 0)),
+        "d": float(live.get("d", 0)),
+        "kff": float(live.get("kff", 0)),
+        "out": float(live.get("out", message.get("heaterPower", message.get("out", 0)))),
+        "frozen": int(live.get("frozen", 0)),
+        "kp": float(message.get("kp", 0)),
+        "ki": float(message.get("ki", 0)),
+        "kd": float(message.get("kd", 0)),
+        "kffGain": float(message.get("kffGain", message.get("kff", 0))),
+    }
+
+
+def status_has_pid_live(message: dict[str, Any]) -> bool:
+    live = message.get("pidLive")
+    return isinstance(live, dict) and "p" in live
+
+
+def print_status_once(host: str, port: int = DEFAULT_PORT, timeout: float = 15.0) -> None:
+    """Print one status line from HTTP or WS (for Plan 1 smoke test)."""
+    try:
+        status = fetch_api_status(host, port, timeout=timeout)
+        if status_has_pid_live(status):
+            tick = parse_status_tick(status)
+            print(_format_status_line(tick))
+            return
+    except OSError as error:
+        print(f"HTTP /api/status failed: {error}", file=__import__("sys").stderr)
+
+    with GaggimateWsClient(host, port, timeout=timeout) as client:
+        message = client.wait_status(timeout=timeout)
+        if not status_has_pid_live(message):
+            raise RuntimeError("evt:status missing pidLive — deploy Plan 1 display firmware")
+        print(_format_status_line(parse_status_tick(message)))
+
+
+def _format_status_line(tick: dict[str, Any]) -> str:
+    return (
+        f"t={tick['t']:.1f} ct={tick['ct']:.2f} tt={tick['tt']:.2f} "
+        f"p={tick['p']:.1f} i={tick['i']:.1f} d={tick['d']:.1f} out={tick['out']:.0f} "
+        f"frozen={tick['frozen']} kp={tick['kp']:.2f} ki={tick['ki']:.3f} kd={tick['kd']:.0f}"
+    )

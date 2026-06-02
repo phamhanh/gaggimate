@@ -315,9 +315,14 @@ void NimBLEClientController::notifyCallback(NimBLERemoteCharacteristic *pRemoteC
         float puckResistance = 0.0f;
         float pumpPower = 0.0f;
         float heaterPower = 0.0f;
+        float pidP = 0.0f;
+        float pidI = 0.0f;
+        float pidD = 0.0f;
+        float kffOut = 0.0f;
+        int pidFrozen = 0;
 
-        int parsed = sscanf(rawData, "%f,%f,%f,%f,%f,%f,%f", &temperature, &pressure, &puckFlow, &pumpFlow, &puckResistance,
-                            &pumpPower, &heaterPower);
+        int parsed = sscanf(rawData, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d", &temperature, &pressure, &puckFlow, &pumpFlow,
+                            &puckResistance, &pumpPower, &heaterPower, &pidP, &pidI, &pidD, &kffOut, &pidFrozen);
         if (parsed < 5) {
             ESP_LOGW(LOG_TAG, "Malformed sensor data payload: %s", rawData);
             return;
@@ -326,13 +331,23 @@ void NimBLEClientController::notifyCallback(NimBLERemoteCharacteristic *pRemoteC
             pumpPower = 0.0f;
             heaterPower = 0.0f;
         }
+        if (parsed < 12) {
+            pidP = 0.0f;
+            pidI = 0.0f;
+            pidD = 0.0f;
+            kffOut = 0.0f;
+            pidFrozen = 0;
+        }
 
         ESP_LOGV(LOG_TAG,
                  "Received sensor data: temperature=%.1f, pressure=%.1f, puck_flow=%.1f, pump_flow=%.1f, "
-                 "puck_resistance=%.1f, pump_power=%.1f, heater_power=%.1f",
-                 temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower);
+                 "puck_resistance=%.1f, pump_power=%.1f, heater_power=%.1f, pid_p=%.1f, pid_i=%.1f, pid_d=%.1f, "
+                 "kff_out=%.1f, frozen=%d",
+                 temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI, pidD,
+                 kffOut, pidFrozen);
         if (sensorCallback != nullptr) {
-            sensorCallback(temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower);
+            sensorCallback(temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI,
+                           pidD, kffOut, pidFrozen != 0);
         }
     }
     if (pRemoteCharacteristic->getUUID().equals(NimBLEUUID(AUTOTUNE_RESULT_UUID))) {

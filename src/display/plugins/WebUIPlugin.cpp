@@ -35,6 +35,35 @@ static void appendWifiStatus(JsonDocument &doc, Controller *controller, Settings
     doc["wifiApTimeout"] = settings.getWifiApTimeout() / 60000;
 }
 
+/** Stored gains, power telemetry, and live PID terms for status APIs. */
+static void appendPidTelemetryFields(JsonDocument &doc, Controller *controller, Settings const &settings) {
+    const String &pid = settings.getPid();
+    doc["kp"] = get_token(pid, 0, ',').toFloat();
+    doc["ki"] = get_token(pid, 1, ',').toFloat();
+    doc["kd"] = get_token(pid, 2, ',').toFloat();
+    float kffGain = get_token(pid, 3, ',').toFloat();
+    if (!settings.isKffEnabled()) {
+        kffGain = 0.0f;
+    }
+    doc["kffGain"] = kffGain;
+    doc["kff"] = kffGain;
+
+    const float pumpPower = controller->getCurrentPumpPower();
+    const float heaterPower = controller->getCurrentHeaterPower();
+    doc["pumpPower"] = pumpPower;
+    doc["heaterPower"] = heaterPower;
+    doc["out"] = heaterPower;
+    doc["totalPower"] = pumpPower + heaterPower / 10.0f;
+
+    JsonObject pidLive = doc["pidLive"].to<JsonObject>();
+    pidLive["p"] = controller->getPidLiveP();
+    pidLive["i"] = controller->getPidLiveI();
+    pidLive["d"] = controller->getPidLiveD();
+    pidLive["kff"] = controller->getPidLiveKff();
+    pidLive["out"] = heaterPower;
+    pidLive["frozen"] = controller->isPidLiveFrozen() ? 1 : 0;
+}
+
 /** Shared fields for GET /api/status (and polling scripts). */
 static void appendApiStatusFields(JsonDocument &doc, Controller *controller, float bluetoothWeight) {
     Settings const &settings = controller->getSettings();
@@ -57,22 +86,7 @@ static void appendApiStatusFields(JsonDocument &doc, Controller *controller, flo
     }
     doc["weight"] = weight;
 
-    const String &pid = settings.getPid();
-    doc["kp"] = get_token(pid, 0, ',').toFloat();
-    doc["ki"] = get_token(pid, 1, ',').toFloat();
-    doc["kd"] = get_token(pid, 2, ',').toFloat();
-    float kff = get_token(pid, 3, ',').toFloat();
-    if (!settings.isKffEnabled()) {
-        kff = 0.0f;
-    }
-    doc["kff"] = kff;
-
-    const float pumpPower = controller->getCurrentPumpPower();
-    const float heaterPower = controller->getCurrentHeaterPower();
-    doc["pumpPower"] = pumpPower;
-    doc["heaterPower"] = heaterPower;
-    // Combined 0–200 scale: pump 0–100 % + heater 0–100 % (heaterPower / 10).
-    doc["totalPower"] = pumpPower + heaterPower / 10.0f;
+    appendPidTelemetryFields(doc, controller, settings);
 }
 
 WebUIPlugin::WebUIPlugin() : server(80), ws("/ws") { g_webUIPlugin = this; }
@@ -178,6 +192,8 @@ void WebUIPlugin::loop() {
         doc["bw"] = bleConnected ? this->currentBluetoothWeight : 0; // current bluetooth weight
         doc["cw"] = bleConnected ? this->currentBluetoothWeight : 0; // Use 'currentWeight' for forward compatbility
         doc["bc"] = bleConnected;                                    // bluetooth scale connected status
+
+        appendPidTelemetryFields(doc, controller, controller->getSettings());
 
         Process *process = controller->getProcess();
         if (process == nullptr) {
@@ -374,6 +390,35 @@ void WebUIPlugin::handleWebSocketData(AsyncWebSocket *server, AsyncWebSocketClie
                     controller->raiseTemp();
                 } else if (msgType == "req:lower-temp") {
                     controller->lowerTemp();
+                } else if (msgType == "req:set-target-temp") {
+                    if (doc["temp"].is<float>() || doc["temp"].is<int>()) {
+                        const float temp = constrain(doc["temp"].as<float>(), MIN_TEMP, MAX_TEMP);
+                        controller->setTargetTemp(temp);
+                    }
+                } else if (msgType == "req:set-pid") {
+                    if (doc["kp"].is<float>() || doc["kp"].is<int>()) {
+                        Settings &settings = controller->getSettings();
+                        const float kp = doc["kp"].as<float>();
+                        const float ki = doc["ki"].is<float>() || doc["ki"].is<int>() ? doc["ki"].as<float>()
+                                                                                      : get_token(settings.getPid(), 1, ',')
+                                                                                            .toFloat();
+                        const float kd = doc["kd"].is<float>() || doc["kd"].is<int>() ? doc["kd"].as<float>()
+                                                                                      : get_token(settings.getPid(), 2, ',')
+                                                                                            .toFloat();
+                        float kff = doc["kff"].is<float>() || doc["kff"].is<int>()
+                                        ? doc["kff"].as<float>()
+                                        : get_token(settings.getPid(), 3, ',').toFloat();
+                        const bool persist = !doc["persist"].is<bool>() || doc["persist"].as<bool>();
+                        if (persist) {
+                            char pid[64];
+                            snprintf(pid, sizeof(pid), "%.3f,%.3f,%.3f,%.3f", kp, ki, kd, kff);
+                            settings.setPid(String(pid));
+                        }
+                        if (controller->getClientController()->isConnected()) {
+                            controller->getClientController()->sendPidSettings(
+                                settings.buildPidBlePayloadFromGains(kp, ki, kd, kff));
+                        }
+                    }
                 } else if (msgType == "req:raise-grind-target") {
                     controller->raiseGrindTarget();
                 } else if (msgType == "req:lower-grind-target") {

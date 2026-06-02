@@ -89,10 +89,12 @@ void NimBLEServerController::loop() {
 }
 
 void NimBLEServerController::sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow,
-                                            float puckResistance, float pumpPower, float heaterPower) {
+                                            float puckResistance, float pumpPower, float heaterPower, float pidP,
+                                            float pidI, float pidD, float kffOut, bool pidFrozen) {
     if (deviceConnected && sensorChar != nullptr) {
-        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f", temperature, pressure,
-                 puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower);
+        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d",
+                 temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI, pidD, kffOut,
+                 pidFrozen ? 1 : 0);
         sensorChar->setValue(sensorDataBuffer);
         sensorChar->notify();
     }

@@ -239,6 +239,11 @@ void GaggiMateController::thermalRunawayShutdown() {
 
 void GaggiMateController::sendSensorData() {
     const float heaterPower = this->heater->getOutput();
+    const float pidP = this->heater->getPidP();
+    const float pidI = this->heater->getPidI();
+    const float pidD = this->heater->getPidD();
+    const float kffOut = this->heater->getKffOutput();
+    const bool pidFrozen = this->heater->isPidFrozenLatched();
     float pumpPower = 0.0f;
     if (_config.capabilites.dimming) {
         pumpPower = static_cast<DimmedPump *>(pump)->getPowerTarget();
@@ -249,12 +254,14 @@ void GaggiMateController::sendSensorData() {
     if (_config.capabilites.pressure) {
         auto dimmedPump = static_cast<DimmedPump *>(pump);
         _ble.sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
-                            dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance(), pumpPower, heaterPower);
+                            dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance(), pumpPower, heaterPower, pidP, pidI,
+                            pidD, kffOut, pidFrozen);
         if (this->valve->getState()) {
             _ble.sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
         }
     } else {
-        _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f, pumpPower, heaterPower);
+        _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f, pumpPower, heaterPower, pidP, pidI, pidD,
+                            kffOut, pidFrozen);
     }
 }
 

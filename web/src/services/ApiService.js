@@ -186,6 +186,12 @@ export default class ApiService {
       timestamp: new Date(),
       rssi: message.rssi || 0,
       tofDistance: message.tof || 0,
+      kp: message.kp,
+      ki: message.ki,
+      kd: message.kd,
+      kffGain: message.kffGain ?? message.kff,
+      heaterPower: message.heaterPower ?? message.out,
+      pidLive: message.pidLive || null,
     };
     const historyEntry = { ...newStatus };
     delete historyEntry.process;

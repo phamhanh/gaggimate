@@ -513,6 +513,16 @@ String Settings::buildPidBlePayload() const {
     return String(buffer);
 }
 
+String Settings::buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float Kff) const {
+    if (!kffEnabled) {
+        Kff = 0.0f;
+    }
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
+             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0);
+    return String(buffer);
+}
+
 void Settings::doSave() {
     if (!dirty) {
         return;

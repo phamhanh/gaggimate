@@ -50,7 +50,12 @@ bool SimplePID::update() {
 
     ESP_LOGV("SimplePID", "%.2f\t %.2f\t %.2f\t %.2f\n", *setpointTarget, setpointFiltered, setpointDerivative, *sensorOutput);
 
+    lastDistFFOut = DistFFOut;
+
     if (pidFrozen) {
+        lastPout = 0.0f;
+        lastIout = frozenPidSum;
+        lastDout = 0.0f;
         *controlerOutput = constrain(frozenPidSum + DistFFOut, ctrlOutputLimits[0], ctrlOutputLimits[1]);
         return true;
     }
@@ -95,6 +100,9 @@ bool SimplePID::update() {
     prevMeasurement = *sensorOutput;
     prevOutput = sumPIDsat;
 
+    lastPout = Pout;
+    lastIout = Iout;
+    lastDout = Dout;
     *controlerOutput = sumPIDsat;
 
     return true;

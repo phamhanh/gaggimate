@@ -12,7 +12,8 @@ class NimBLEServerController : public NimBLEServerCallbacks, public NimBLECharac
     void loop();
 
     void sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow, float puckResistance,
-                        float pumpPower, float heaterPower);
+                        float pumpPower, float heaterPower, float pidP = 0.0f, float pidI = 0.0f, float pidD = 0.0f,
+                        float kffOut = 0.0f, bool pidFrozen = false);
     void sendError(int errorCode);
     void sendBrewBtnState(bool brewButtonStatus);
     void sendSteamBtnState(bool steamButtonStatus);
@@ -65,7 +66,7 @@ class NimBLEServerController : public NimBLEServerCallbacks, public NimBLECharac
     float_callback_t pressureScaleCallback = nullptr;
     void_callback_t tareCallback = nullptr;
     led_control_callback_t ledControlCallback = nullptr;
-    char sensorDataBuffer[80]{};
+    char sensorDataBuffer[160]{};
     char errorBuffer[12]{};
     char brewBtnBuffer[4]{};
     char steamBtnBuffer[4]{};

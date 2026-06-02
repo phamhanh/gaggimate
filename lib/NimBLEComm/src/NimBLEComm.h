@@ -60,7 +60,8 @@ using simple_output_callback_t = std::function<void(bool valve, float pumpSetpoi
 using advanced_output_callback_t =
     std::function<void(bool valve, float boilerSetpoint, bool pressureTarget, float pumpPressure, float pumpFlow)>;
 using sensor_read_callback_t = std::function<void(float temperature, float pressure, float puckFlow, float pumpFlow,
-                                                float puckResistance, float pumpPower, float heaterPower)>;
+                                                float puckResistance, float pumpPower, float heaterPower, float pidP,
+                                                float pidI, float pidD, float kffOut, bool pidFrozen)>;
 using led_control_callback_t = std::function<void(uint8_t channel, uint8_t brightness)>;
 
 struct SystemCapabilities {

@@ -52,6 +52,8 @@ channels:
           - $ref: '#/components/messages/ProfilesFavoriteRequest'
           - $ref: '#/components/messages/ProfilesUnfavoriteRequest'
           - $ref: '#/components/messages/ProfilesReorderRequest'
+          - $ref: '#/components/messages/SetPidRequest'
+          - $ref: '#/components/messages/SetTargetTempRequest'
 components:
   schemas:
     StatusPayload:
@@ -75,6 +77,48 @@ components:
         pt:
           type: number
           description: Target pressure
+        kp:
+          type: number
+          description: Stored proportional gain
+        ki:
+          type: number
+          description: Stored integral gain
+        kd:
+          type: number
+          description: Stored derivative gain
+        kffGain:
+          type: number
+          description: Stored disturbance feedforward gain (0 when Kff disabled)
+        kff:
+          type: number
+          description: Alias of kffGain
+        pumpPower:
+          type: number
+          description: Pump duty 0-100 percent
+        heaterPower:
+          type: number
+          description: Heater command 0-1000
+        out:
+          type: number
+          description: Alias of heaterPower
+        pidLive:
+          type: object
+          description: Live PID terms from controller BLE telemetry
+          properties:
+            p:
+              type: number
+            i:
+              type: number
+            d:
+              type: number
+            kff:
+              type: number
+              description: Live disturbance FF output (not stored gain)
+            out:
+              type: number
+            frozen:
+              type: integer
+              enum: [0, 1]
         m:
           type: integer
           description: Machine mode
@@ -369,6 +413,36 @@ components:
               type: string
             description: Full ordered list of profile IDs.
         required: [tp, order]
+
+    SetPidRequest:
+      payload:
+        type: object
+        properties:
+          tp:
+            type: string
+            enum: ['req:set-pid']
+          kp:
+            type: number
+          ki:
+            type: number
+          kd:
+            type: number
+          kff:
+            type: number
+          persist:
+            type: boolean
+            default: true
+        required: [tp, kp]
+    SetTargetTempRequest:
+      payload:
+        type: object
+        properties:
+          tp:
+            type: string
+            enum: ['req:set-target-temp']
+          temp:
+            type: number
+        required: [tp, temp]
 
     ProfilesReorderResponse:
       payload:

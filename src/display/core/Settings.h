@@ -191,6 +191,7 @@ class Settings {
     void setIncomingWaterTempC(int tempC);
     /** BLE PID payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletC,pidFreezeEn,pidGraceEn). */
     String buildPidBlePayload() const;
+    String buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float Kff) const;
     /** BLE pump model payload: flow@1bar, flow@9bar (dimmed pump). */
     String buildPumpModelBlePayload() const;
 

@@ -60,6 +60,13 @@ class SimplePID {
     bool isPidFrozen() const { return pidFrozen; }
     float getFrozenPidSum() const { return frozenPidSum; }
 
+    /** Last computed feedback terms (controller units); updated at PID sample rate. */
+    float getLastP() const { return lastPout; }
+    float getLastI() const { return lastIout; }
+    float getLastD() const { return lastDout; }
+    /** Disturbance feedforward output from the last PID tick. */
+    float getLastKffOut() const { return lastDistFFOut; }
+
   private:
     // setpoint filtering
     void setpointFiltering(float freq);
@@ -96,6 +103,10 @@ class SimplePID {
     float filteredDerivative = 0.0f;      // Low-pass filtered derivative term
     float derivFilterAlpha = 1.0f;        // EMA alpha for derivative filter: 1.0 = no filter, lower = smoother
     float prevOutput = 0.0f;             // Previous output for derivative calculation
+    float lastPout = 0.0f;
+    float lastIout = 0.0f;
+    float lastDout = 0.0f;
+    float lastDistFFOut = 0.0f;
     Control mode = Control::manual;
     float manualOutput = 0.0f;
     unsigned long lastTime = 0;
