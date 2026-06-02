@@ -396,22 +396,30 @@ def status_has_pid_live(message: dict[str, Any]) -> bool:
     return isinstance(live, dict) and "p" in live
 
 
-def print_status_once(host: str, port: int = DEFAULT_PORT, timeout: float = 15.0) -> None:
-    """Print one status line from HTTP or WS (for Plan 1 smoke test)."""
+def read_status_once(host: str, port: int = DEFAULT_PORT, timeout: float = 15.0) -> dict[str, Any]:
+    """One status tick from HTTP /api/status or WebSocket evt:status."""
     try:
         status = fetch_api_status(host, port, timeout=timeout)
         if status_has_pid_live(status):
-            tick = parse_status_tick(status)
-            print(_format_status_line(tick))
-            return
-    except OSError as error:
-        print(f"HTTP /api/status failed: {error}", file=__import__("sys").stderr)
+            return status
+    except OSError:
+        pass
 
     with GaggimateWsClient(host, port, timeout=timeout) as client:
         message = client.wait_status(timeout=timeout)
         if not status_has_pid_live(message):
             raise RuntimeError("evt:status missing pidLive — deploy Plan 1 display firmware")
-        print(_format_status_line(parse_status_tick(message)))
+        return message
+
+
+def print_status_once(host: str, port: int = DEFAULT_PORT, timeout: float = 15.0) -> None:
+    """Print one status line from HTTP or WS (for Plan 1 smoke test)."""
+    try:
+        status = read_status_once(host, port, timeout=timeout)
+        print(_format_status_line(parse_status_tick(status)))
+    except OSError as error:
+        print(f"status read failed: {error}", file=__import__("sys").stderr)
+        raise
 
 
 def _format_status_line(tick: dict[str, Any]) -> str:

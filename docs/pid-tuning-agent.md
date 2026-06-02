@@ -30,18 +30,14 @@ Every tuning run (scripts do this automatically; restore on exit):
 1. **Disable auto-standby** — `POST /api/settings` with `standbyTimeout=0` so firmware will not call `activateStandby()` while idle (`standbyTimeout > 0` is required in `Controller.cpp`). On finish, restore the previous value from GET.
 
 ```bash
-# Start (scripts / manual)
 curl -X POST "http://gaggimate.plumvillage.org/api/settings" --data "standbyTimeout=0"
-
-# End — use the seconds value from GET /api/settings (field standbyTimeout)
-curl -X POST "http://gaggimate.plumvillage.org/api/settings" --data "standbyTimeout=30"
 ```
 
 2. **Brew mode** on the machine (`tt` is **0** in standby); scripts also POST `startupMode=brew` and `req:change-mode` if already in standby.
 3. **`kffEnabled=false`** — idle prep POST omits `kffEnabled` (checkbox off).
 4. No pump flow during idle tune (`pidLive.frozen` must stay **0**).
 
-Implementation: [`scripts/pid_tune/session.py`](../scripts/pid_tune/session.py) (`pid_tune_session` context manager).
+Implementation: [`scripts/pid_tune/session.py`](../scripts/pid_tune/session.py) (`pid_tune_session` wraps the **entire** ladder, which may run many hours).
 
 ## API (read this first)
 
@@ -50,67 +46,107 @@ Field names and commands: **[pid-telemetry-api.md](pid-telemetry-api.md)**.
 ```bash
 HOST=gaggimate.plumvillage.org
 curl -sS "http://${HOST}/api/status" | python3 -m json.tool   # expect pidLive
-python3 scripts/gaggimate_ws.py  # use print_status_once from another module:
 python3 -c "from gaggimate_ws import print_status_once; print_status_once('$HOST')"
 ```
 
-## Scripts
+## Unattended five-scenario ladder
 
-| Script | Role |
-|--------|------|
-| [`scripts/gaggimate_ws.py`](../scripts/gaggimate_ws.py) | `stream_status`, `set_pid`, `set_target_temp`, HTTP settings/status |
-| [`scripts/gaggimate_pid_stream.py`](../scripts/gaggimate_pid_stream.py) | Record CSV under `device-data/pid-tune/` |
-| [`scripts/pid_tune/metrics.py`](../scripts/pid_tune/metrics.py) | overshoot, time_to_band, settle |
-| [`scripts/pid_tune/suggest_gains.py`](../scripts/pid_tune/suggest_gains.py) | deterministic next Kp,Ki,Kd |
-| [`scripts/gaggimate_pid_tune.py`](../scripts/gaggimate_pid_tune.py) | scenario runner + suggestion loop |
+One command runs **S1 → S5** in order, tuning PID per scenario until acceptance, then **one** NVS persist at the end.
 
-## Workflows
+| ID | Name | Start `ct` band | Test |
+|----|------|-----------------|------|
+| S1 | `near_88` | 87–89 °C | Step `tt` to **92 °C**, record ramp |
+| S2 | `near_85` | 84–86 °C | Step to 92 °C |
+| S3 | `near_60` | 58–62 °C | Step to 92 °C |
+| S4 | `near_30` | 28–32 °C | Step to 92 °C |
+| S5 | `cold_soak` | ≤2 °C | `tt=0` for **1 h**, then ramp to 92 °C |
 
-### A — Stream only
+**Passive cooling** between scenarios: set `tt` to waypoints **85 → 60 → 30 → 0** (only steps still above current `ct`) and wait until `ct` reaches each step. There is no active cooling—cool-down can take tens of minutes to hours.
+
+### Run
 
 ```bash
 HOST=gaggimate.plumvillage.org
-python3 scripts/gaggimate_pid_stream.py --host "$HOST" --duration 120 --scenario cold_start --print
+python3 scripts/gaggimate_pid_tune.py --host "$HOST"
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--resume` | Continue from `device-data/pid-tune/state.json` (gitignored) |
+| `--dry-run` | Read `ct`/`tt`/PID and print planned ladder; no POST/WS changes |
+| `--max-hours N` | Safety abort after N hours (state file allows resume) |
+
+### Expectations
+
+- First full ladder often takes **6–12+ hours** depending on starting `ct` and ambient loss—not minutes.
+- Machine must stay powered, filled with water, and reachable on the network.
+- Abort if `ct` > **160 °C** or `pidLive.frozen` ≠ 0 during idle tune.
+
+### Resume
+
+Progress is written to `device-data/pid-tune/state.json` after each scenario and iteration. On disconnect, re-run with `--resume` on the same `--host`.
+
+### Config
+
+Bands, timeouts, and acceptance limits: [`scripts/pid_tune/config.yaml`](../scripts/pid_tune/config.yaml) (JSON-compatible; loaded via `config.py`).
+
+Default cool timeouts per waypoint: 85 °C → 20 min; 60 °C → 45 min; 30 °C → 90 min; 0 °C → 120 min.
+
+### Debug (single scenario)
+
+```bash
+python3 scripts/gaggimate_pid_tune.py --host "$HOST" --only near_88
+```
+
+Abbreviated overnight test: cool to 85 only + S2 with `--max-hours 1` before a full ladder.
+
+## Scripts
+
+| Script / module | Role |
+|-----------------|------|
+| [`scripts/gaggimate_pid_tune.py`](../scripts/gaggimate_pid_tune.py) | CLI → `run_full_ladder` |
+| [`scripts/pid_tune/runner.py`](../scripts/pid_tune/runner.py) | Ladder state machine, ramp tests, tune loop |
+| [`scripts/pid_tune/thermal.py`](../scripts/pid_tune/thermal.py) | `wait_until_ct`, cooling waypoints, 1 h soak |
+| [`scripts/pid_tune/scenarios.py`](../scripts/pid_tune/scenarios.py) | Five scenario definitions |
+| [`scripts/pid_tune/state.py`](../scripts/pid_tune/state.py) | Resume file I/O |
+| [`scripts/gaggimate_ws.py`](../scripts/gaggimate_ws.py) | WebSocket + `read_status_once` HTTP fallback |
+| [`scripts/gaggimate_pid_stream.py`](../scripts/gaggimate_pid_stream.py) | Record CSV under `device-data/pid-tune/` |
+| [`scripts/pid_tune/metrics.py`](../scripts/pid_tune/metrics.py) | overshoot, time_to_band, `wait_stable` |
+| [`scripts/pid_tune/suggest_gains.py`](../scripts/pid_tune/suggest_gains.py) | deterministic next Kp,Ki,Kd |
+
+## Stream only (manual observation)
+
+```bash
+python3 scripts/gaggimate_pid_stream.py --host "$HOST" --duration 120 --scenario near_88 --print
 ```
 
 Columns: `t, ct, tt, p, i, d, out, frozen, kp, ki, kd`.
 
-### B — Single step test (`preheat_stable`)
+## Verification
 
-Soak at 85 °C, step to 93 °C, score overshoot and time-to-band:
-
-```bash
-python3 scripts/gaggimate_pid_tune.py --host "$HOST" --scenario preheat_stable --iterations 1
-```
-
-### C — Iteration (deterministic, no LLM)
+1. **Unit tests** (no device):
 
 ```bash
-python3 scripts/gaggimate_pid_tune.py --host "$HOST" --scenario preheat_stable --iterations 10
-# On acceptable run:
-python3 scripts/gaggimate_pid_tune.py --host "$HOST" --scenario preheat_stable --iterations 1 --persist
+cd scripts && python3 -m unittest pid_tune.test_ladder -v
 ```
 
-Between `cold_start` runs the boiler may need manual cool-down.
+2. **Dry-run** on device:
 
-## Scenarios
+```bash
+python3 scripts/gaggimate_pid_tune.py --host "$HOST" --dry-run
+```
 
-| Tag | Use |
-|-----|-----|
-| `cold_start` | Low probe temp → ramp to target; score time-to-band and overshoot |
-| `preheat_stable` | Soak + small step 85→93 °C |
-| `post_shot_grace` | Stream after shot; watch `frozen` and post-grace `ct` vs `tt` (manual shot) |
-| `post_standby` | Optional wake from standby (document `tt` glitch from 0) |
+3. **Live**: run S1 one evening (`--only near_88`); full ladder overnight with `--resume` if interrupted.
 
 ## Safety
 
 - Abort if `ct` > **160 °C**.
-- Attend the machine during automated steps.
-- Use `persist=false` for trials; `persist=true` only when accepting gains.
+- Use `persist=false` during trials; ladder persists **once** after all five scenarios accept.
+- Attend the machine for the first abbreviated test; overnight runs need stable power and network.
 
-## Acceptance
+## Acceptance (per scenario)
 
-One `preheat_stable` run: in ±0.5 °C band within 240 s, overshoot ≤ 0.5 °C (tighten to 0.2 °C later if desired).
+From `config.yaml`: overshoot ≤ **0.5 °C**, time-to-band ≤ **240 s**, `pidLive.frozen == 0`. S1/S2 use shorter record windows (120 s) for small steps.
 
 ## Plan 1 gap
 

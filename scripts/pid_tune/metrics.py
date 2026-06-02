@@ -134,6 +134,20 @@ def is_stable(
     return var is not None and var < 0.02
 
 
+def wait_stable(
+    samples: list[StatusSample],
+    *,
+    band_c: float = 0.2,
+    window: int = 16,
+    target: float | None = None,
+) -> float | None:
+    """Return sample time t when tail window first becomes stable, else None."""
+    for end in range(window, len(samples) + 1):
+        if is_stable(samples[:end], band_c=band_c, window=window, target=target):
+            return samples[end - 1].t
+    return None
+
+
 def score_run(
     samples: list[StatusSample],
     *,
