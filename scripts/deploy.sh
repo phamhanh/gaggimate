@@ -11,6 +11,8 @@
 #   ./scripts/deploy.sh --no-backup                  # faster: skip device pull
 #   ./scripts/deploy.sh --release-only               # backup + release, skip OTA
 #   ./scripts/deploy.sh --update-only                # OTA from existing out/ only
+#   ./scripts/deploy.sh --update-only --ota-display-only
+#   ./scripts/deploy.sh --ota-controller-only -- --yes
 #
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

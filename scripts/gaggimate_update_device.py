@@ -14,7 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from device_http import device_web_urls
 from gaggimate_ota import (
+    format_ota_verify_ok_message,
     normalize_version,
+    ota_verify_requirements,
+    resolve_ota_scope,
     run_ota_sequence,
     versions_behind,
     wait_for_device_versions,
@@ -68,7 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
             "  ./scripts/update-device.sh --dry-run\n"
             "  ./scripts/update-device.sh\n"
             "  ./scripts/update-device.sh --version v1.9.5\n"
-            "  ./scripts/update-device.sh --host 192.168.51.2"
+            "  ./scripts/update-device.sh --host 192.168.51.2\n"
+            "  ./scripts/update-device.sh --ota-display-only\n"
+            "  ./scripts/update-device.sh --ota-controller-only --dry-run"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -77,6 +82,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--version",
         metavar="vX.Y.Z",
         help="Pin release tag (default: latest semver tag on origin)",
+    )
+    ota_scope = parser.add_mutually_exclusive_group()
+    ota_scope.add_argument(
+        "--ota-display-only",
+        action="store_true",
+        help="OTA display only (skip controller flash)",
+    )
+    ota_scope.add_argument(
+        "--ota-controller-only",
+        action="store_true",
+        help="OTA controller only (skip display flash)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
     parser.add_argument("--timeout", type=float, default=600.0, help="OTA wait timeout (seconds)")
@@ -116,17 +132,36 @@ def main() -> int:
         print(f"Error: {error}", file=sys.stderr)
         return 2
 
+    try:
+        ota_scope = resolve_ota_scope(args.ota_display_only, args.ota_controller_only)
+    except ValueError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
     need_display, need_controller = versions_behind(settings_before, target)
+    if ota_scope == "display":
+        need_controller = False
+    elif ota_scope == "controller":
+        need_display = False
+
     print(
         f"\nDevice now:       display={settings_before.get('displayVersion')!r} "
         f"controller={settings_before.get('controllerVersion')!r}"
     )
+    if ota_scope:
+        print(f"OTA scope:        {ota_scope} only")
     print(f"Will update:      display={'yes' if need_display else 'no'}  "
           f"controller={'yes' if need_controller else 'no'}")
 
     if not need_display and not need_controller:
         print(f"\nAlready on {target} — nothing to do.")
         return 0
+
+    require_display, require_controller = ota_verify_requirements(
+        need_display,
+        need_controller,
+        ota_scope,
+    )
 
     try:
         run_ota_sequence(
@@ -153,6 +188,8 @@ def main() -> int:
                 client,
                 target,
                 timeout=args.timeout,
+                require_display=require_display,
+                require_controller=require_controller,
             )
     except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: post-OTA verify failed to connect: {error}", file=sys.stderr)
@@ -167,7 +204,14 @@ def main() -> int:
         f"controller={settings_after.get('controllerVersion')!r}"
     )
 
-    print(f"\nOTA verify OK — display and controller on {target}.")
+    print(
+        "\n"
+        + format_ota_verify_ok_message(
+            target,
+            require_display=require_display,
+            require_controller=require_controller,
+        )
+    )
     return 0
 
 

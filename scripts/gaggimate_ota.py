@@ -55,17 +55,112 @@ def wait_for_github_latest(
     )
 
 
+def resolve_ota_scope(ota_display_only: bool, ota_controller_only: bool) -> str | None:
+    """Return ``display``, ``controller``, or ``None``; raise if both scope flags set."""
+    if ota_display_only and ota_controller_only:
+        raise ValueError("--ota-display-only and --ota-controller-only are mutually exclusive")
+    if ota_display_only:
+        return "display"
+    if ota_controller_only:
+        return "controller"
+    return None
+
+
+def apply_ota_scope(
+    update_display: bool,
+    update_controller: bool,
+    artifacts: dict,
+    scope: str | None,
+) -> tuple[bool, bool]:
+    """Apply display-only or controller-only OTA scope; validate manifest artifacts."""
+    if scope is None:
+        return update_display, update_controller
+
+    built_display = bool(artifacts.get("display-firmware") and artifacts.get("display-filesystem"))
+    built_controller = bool(artifacts.get("board-firmware"))
+
+    if scope == "display":
+        if not built_display:
+            raise ValueError(
+                "OTA scope is display-only but out/ has no display-firmware + display-filesystem "
+                "(build display or use a full release in out/)"
+            )
+        return True, False
+
+    if scope == "controller":
+        if not built_controller:
+            raise ValueError(
+                "OTA scope is controller-only but out/ has no board-firmware "
+                "(build controller or use a full release in out/)"
+            )
+        return False, True
+
+    raise ValueError(f"unknown OTA scope: {scope!r}")
+
+
+def clear_ota_if_at_target(
+    update_display: bool,
+    update_controller: bool,
+    settings: dict,
+    target: str,
+) -> tuple[bool, bool]:
+    """Skip OTA for components already reporting the target version."""
+    target_norm = normalize_version(target)
+    if not target_norm:
+        return update_display, update_controller
+    if update_display and version_equal(str(settings.get("displayVersion") or ""), target_norm):
+        update_display = False
+    if update_controller and version_equal(str(settings.get("controllerVersion") or ""), target_norm):
+        update_controller = False
+    return update_display, update_controller
+
+
+def ota_verify_requirements(
+    update_display: bool,
+    update_controller: bool,
+    scope: str | None,
+) -> tuple[bool, bool]:
+    """Return (require_display, require_controller) for post-OTA version checks."""
+    if scope == "display":
+        return True, False
+    if scope == "controller":
+        return False, True
+    return update_display, update_controller
+
+
+def format_ota_verify_ok_message(
+    target: str,
+    *,
+    require_display: bool,
+    require_controller: bool,
+) -> str:
+    checked: list[str] = []
+    if require_display:
+        checked.append("display")
+    if require_controller:
+        checked.append("controller")
+    if len(checked) == 2:
+        return f"OTA verify OK — display and controller on {target}."
+    if len(checked) == 1:
+        return f"OTA verify OK — {checked[0]} on {target}."
+    return f"OTA verify OK — {target}."
+
+
 def wait_for_device_versions(
     client: GaggimateWsClient,
     target: str,
     *,
     timeout: float = 600.0,
     poll_interval: float = 3.0,
+    require_display: bool = True,
+    require_controller: bool = True,
 ) -> dict:
-    """Poll OTA settings until display and controller both match target."""
+    """Poll OTA settings until required component version(s) match target."""
     target_norm = normalize_version(target)
     if not target_norm:
         raise ValueError("target version is empty")
+    if not require_display and not require_controller:
+        return client.fetch_ota_settings(refresh=True)
 
     deadline = time.time() + timeout
     last: dict = {}
@@ -73,19 +168,27 @@ def wait_for_device_versions(
         last = client.fetch_ota_settings(refresh=True)
         display = normalize_version(str(last.get("displayVersion") or ""))
         controller = normalize_version(str(last.get("controllerVersion") or ""))
-        if display == target_norm and controller == target_norm:
+        display_ok = not require_display or display == target_norm
+        controller_ok = not require_controller or controller == target_norm
+        if display_ok and controller_ok:
             return last
-        print(
-            f"  Waiting for OTA versions: display={last.get('displayVersion')!r} "
-            f"controller={last.get('controllerVersion')!r} (want {target_norm})..."
-        )
+        waiting: list[str] = []
+        if require_display and not display_ok:
+            waiting.append(f"display={last.get('displayVersion')!r}")
+        if require_controller and not controller_ok:
+            waiting.append(f"controller={last.get('controllerVersion')!r}")
+        print(f"  Waiting for OTA versions: {', '.join(waiting)} (want {target_norm})...")
         time.sleep(poll_interval)
 
+    problems: list[str] = []
+    display = normalize_version(str(last.get("displayVersion") or ""))
+    controller = normalize_version(str(last.get("controllerVersion") or ""))
+    if require_display and display != target_norm:
+        problems.append(f"display={last.get('displayVersion')!r} (expected {target_norm})")
+    if require_controller and controller != target_norm:
+        problems.append(f"controller={last.get('controllerVersion')!r} (expected {target_norm})")
     raise RuntimeError(
-        "OTA verify failed: "
-        f"display={last.get('displayVersion')!r} "
-        f"controller={last.get('controllerVersion')!r} "
-        f"(expected {target_norm} after {timeout:.0f}s)"
+        "OTA verify failed: " + ", ".join(problems) + f" after {timeout:.0f}s"
     )
 
 
@@ -146,15 +249,21 @@ def ota_flash_plan(
     return update_display, update_controller, lines
 
 
-def verify_device_versions(settings: dict, target: str) -> None:
-    """Raise RuntimeError if display or controller version does not match target."""
+def verify_device_versions(
+    settings: dict,
+    target: str,
+    *,
+    require_display: bool = True,
+    require_controller: bool = True,
+) -> None:
+    """Raise RuntimeError if a required component version does not match target."""
     target_norm = normalize_version(target)
     display = normalize_version(str(settings.get("displayVersion") or ""))
     controller = normalize_version(str(settings.get("controllerVersion") or ""))
     problems: list[str] = []
-    if display != target_norm:
+    if require_display and display != target_norm:
         problems.append(f"display={settings.get('displayVersion')!r} (expected {target_norm})")
-    if controller != target_norm:
+    if require_controller and controller != target_norm:
         problems.append(f"controller={settings.get('controllerVersion')!r} (expected {target_norm})")
     if problems:
         raise RuntimeError("OTA verify failed: " + ", ".join(problems))

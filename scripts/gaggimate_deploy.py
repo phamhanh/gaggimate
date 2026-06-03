@@ -18,8 +18,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from device_http import device_web_urls
 from gaggimate_ota import (
+    apply_ota_scope,
+    clear_ota_if_at_target,
+    format_ota_verify_ok_message,
     normalize_version,
     ota_flash_plan,
+    ota_verify_requirements,
+    resolve_ota_scope,
     run_ota_sequence,
     wait_for_device_versions,
     wait_for_github_latest,
@@ -90,6 +95,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  ./scripts/deploy.sh --no-backup\n"
             "  ./scripts/deploy.sh --release-only\n"
             "  ./scripts/deploy.sh --update-only\n"
+            "  ./scripts/deploy.sh --update-only --ota-display-only\n"
+            "  ./scripts/deploy.sh --ota-controller-only -- --yes\n"
             "  ./scripts/deploy.sh --no-backup --release-only -- --build-only"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -115,6 +122,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--ota-respect-device",
         action="store_true",
         help="Only OTA when device reports *UpdateAvailable (not recommended after release)",
+    )
+    ota_scope = parser.add_mutually_exclusive_group()
+    ota_scope.add_argument(
+        "--ota-display-only",
+        action="store_true",
+        help="OTA display only (skip controller); requires display bins in out/",
+    )
+    ota_scope.add_argument(
+        "--ota-controller-only",
+        action="store_true",
+        help="OTA controller only (skip display); requires board-firmware in out/",
     )
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
     parser.add_argument("--timeout", type=float, default=600.0, help="OTA wait timeout (seconds)")
@@ -162,7 +180,13 @@ def main() -> int:
         plan_lines.append(f"{step}. Release ({' '.join(args.release_args) or 'default flags'})")
         step += 1
     if do_ota:
-        plan_lines.append(f"{step}. OTA from out/ + verify versions on device")
+        if args.ota_display_only:
+            ota_step = "OTA display only from out/ + verify display version"
+        elif args.ota_controller_only:
+            ota_step = "OTA controller only from out/ + verify controller version"
+        else:
+            ota_step = "OTA from out/ + verify versions on device"
+        plan_lines.append(f"{step}. {ota_step}")
 
     print("\n".join(plan_lines))
 
@@ -232,14 +256,51 @@ def main() -> int:
             f"controller={settings_before.get('controllerVersion')!r}"
         )
 
+    try:
+        ota_scope = resolve_ota_scope(args.ota_display_only, args.ota_controller_only)
+    except ValueError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
     flash_built = args.ota_flash_built or (not args.ota_respect_device)
     update_display, update_controller, explanation = ota_flash_plan(
         settings_before,
         artifacts,
         flash_built=flash_built,
     )
+    try:
+        update_display, update_controller = apply_ota_scope(
+            update_display,
+            update_controller,
+            artifacts,
+            ota_scope,
+        )
+    except ValueError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+    if target_version and settings_before:
+        update_display, update_controller = clear_ota_if_at_target(
+            update_display,
+            update_controller,
+            settings_before,
+            target_version,
+        )
+
     print("\n".join(explanation))
+    if ota_scope:
+        print(f"OTA scope: {ota_scope} only")
     print(f"\nOTA decision: display={update_display} controller={update_controller}")
+
+    if not update_display and not update_controller:
+        print("\nOTA: nothing to do — selected component(s) already on target.")
+        return 0
+
+    require_display, require_controller = ota_verify_requirements(
+        update_display,
+        update_controller,
+        ota_scope,
+    )
 
     try:
         run_ota_sequence(
@@ -259,6 +320,9 @@ def main() -> int:
     if args.dry_run or not target_version:
         return 0
 
+    if not require_display and not require_controller:
+        return 0
+
     try:
         with GaggimateWsClient(host, port, timeout=args.timeout_connect) as client:
             print("\nWaiting for device OTA versions to match release...")
@@ -266,6 +330,8 @@ def main() -> int:
                 client,
                 target_version,
                 timeout=args.timeout,
+                require_display=require_display,
+                require_controller=require_controller,
             )
     except (TimeoutError, ConnectionError, OSError) as error:
         print(f"Error: post-OTA verify failed to connect: {error}", file=sys.stderr)
@@ -283,7 +349,14 @@ def main() -> int:
         f"controller={settings_after.get('controllerVersion')!r}"
     )
 
-    print(f"\nOTA verify OK — display and controller on {target_version}.")
+    print(
+        "\n"
+        + format_ota_verify_ok_message(
+            target_version,
+            require_display=require_display,
+            require_controller=require_controller,
+        )
+    )
     return 0
 
 

@@ -63,9 +63,17 @@ When GitHub already has the release but the machine is behind:
 ```bash
 ./scripts/update-device.sh --dry-run
 ./scripts/update-device.sh
+./scripts/update-device.sh --ota-controller-only
 ```
 
 **Not** the same as `deploy.sh --update-only` (that flashes bins from local `out/`).
+
+Partial OTA (one component only; verify matches what was flashed):
+
+```bash
+./scripts/deploy.sh --update-only --ota-display-only
+./scripts/deploy.sh --ota-controller-only -- --yes
+```
 
 ## Tool location
 
@@ -90,6 +98,8 @@ When GitHub already has the release but the machine is behind:
 --update-only            OTA from existing out/ + verify
 --no-backup              Skip device backup (user-requested faster path)
 --ota-respect-device     Only OTA if *UpdateAvailable (avoid after fresh release)
+--ota-display-only       OTA display only; skip controller (needs display bins in out/)
+--ota-controller-only    OTA controller only; skip display (needs board-firmware in out/)
 --dry-run                Show plan only
 --timeout SEC            OTA wait (default 600)
 
@@ -120,6 +130,9 @@ Pass-through to release.sh after --:
 | Publish only | `./scripts/deploy.sh --release-only -- --yes` |
 | Test compile, no publish | `./scripts/deploy.sh --release-only -- --build-only` |
 | Finish partial OTA from `out/` | `./scripts/deploy.sh --update-only` |
+| Controller-only OTA from `out/` | `./scripts/deploy.sh --update-only --ota-controller-only` |
+| Display-only OTA from `out/` | `./scripts/deploy.sh --update-only --ota-display-only` |
+| Controller-only catch-up (GitHub) | `./scripts/update-device.sh --ota-controller-only` |
 | Device offline | `./scripts/release.sh --offline --yes` |
 | Backup only | `./scripts/backup-spiffs-data.sh` |
 

@@ -28,6 +28,8 @@ gh auth login
 ./scripts/deploy.sh --no-backup              # faster: skip device pull (stale SPIFFS risk)
 ./scripts/deploy.sh --release-only -- --yes  # backup + publish, no OTA
 ./scripts/deploy.sh --update-only            # OTA from local out/ only
+./scripts/deploy.sh --update-only --ota-display-only   # display bin only
+./scripts/deploy.sh --ota-controller-only -- --yes     # controller bin only
 ./scripts/deploy.sh -- --patch --yes           # semver bump
 ./scripts/backup-spiffs-data.sh --dry-run    # backup preview only
 ```
@@ -44,9 +46,11 @@ When a release already exists on GitHub but the machine is behind (no backup, co
 ./scripts/update-device.sh --dry-run
 ./scripts/update-device.sh
 ./scripts/update-device.sh --version v1.9.5
+./scripts/update-device.sh --ota-display-only
+./scripts/update-device.sh --ota-controller-only
 ```
 
-Not the same as `deploy.sh --update-only` (that uses bins in local `out/`).
+Not the same as `deploy.sh --update-only` (that uses bins in local `out/`). Use `--ota-display-only` / `--ota-controller-only` on either script to flash and verify one side only.
 
 ### `release.sh` — internal build engine
 
