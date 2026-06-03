@@ -41,7 +41,8 @@ using pin_control_callback_t = std::function<void(bool isActive)>;
 using pid_control_callback_t = std::function<void(float Kp, float Ki, float Kd, float Kf)>;
 using pid_settings_callback_t = std::function<void(float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
                                                    bool kffEnabled, float incomingWaterTempC, bool pidFreezeEnabled,
-                                                   bool pidGraceEnabled, float pidErrorAttenC)>;
+                                                   bool pidGraceEnabled, float pidErrorAttenC, bool pidPdMuteEnabled,
+                                                   float pidPdMuteAboveC, float pidKiAbove)>;
 using pump_model_coeffs_callback_t = std::function<void(float a, float b, float c, float d)>;
 using ping_callback_t = std::function<void()>;
 using remote_err_callback_t = std::function<void(int errorCode)>;
@@ -61,7 +62,8 @@ using advanced_output_callback_t =
     std::function<void(bool valve, float boilerSetpoint, bool pressureTarget, float pumpPressure, float pumpFlow)>;
 using sensor_read_callback_t = std::function<void(float temperature, float pressure, float puckFlow, float pumpFlow,
                                                 float puckResistance, float pumpPower, float heaterPower, float pidP,
-                                                float pidI, float pidD, float kffOut, bool pidFrozen)>;
+                                                float pidI, float pidD, float kffOut, bool pidFrozen, bool pdMuted,
+                                                float kiActive)>;
 using led_control_callback_t = std::function<void(uint8_t channel, uint8_t brightness)>;
 
 struct SystemCapabilities {

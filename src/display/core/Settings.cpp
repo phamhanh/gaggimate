@@ -116,6 +116,10 @@ Settings::Settings() {
     kffEnabled = preferences.getBool("kff_en", true);
     incomingWaterTempC = preferences.getInt("inlet_tw", 23);
     pidErrorAttenC = preferences.getFloat("pid_atten_c", 0.0f);
+    pidPdMuteEnabled = preferences.getBool("pid_pd_mute_en", false);
+    pidPdMuteAboveC = preferences.getFloat("pid_pd_mute_c", 0.5f);
+    const float kiFromPid = get_token(pid, 1, ',').toFloat();
+    pidKiAbove = preferences.getFloat("pid_ki_above", kiFromPid > 0.0f ? kiFromPid : 0.27f);
 
     preferences.end();
 
@@ -489,6 +493,21 @@ void Settings::setPidErrorAttenC(const float attenC) {
     save();
 }
 
+void Settings::setPidPdMuteEnabled(const bool enabled) {
+    pidPdMuteEnabled = enabled;
+    save();
+}
+
+void Settings::setPidPdMuteAboveC(const float aboveC) {
+    pidPdMuteAboveC = constrain(aboveC, 0.0f, 10.0f);
+    save();
+}
+
+void Settings::setPidKiAbove(const float ki) {
+    pidKiAbove = constrain(ki, 0.0f, 1000.0f);
+    save();
+}
+
 String Settings::buildPumpModelBlePayload() const {
     const float oneBar = get_token(pumpModelCoeffs, 0, ',').toFloat();
     const float nineBar = get_token(pumpModelCoeffs, 1, ',').toFloat();
@@ -513,9 +532,10 @@ String Settings::buildPidBlePayload() const {
     if (!kffEnabled) {
         Kff = 0.0f;
     }
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
-             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC);
+    char buffer[160];
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f,%d,%.1f,%.3f", Kp, Ki, Kd, Kff,
+             pidFreezeGraceMs, kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0,
+             pidErrorAttenC, pidPdMuteEnabled ? 1 : 0, pidPdMuteAboveC, pidKiAbove);
     return String(buffer);
 }
 
@@ -523,9 +543,10 @@ String Settings::buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float
     if (!kffEnabled) {
         Kff = 0.0f;
     }
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
-             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC);
+    char buffer[160];
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f,%d,%.1f,%.3f", Kp, Ki, Kd, Kff,
+             pidFreezeGraceMs, kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0,
+             pidErrorAttenC, pidPdMuteEnabled ? 1 : 0, pidPdMuteAboveC, pidKiAbove);
     return String(buffer);
 }
 
@@ -621,6 +642,9 @@ void Settings::doSave() {
     preferences.putBool("kff_en", kffEnabled);
     preferences.putInt("inlet_tw", incomingWaterTempC);
     preferences.putFloat("pid_atten_c", pidErrorAttenC);
+    preferences.putBool("pid_pd_mute_en", pidPdMuteEnabled);
+    preferences.putFloat("pid_pd_mute_c", pidPdMuteAboveC);
+    preferences.putFloat("pid_ki_above", pidKiAbove);
 
     preferences.end();
 }

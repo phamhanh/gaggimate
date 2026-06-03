@@ -61,6 +61,8 @@ class Controller {
     virtual float getPidLiveD() const { return pidLiveD; }
     virtual float getPidLiveKff() const { return pidLiveKff; }
     virtual bool isPidLiveFrozen() const { return pidLiveFrozen; }
+    virtual bool isPidLivePdMuted() const { return pidLivePdMuted; }
+    virtual float getPidLiveKiActive() const { return pidLiveKiActive; }
 
     /// Idle brew-mode pressure vent latch (UI may reflect valve-open bleed between shots).
     bool isBrewIdleVenting() const { return brewIdleVenting; }
@@ -186,6 +188,8 @@ class Controller {
     float pidLiveD = 0.0f;
     float pidLiveKff = 0.0f;
     bool pidLiveFrozen = false;
+    bool pidLivePdMuted = false;
+    float pidLiveKiActive = 0.0f;
     float targetFlow = 0.0f;
     int tofDistance = 0;
 

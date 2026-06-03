@@ -48,6 +48,11 @@ class Heater {
     void setKffEnabled(bool enabled);
     void setIncomingWaterTemp(float tempC);
     void setErrorAttenuationThreshold(float thresholdC);
+    void setPdMuteEnabled(bool enabled);
+    void setPdMuteAboveC(float aboveC);
+    void setPidKiAbove(float ki);
+    bool isPdMuted() const;
+    float getActiveKi() const;
 
   private:
     void setupPid();

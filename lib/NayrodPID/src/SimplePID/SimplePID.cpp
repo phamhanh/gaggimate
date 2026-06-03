@@ -64,20 +64,37 @@ bool SimplePID::update() {
 
     float error = setpointFiltered - *sensorOutput;
 
-    const float scale = (errorAttenuationThresholdC <= 0.0f)
-                            ? 1.0f
-                            : fminf(1.0f, fabsf(error) / errorAttenuationThresholdC);
+    if (!pdMuted) {
+        if (pdMuteEnabled && *sensorOutput > *setpointTarget + pdMuteAboveC) {
+            pdMuted = true;
+            if (pidKiAbove > 0.0f && gainKi > 0.0f) {
+                feedback_integralState *= gainKi / pidKiAbove;
+            }
+        }
+    } else if (!pdMuteEnabled || *sensorOutput <= *setpointTarget + pdMuteAboveC - PD_MUTE_HYSTERESIS_C) {
+        pdMuted = false;
+        if (pidKiAbove > 0.0f && gainKi > 0.0f) {
+            feedback_integralState *= pidKiAbove / gainKi;
+        }
+    }
 
-    float Pout = gainKp * error * scale;
+    const float activeKi = pdMuted ? pidKiAbove : gainKi;
+
+    const float scale = pdMuted ? 0.0f
+                                : ((errorAttenuationThresholdC <= 0.0f)
+                                       ? 1.0f
+                                       : fminf(1.0f, fabsf(error) / errorAttenuationThresholdC));
+
+    float Pout = pdMuted ? 0.0f : gainKp * error * scale;
 
     feedback_integralState += error * deltaTime;
-    float Iout = gainKi * feedback_integralState;
+    float Iout = activeKi * feedback_integralState;
 
     // Derivative-on-measurement: avoids derivative kick on setpoint changes.
     // Low-pass filter applied via EMA to attenuate sensor noise before Kd amplifies it.
     float rawDerivative = -(*sensorOutput - prevMeasurement) / deltaTime;
     filteredDerivative = derivFilterAlpha * rawDerivative + (1.0f - derivFilterAlpha) * filteredDerivative;
-    float Dout = gainKd * filteredDerivative * scale;
+    float Dout = pdMuted ? 0.0f : gainKd * filteredDerivative * scale;
 
     // Calculate the output before antiwindup clamping
     float sumPID = Pout + Iout + Dout + FFOut + DistFFOut;
@@ -88,12 +105,12 @@ bool SimplePID::update() {
     bool isSameSign =
         ((error > 0 && sumPID > 0) || (error < 0 && sumPID < 0)); // Check if the error and output have the same sign
     // Serial.printf("OutputPID: %.2f, Integ out: %.2f\n", sumPIDsat, Iout);
-    if (isSaturated && isSameSign) {
+    if (!pdMuted && isSaturated && isSameSign) {
         // Serial.printf("Antiwindup clamping: %.2f\n", feedback_integralState);
         feedback_integralState -=
             error * deltaTime; // Forbide the integration to happen when the output is saturated and the error is in the same
                                // direction as the output (i.e. the system is not able to follow the setpoint)
-        Iout = gainKi * feedback_integralState;          // Recompute the integral term with the new state
+        Iout = activeKi * feedback_integralState;          // Recompute the integral term with the new state
         sumPID = Pout + Iout + Dout + FFOut + DistFFOut; // Recompute the output with the new integral state
         sumPIDsat = constrain(sumPID, ctrlOutputLimits[0], ctrlOutputLimits[1]);
     }

@@ -114,6 +114,9 @@ export function Settings() {
       settingsWithToggle.pidFreezeGraceSec = Math.round(graceMs / 1000);
       settingsWithToggle.incomingWaterTempC = fetchedSettings.incomingWaterTempC ?? 23;
       settingsWithToggle.pidErrorAttenC = fetchedSettings.pidErrorAttenC ?? 0;
+      settingsWithToggle.pidPdMuteEnabled = fetchedSettings.pidPdMuteEnabled ?? false;
+      settingsWithToggle.pidPdMuteAboveC = fetchedSettings.pidPdMuteAboveC ?? 0.5;
+      settingsWithToggle.pidKiAbove = fetchedSettings.pidKiAbove ?? settingsWithToggle.ki ?? 0.27;
       const stableMs = fetchedSettings.stableDurationMs ?? 8000;
       settingsWithToggle.stableDurationSec = Math.round(stableMs / 1000);
 
@@ -286,6 +289,17 @@ export function Settings() {
       if (formData.pidErrorAttenC !== undefined) {
         const atten = Math.min(5, Math.max(0, Number(formData.pidErrorAttenC)));
         formDataToSubmit.set('pidErrorAttenC', String(atten));
+      }
+      if (formData.pidPdMuteEnabled) {
+        formDataToSubmit.set('pidPdMuteEnabled', '1');
+      }
+      if (formData.pidPdMuteAboveC !== undefined) {
+        const above = Math.min(10, Math.max(0, Number(formData.pidPdMuteAboveC)));
+        formDataToSubmit.set('pidPdMuteAboveC', String(above));
+      }
+      if (formData.pidKiAbove !== undefined) {
+        const kiAbove = Math.min(1000, Math.max(0, Number(formData.pidKiAbove)));
+        formDataToSubmit.set('pidKiAbove', String(kiAbove));
       }
       const stableSec = Number(formData.stableDurationSec ?? 8);
       formDataToSubmit.set('stableDurationMs', String(Math.max(0, Math.round(stableSec * 1000))));
@@ -773,6 +787,61 @@ export function Settings() {
                 Scales down P and D when close to setpoint — less idle relay chatter; can soften the last part of a
                 ramp. <strong>0 = off</strong>. Start <strong>1.0–1.5</strong>; try up to <strong>~2.5</strong> only if
                 overshoot persists and ramps stay fast enough. Ki unchanged. Tune with PID Monitor.
+              </p>
+            </div>
+            <div className='form-control mb-4'>
+              <label className='label cursor-pointer'>
+                <span className='label-text'>Mute P/D when above target</span>
+                <input
+                  id='pidPdMuteEnabled'
+                  name='pidPdMuteEnabled'
+                  type='checkbox'
+                  className='toggle toggle-primary'
+                  checked={formData.pidPdMuteEnabled === true}
+                  onChange={onChange('pidPdMuteEnabled')}
+                />
+              </label>
+              <p className='mt-1 text-xs opacity-70'>
+                When current temp is more than the threshold below target, P and D go to zero and only I trims heat
+                using <strong>Ki above</strong> — for passive cool-down after overshoot.
+              </p>
+            </div>
+            <div className='form-control mb-4'>
+              <label htmlFor='pidPdMuteAboveC' className='mb-2 block text-sm font-medium'>
+                °C above target to mute P/D
+              </label>
+              <input
+                id='pidPdMuteAboveC'
+                name='pidPdMuteAboveC'
+                type='number'
+                step='0.1'
+                min='0'
+                max='10'
+                className='input input-bordered w-full'
+                disabled={formData.pidPdMuteEnabled !== true}
+                value={formData.pidPdMuteAboveC ?? 0.5}
+                onChange={onChange('pidPdMuteAboveC')}
+              />
+            </div>
+            <div className='form-control mb-4'>
+              <label htmlFor='pidKiAbove' className='mb-2 block text-sm font-medium'>
+                Ki when above target
+              </label>
+              <input
+                id='pidKiAbove'
+                name='pidKiAbove'
+                type='number'
+                step='0.01'
+                min='0'
+                className='input input-bordered w-full'
+                disabled={formData.pidPdMuteEnabled !== true}
+                value={formData.pidKiAbove ?? formData.ki ?? 0.27}
+                onChange={onChange('pidKiAbove')}
+              />
+              <p className='mt-2 text-xs opacity-70'>
+                Separate from main Ki — used for I only while muted. Lower = slower bleed-down; higher = faster
+                correction (may undershoot when normal PID resumes). Tune with PID Monitor (<code>pdMuted</code>,{' '}
+                <code>kiActive</code>).
               </p>
             </div>
             <div className='form-control mb-4'>

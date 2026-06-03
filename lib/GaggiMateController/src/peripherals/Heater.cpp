@@ -106,6 +106,28 @@ void Heater::setErrorAttenuationThreshold(float thresholdC) {
     }
 }
 
+void Heater::setPdMuteEnabled(const bool enabled) {
+    if (simplePid) {
+        simplePid->setPdMuteEnabled(enabled);
+    }
+}
+
+void Heater::setPdMuteAboveC(const float aboveC) {
+    if (simplePid) {
+        simplePid->setPdMuteAboveC(aboveC);
+    }
+}
+
+void Heater::setPidKiAbove(const float ki) {
+    if (simplePid) {
+        simplePid->setPidKiAbove(ki);
+    }
+}
+
+bool Heater::isPdMuted() const { return simplePid ? simplePid->isPdMuted() : false; }
+
+float Heater::getActiveKi() const { return simplePid ? simplePid->getActiveKi() : 0.0f; }
+
 void Heater::autotune(int testTimeSec, int windowSize, int heaterWattage) {
     setupAutotune(testTimeSec, windowSize, heaterWattage);
     autotuning = true;

@@ -42,19 +42,21 @@ Controller `SimplePID` (1 Hz) → `Heater` getters → BLE sensor notify (~4 Hz)
 | `kff` | float | **Live** disturbance feedforward output (not stored gain) |
 | `out` | float | Total heater command 0–1000 |
 | `frozen` | 0/1 | PID freeze latched (I-only + Kff during shot) |
+| `pdMuted` | 0/1 | P/D mute active (`CT > TT + pidPdMuteAboveC` with feature enabled) |
+| `kiActive` | float | Ki multiplier used for I this tick (`pidKiAbove` when muted, else stored `ki`) |
 
 **Naming rule:** top-level `kffGain` / `kff` = stored setting; `pidLive.kff` = live FF output.
 
 ## BLE sensor CSV (`SENSOR_DATA_UUID`)
 
-12 comma-separated floats (3 decimal places), fields 1–7 unchanged:
+14 comma-separated values (3 decimal places for floats), fields 1–7 unchanged:
 
 ```
 temp, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower,
-pidP, pidI, pidD, kffOut, frozen
+pidP, pidI, pidD, kffOut, frozen, pdMuted, kiActive
 ```
 
-Display firmware accepts ≥5 fields (legacy) or ≥7 (power telemetry) or 12 (full PID).
+Display firmware accepts ≥5 fields (legacy) or ≥7 (power telemetry) or 12 (full PID) or 14 (+ P/D mute telemetry).
 
 ## WebSocket commands
 
@@ -77,11 +79,16 @@ Apply PID gains to the controller. Optionally persist to NVS.
 - `persist` defaults to `true`. When `false`, gains are sent over BLE only (not saved).
 - Routed via `Settings::buildPidBlePayloadFromGains()` → `PID_CONTROL_CHAR_UUID`.
 
-### Settings / BLE PID payload (10th field)
+### Settings / BLE PID payload (fields 10–12)
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `pidErrorAttenC` | float | Near-target P/D softening threshold (°C). Scales P and D by `min(1, \|error\|/threshold)` in `SimplePID`; **0 = off**. Persisted NVS `pid_atten_c`; sent as 10th CSV token on `PID_CONTROL_CHAR_UUID` via `Settings::buildPidBlePayload()`. Web Settings → **Idle PID (preheat)**. Not exposed on `pidLive` (telemetry reflects attenuated P/D already). |
+| `pidErrorAttenC` | float | Near-target P/D softening threshold (°C). Scales P and D by `min(1, \|error\|/threshold)` in `SimplePID`; **0 = off**. Persisted NVS `pid_atten_c`; BLE token **9**. Web Settings → **Idle PID (preheat)**. |
+| `pidPdMuteEnabled` | 0/1 | Master toggle for overshoot P/D mute. NVS `pid_pd_mute_en`; BLE token **10**. Default **off**. |
+| `pidPdMuteAboveC` | float | **X** (°C): mute when `CT > TT + X`. NVS `pid_pd_mute_c`; BLE token **11**. Default **0.5**. |
+| `pidKiAbove` | float | Ki for **I only** while muted (same units as stored `Ki`). NVS `pid_ki_above`; BLE token **12**. Defaults to stored Ki (fallback **0.27**). |
+
+Bumpless Ki transition on mute enter/exit; integral not reset on toggle or Ki_above edits. Hysteresis **0.3 °C** on exit (firmware constant).
 
 ### `req:set-target-temp`
 

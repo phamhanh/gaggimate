@@ -62,6 +62,8 @@ static void appendPidTelemetryFields(JsonDocument &doc, Controller *controller, 
     pidLive["kff"] = controller->getPidLiveKff();
     pidLive["out"] = heaterPower;
     pidLive["frozen"] = controller->isPidLiveFrozen() ? 1 : 0;
+    pidLive["pdMuted"] = controller->isPidLivePdMuted() ? 1 : 0;
+    pidLive["kiActive"] = controller->getPidLiveKiActive();
 }
 
 /** Shared fields for GET /api/status (and polling scripts). */
@@ -600,6 +602,11 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 settings->setIncomingWaterTempC(request->arg("incomingWaterTempC").toInt());
             if (request->hasArg("pidErrorAttenC"))
                 settings->setPidErrorAttenC(request->arg("pidErrorAttenC").toFloat());
+            settings->setPidPdMuteEnabled(request->hasArg("pidPdMuteEnabled"));
+            if (request->hasArg("pidPdMuteAboveC"))
+                settings->setPidPdMuteAboveC(request->arg("pidPdMuteAboveC").toFloat());
+            if (request->hasArg("pidKiAbove"))
+                settings->setPidKiAbove(request->arg("pidKiAbove").toFloat());
             if (request->hasArg("pumpModelCoeffs"))
                 settings->setPumpModelCoeffs(request->arg("pumpModelCoeffs"));
             if (request->hasArg("wifiSsid"))
@@ -747,6 +754,9 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["kffEnabled"] = settings.isKffEnabled();
     doc["incomingWaterTempC"] = settings.getIncomingWaterTempC();
     doc["pidErrorAttenC"] = settings.getPidErrorAttenC();
+    doc["pidPdMuteEnabled"] = settings.isPidPdMuteEnabled();
+    doc["pidPdMuteAboveC"] = settings.getPidPdMuteAboveC();
+    doc["pidKiAbove"] = settings.getPidKiAbove();
     doc["pumpModelCoeffs"] = settings.getPumpModelCoeffs();
     doc["wifiSsid"] = settings.getWifiSsid();
     doc["wifiPassword"] = apMode ? "---unchanged---" : settings.getWifiPassword();

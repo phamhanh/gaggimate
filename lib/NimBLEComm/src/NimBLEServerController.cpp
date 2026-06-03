@@ -90,11 +90,13 @@ void NimBLEServerController::loop() {
 
 void NimBLEServerController::sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow,
                                             float puckResistance, float pumpPower, float heaterPower, float pidP,
-                                            float pidI, float pidD, float kffOut, bool pidFrozen) {
+                                            float pidI, float pidD, float kffOut, bool pidFrozen, bool pdMuted,
+                                            float kiActive) {
     if (deviceConnected && sensorChar != nullptr) {
-        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d",
-                 temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI, pidD, kffOut,
-                 pidFrozen ? 1 : 0);
+        snprintf(sensorDataBuffer, sizeof(sensorDataBuffer),
+                 "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.3f", temperature, pressure, puckFlow,
+                 pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI, pidD, kffOut, pidFrozen ? 1 : 0,
+                 pdMuted ? 1 : 0, kiActive);
         sensorChar->setValue(sensorDataBuffer);
         sensorChar->notify();
     }
@@ -292,15 +294,34 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
             pidErrorAttenC = pidErrorAttenToken.toFloat();
         }
 
+        bool pidPdMuteEnabled = false;
+        String pidPdMuteEnabledToken = get_token(pid, 10, ',');
+        if (pidPdMuteEnabledToken.length() > 0) {
+            pidPdMuteEnabled = pidPdMuteEnabledToken.toInt() != 0;
+        }
+
+        float pidPdMuteAboveC = 0.5f;
+        String pidPdMuteAboveToken = get_token(pid, 11, ',');
+        if (pidPdMuteAboveToken.length() > 0) {
+            pidPdMuteAboveC = pidPdMuteAboveToken.toFloat();
+        }
+
+        float pidKiAbove = Ki > 0.0f ? Ki : 0.27f;
+        String pidKiAboveToken = get_token(pid, 12, ',');
+        if (pidKiAboveToken.length() > 0) {
+            pidKiAbove = pidKiAboveToken.toFloat();
+        }
+
         ESP_LOGI(LOG_TAG, "BLE received PID string: '%s'", pid.c_str());
         ESP_LOGI(LOG_TAG,
                  "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f frzEn=%d graceEn=%d "
-                 "atten=%.1f",
+                 "atten=%.1f pdMuteEn=%d pdMuteAbove=%.1f kiAbove=%.3f",
                  Kp, Ki, Kd, Kf, static_cast<unsigned long>(pidFreezeGraceMs), kffEnabled ? 1 : 0, incomingWaterTempC,
-                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC);
+                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC, pidPdMuteEnabled ? 1 : 0,
+                 pidPdMuteAboveC, pidKiAbove);
         if (pidSettingsCallback != nullptr) {
             pidSettingsCallback(Kp, Ki, Kd, Kf, pidFreezeGraceMs, kffEnabled, incomingWaterTempC, pidFreezeEnabled,
-                                pidGraceEnabled, pidErrorAttenC);
+                                pidGraceEnabled, pidErrorAttenC, pidPdMuteEnabled, pidPdMuteAboveC, pidKiAbove);
         }
     } else if (pCharacteristic->getUUID().equals(NimBLEUUID(PUMP_MODEL_COEFFS_CHAR_UUID))) {
         auto pumpModelCoeffs = String(pCharacteristic->getValue().c_str());

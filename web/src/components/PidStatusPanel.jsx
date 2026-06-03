@@ -56,6 +56,7 @@ export function PidStatusPanel() {
   const status = machine.value.status;
   const pid = status.pidLive || {};
   const frozen = pid.frozen === 1;
+  const pdMuted = pid.pdMuted === 1;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -73,7 +74,11 @@ export function PidStatusPanel() {
       </StatGroup>
 
       <StatGroup title='Live PID'>
-        <StatRow label='State' badge={frozen ? 'Frozen' : 'Active'} />
+        <StatRow
+          label='State'
+          badge={frozen ? 'Frozen' : pdMuted ? 'P/D muted' : 'Active'}
+        />
+        <StatRow label='Ki active' value={fmt(pid.kiActive, 3)} />
         <StatRow label='P' value={fmt(pid.p, 2)} />
         <StatRow label='I' value={fmt(pid.i, 2)} />
         <StatRow label='D' value={fmt(pid.d, 2)} />

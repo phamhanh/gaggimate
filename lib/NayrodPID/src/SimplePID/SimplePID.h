@@ -71,7 +71,15 @@ class SimplePID {
     /** Disturbance feedforward output from the last PID tick. */
     float getLastKffOut() const { return lastDistFFOut; }
 
+    /** When CT > TT + X, zero P/D and use pidKiAbove for I (optional). */
+    void setPdMuteEnabled(bool enabled) { pdMuteEnabled = enabled; }
+    void setPdMuteAboveC(float c) { pdMuteAboveC = c; }
+    void setPidKiAbove(float ki) { pidKiAbove = ki; }
+    bool isPdMuted() const { return pdMuted; }
+    float getActiveKi() const { return pdMuted ? pidKiAbove : gainKi; }
+
   private:
+    static constexpr float PD_MUTE_HYSTERESIS_C = 0.3f;
     // setpoint filtering
     void setpointFiltering(float freq);
     bool isfilterSetpointActive = false;          // Flag to activate/deactivate the setpoint filter
@@ -107,6 +115,10 @@ class SimplePID {
     float filteredDerivative = 0.0f;      // Low-pass filtered derivative term
     float derivFilterAlpha = 1.0f;        // EMA alpha for derivative filter: 1.0 = no filter, lower = smoother
     float errorAttenuationThresholdC = 0.0f; // Near-target P/D scale; 0 = disabled
+    bool pdMuteEnabled = false;
+    float pdMuteAboveC = 0.5f;
+    float pidKiAbove = 0.27f;
+    bool pdMuted = false;
     float prevOutput = 0.0f;             // Previous output for derivative calculation
     float lastPout = 0.0f;
     float lastIout = 0.0f;

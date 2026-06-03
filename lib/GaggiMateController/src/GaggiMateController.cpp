@@ -124,7 +124,8 @@ void GaggiMateController::setup() {
     _ble.registerAltControlCallback([this](bool state) { this->alt->set(state); });
     _ble.registerPidSettingsCallback([this](float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
                                             bool kffEnabled, float incomingWaterTempC, bool pidFreezeEnabled,
-                                            bool pidGraceEnabled, float pidErrorAttenC) {
+                                            bool pidGraceEnabled, float pidErrorAttenC, bool pidPdMuteEnabled,
+                                            float pidPdMuteAboveC, float pidKiAbove) {
         this->heater->setTunings(Kp, Ki, Kd);
         this->heater->setFeedforwardScale(Kf);
         this->heater->setPidFreezeGraceMs(pidFreezeGraceMs);
@@ -133,6 +134,9 @@ void GaggiMateController::setup() {
         this->heater->setKffEnabled(kffEnabled);
         this->heater->setIncomingWaterTemp(incomingWaterTempC);
         this->heater->setErrorAttenuationThreshold(pidErrorAttenC);
+        this->heater->setPdMuteEnabled(pidPdMuteEnabled);
+        this->heater->setPdMuteAboveC(pidPdMuteAboveC);
+        this->heater->setPidKiAbove(pidKiAbove);
     });
     _ble.registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
         if (_config.capabilites.dimming) {
@@ -245,6 +249,8 @@ void GaggiMateController::sendSensorData() {
     const float pidD = this->heater->getPidD();
     const float kffOut = this->heater->getKffOutput();
     const bool pidFrozen = this->heater->isPidFrozenLatched();
+    const bool pdMuted = this->heater->isPdMuted();
+    const float kiActive = this->heater->getActiveKi();
     float pumpPower = 0.0f;
     if (_config.capabilites.dimming) {
         pumpPower = static_cast<DimmedPump *>(pump)->getPowerTarget();
@@ -256,13 +262,13 @@ void GaggiMateController::sendSensorData() {
         auto dimmedPump = static_cast<DimmedPump *>(pump);
         _ble.sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
                             dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance(), pumpPower, heaterPower, pidP, pidI,
-                            pidD, kffOut, pidFrozen);
+                            pidD, kffOut, pidFrozen, pdMuted, kiActive);
         if (this->valve->getState()) {
             _ble.sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
         }
     } else {
         _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f, pumpPower, heaterPower, pidP, pidI, pidD,
-                            kffOut, pidFrozen);
+                            kffOut, pidFrozen, pdMuted, kiActive);
     }
 }
 
