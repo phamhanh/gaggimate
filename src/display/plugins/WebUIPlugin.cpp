@@ -598,6 +598,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
             settings->setKffEnabled(request->hasArg("kffEnabled"));
             if (request->hasArg("incomingWaterTempC"))
                 settings->setIncomingWaterTempC(request->arg("incomingWaterTempC").toInt());
+            if (request->hasArg("pidErrorAttenC"))
+                settings->setPidErrorAttenC(request->arg("pidErrorAttenC").toFloat());
             if (request->hasArg("pumpModelCoeffs"))
                 settings->setPumpModelCoeffs(request->arg("pumpModelCoeffs"));
             if (request->hasArg("wifiSsid"))
@@ -744,6 +746,7 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["pidGraceEnabled"] = settings.isPidGraceEnabled();
     doc["kffEnabled"] = settings.isKffEnabled();
     doc["incomingWaterTempC"] = settings.getIncomingWaterTempC();
+    doc["pidErrorAttenC"] = settings.getPidErrorAttenC();
     doc["pumpModelCoeffs"] = settings.getPumpModelCoeffs();
     doc["wifiSsid"] = settings.getWifiSsid();
     doc["wifiPassword"] = apMode ? "---unchanged---" : settings.getWifiPassword();

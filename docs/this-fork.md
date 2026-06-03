@@ -161,6 +161,7 @@ The cup sits high on the panel (`LV_ALIGN_CENTER`, y = −104), and the `control
 - **Web Settings pump flow** at 1 / 9 bar gated on **pressure capability**, not dimming.
 - **Profile editor** — insert a phase **after the current one** (pre-infusion splits).
 - **PID telemetry API** — live `pidLive` (P/I/D/Kff/out/frozen) on `evt:status` and `GET /api/status`; WebSocket `req:set-pid` and `req:set-target-temp` for Plan 2 tuning agents. Contract: [pid-telemetry-api.md](pid-telemetry-api.md).
+- **Near-target P/D attenuator** — optional `pidErrorAttenC` (°C) scales P and D by `min(1, |error|/threshold)` near setpoint to cut idle relay chatter from thermocouple steps + high Kd; I and shot freeze/Kff unchanged. Default 0 (stock behavior). Web Settings + NVS + 10th BLE PID field; requires display and controller firmware together.
 
 ## Two dead heater elements
 

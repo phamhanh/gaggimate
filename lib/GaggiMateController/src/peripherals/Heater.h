@@ -47,6 +47,7 @@ class Heater {
     void setPidGraceEnabled(bool enabled);
     void setKffEnabled(bool enabled);
     void setIncomingWaterTemp(float tempC);
+    void setErrorAttenuationThreshold(float thresholdC);
 
   private:
     void setupPid();

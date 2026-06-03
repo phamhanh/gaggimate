@@ -64,7 +64,11 @@ bool SimplePID::update() {
 
     float error = setpointFiltered - *sensorOutput;
 
-    float Pout = gainKp * error;
+    const float scale = (errorAttenuationThresholdC <= 0.0f)
+                            ? 1.0f
+                            : fminf(1.0f, fabsf(error) / errorAttenuationThresholdC);
+
+    float Pout = gainKp * error * scale;
 
     feedback_integralState += error * deltaTime;
     float Iout = gainKi * feedback_integralState;
@@ -73,7 +77,7 @@ bool SimplePID::update() {
     // Low-pass filter applied via EMA to attenuate sensor noise before Kd amplifies it.
     float rawDerivative = -(*sensorOutput - prevMeasurement) / deltaTime;
     filteredDerivative = derivFilterAlpha * rawDerivative + (1.0f - derivFilterAlpha) * filteredDerivative;
-    float Dout = gainKd * filteredDerivative;
+    float Dout = gainKd * filteredDerivative * scale;
 
     // Calculate the output before antiwindup clamping
     float sumPID = Pout + Iout + Dout + FFOut + DistFFOut;

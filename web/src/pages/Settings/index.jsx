@@ -113,6 +113,7 @@ export function Settings() {
       const graceMs = fetchedSettings.pidFreezeGraceMs ?? 60000;
       settingsWithToggle.pidFreezeGraceSec = Math.round(graceMs / 1000);
       settingsWithToggle.incomingWaterTempC = fetchedSettings.incomingWaterTempC ?? 23;
+      settingsWithToggle.pidErrorAttenC = fetchedSettings.pidErrorAttenC ?? 0;
       const stableMs = fetchedSettings.stableDurationMs ?? 8000;
       settingsWithToggle.stableDurationSec = Math.round(stableMs / 1000);
 
@@ -281,6 +282,10 @@ export function Settings() {
       if (formData.incomingWaterTempC !== undefined) {
         const inlet = Math.min(80, Math.max(5, Math.round(Number(formData.incomingWaterTempC))));
         formDataToSubmit.set('incomingWaterTempC', String(inlet));
+      }
+      if (formData.pidErrorAttenC !== undefined) {
+        const atten = Math.min(5, Math.max(0, Number(formData.pidErrorAttenC)));
+        formDataToSubmit.set('pidErrorAttenC', String(atten));
       }
       const stableSec = Number(formData.stableDurationSec ?? 8);
       formDataToSubmit.set('stableDurationMs', String(Math.max(0, Math.round(stableSec * 1000))));
@@ -747,6 +752,28 @@ export function Settings() {
                   </span>
                 </label>
               </div>
+            </div>
+            <div className='divider'>Idle PID (preheat)</div>
+            <div className='form-control mb-4'>
+              <label htmlFor='pidErrorAttenC' className='mb-2 block text-sm font-medium'>
+                Near-target P/D softening (°C)
+              </label>
+              <input
+                id='pidErrorAttenC'
+                name='pidErrorAttenC'
+                type='number'
+                step='0.1'
+                min='0'
+                max='5'
+                className='input input-bordered w-full'
+                value={formData.pidErrorAttenC ?? 0}
+                onChange={onChange('pidErrorAttenC')}
+              />
+              <p className='mt-2 text-xs opacity-70'>
+                Scales down P and D when close to setpoint — less idle relay chatter; can soften the last part of a
+                ramp. <strong>0 = off</strong>. Start <strong>1.0–1.5</strong>; try up to <strong>~2.5</strong> only if
+                overshoot persists and ramps stay fast enough. Ki unchanged. Tune with PID Monitor.
+              </p>
             </div>
             <div className='form-control mb-4'>
               <label htmlFor='kf' className='mb-2 block text-sm font-medium'>

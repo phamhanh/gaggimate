@@ -179,6 +179,7 @@ class Settings {
     bool isPidGraceEnabled() const { return pidGraceEnabled; }
     bool isKffEnabled() const { return kffEnabled; }
     int getIncomingWaterTempC() const { return incomingWaterTempC; }
+    float getPidErrorAttenC() const { return pidErrorAttenC; }
     void setVentEnabled(bool enabled);
     void setVentPressureBar(float bar);
     void setVentPressureLowBar(float bar);
@@ -189,7 +190,8 @@ class Settings {
     void setPidGraceEnabled(bool enabled);
     void setKffEnabled(bool enabled);
     void setIncomingWaterTempC(int tempC);
-    /** BLE PID payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletC,pidFreezeEn,pidGraceEn). */
+    void setPidErrorAttenC(float attenC);
+    /** BLE PID payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletC,pidFreezeEn,pidGraceEn,pidErrorAttenC). */
     String buildPidBlePayload() const;
     String buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float Kff) const;
     /** BLE pump model payload: flow@1bar, flow@9bar (dimmed pump). */
@@ -271,6 +273,7 @@ class Settings {
     bool pidGraceEnabled = true;
     bool kffEnabled = true;
     int incomingWaterTempC = 23;
+    float pidErrorAttenC = 0.0f;
 
     void doSave();
     xTaskHandle taskHandle;

@@ -77,6 +77,12 @@ Apply PID gains to the controller. Optionally persist to NVS.
 - `persist` defaults to `true`. When `false`, gains are sent over BLE only (not saved).
 - Routed via `Settings::buildPidBlePayloadFromGains()` → `PID_CONTROL_CHAR_UUID`.
 
+### Settings / BLE PID payload (10th field)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `pidErrorAttenC` | float | Near-target P/D softening threshold (°C). Scales P and D by `min(1, \|error\|/threshold)` in `SimplePID`; **0 = off**. Persisted NVS `pid_atten_c`; sent as 10th CSV token on `PID_CONTROL_CHAR_UUID` via `Settings::buildPidBlePayload()`. Web Settings → **Idle PID (preheat)**. Not exposed on `pidLive` (telemetry reflects attenuated P/D already). |
+
 ### `req:set-target-temp`
 
 Set target temperature for the current mode (clamped to `MIN_TEMP`–`MAX_TEMP`).

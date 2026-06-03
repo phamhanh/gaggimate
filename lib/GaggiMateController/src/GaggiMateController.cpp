@@ -124,7 +124,7 @@ void GaggiMateController::setup() {
     _ble.registerAltControlCallback([this](bool state) { this->alt->set(state); });
     _ble.registerPidSettingsCallback([this](float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
                                             bool kffEnabled, float incomingWaterTempC, bool pidFreezeEnabled,
-                                            bool pidGraceEnabled) {
+                                            bool pidGraceEnabled, float pidErrorAttenC) {
         this->heater->setTunings(Kp, Ki, Kd);
         this->heater->setFeedforwardScale(Kf);
         this->heater->setPidFreezeGraceMs(pidFreezeGraceMs);
@@ -132,6 +132,7 @@ void GaggiMateController::setup() {
         this->heater->setPidGraceEnabled(pidGraceEnabled);
         this->heater->setKffEnabled(kffEnabled);
         this->heater->setIncomingWaterTemp(incomingWaterTempC);
+        this->heater->setErrorAttenuationThreshold(pidErrorAttenC);
     });
     _ble.registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
         if (_config.capabilites.dimming) {

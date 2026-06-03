@@ -115,6 +115,7 @@ Settings::Settings() {
     pidGraceEnabled = preferences.getBool("pid_grace_en", true);
     kffEnabled = preferences.getBool("kff_en", true);
     incomingWaterTempC = preferences.getInt("inlet_tw", 23);
+    pidErrorAttenC = preferences.getFloat("pid_atten_c", 0.0f);
 
     preferences.end();
 
@@ -483,6 +484,11 @@ void Settings::setIncomingWaterTempC(const int tempC) {
     save();
 }
 
+void Settings::setPidErrorAttenC(const float attenC) {
+    pidErrorAttenC = constrain(attenC, 0.0f, 5.0f);
+    save();
+}
+
 String Settings::buildPumpModelBlePayload() const {
     const float oneBar = get_token(pumpModelCoeffs, 0, ',').toFloat();
     const float nineBar = get_token(pumpModelCoeffs, 1, ',').toFloat();
@@ -508,8 +514,8 @@ String Settings::buildPidBlePayload() const {
         Kff = 0.0f;
     }
     char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
-             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0);
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
+             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC);
     return String(buffer);
 }
 
@@ -518,8 +524,8 @@ String Settings::buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float
         Kff = 0.0f;
     }
     char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
-             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0);
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f", Kp, Ki, Kd, Kff, pidFreezeGraceMs,
+             kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC);
     return String(buffer);
 }
 
@@ -614,6 +620,7 @@ void Settings::doSave() {
     preferences.putBool("pid_grace_en", pidGraceEnabled);
     preferences.putBool("kff_en", kffEnabled);
     preferences.putInt("inlet_tw", incomingWaterTempC);
+    preferences.putFloat("pid_atten_c", pidErrorAttenC);
 
     preferences.end();
 }

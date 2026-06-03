@@ -54,6 +54,10 @@ class SimplePID {
      *  Lower values = more smoothing, e.g. 0.1 strongly attenuates sample-to-sample noise. */
     void setDerivativeFilterAlpha(float alpha) { derivFilterAlpha = alpha; }
 
+    /** Near-target P/D softening (°C). Scales P and D by min(1, |error|/threshold); 0 = off. */
+    void setErrorAttenuationThreshold(float c) { errorAttenuationThresholdC = c; }
+    float getErrorAttenuationThreshold() const { return errorAttenuationThresholdC; }
+
     /** Snapshot P+I+D at latch time; caller enables freeze via setPidFrozen(). */
     void captureFrozenFeedback();
     void setPidFrozen(bool frozen) { pidFrozen = frozen; }
@@ -102,6 +106,7 @@ class SimplePID {
     float prevMeasurement = 0.0f;         // Previous measurement for derivative-on-measurement
     float filteredDerivative = 0.0f;      // Low-pass filtered derivative term
     float derivFilterAlpha = 1.0f;        // EMA alpha for derivative filter: 1.0 = no filter, lower = smoother
+    float errorAttenuationThresholdC = 0.0f; // Near-target P/D scale; 0 = disabled
     float prevOutput = 0.0f;             // Previous output for derivative calculation
     float lastPout = 0.0f;
     float lastIout = 0.0f;

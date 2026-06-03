@@ -26,6 +26,7 @@ void Heater::setupPid() {
     // Derivative low-pass: alpha=0.1 means 10% new / 90% old each 1 s sample.
     // Strongly attenuates thermocouple sample-to-sample noise before Kd amplifies it.
     simplePid->setDerivativeFilterAlpha(0.1f);
+    simplePid->setErrorAttenuationThreshold(0.0f);
     simplePid->reset();
 }
 
@@ -98,6 +99,12 @@ void Heater::setPidGraceEnabled(bool enabled) { pidGraceEnabled = enabled; }
 void Heater::setKffEnabled(bool enabled) { kffEnabled = enabled; }
 
 void Heater::setIncomingWaterTemp(float tempC) { incomingWaterTemp = tempC; }
+
+void Heater::setErrorAttenuationThreshold(float thresholdC) {
+    if (simplePid) {
+        simplePid->setErrorAttenuationThreshold(thresholdC);
+    }
+}
 
 void Heater::autotune(int testTimeSec, int windowSize, int heaterWattage) {
     setupAutotune(testTimeSec, windowSize, heaterWattage);

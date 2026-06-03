@@ -286,14 +286,21 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
             pidGraceEnabled = pidGraceEnabledToken.toInt() != 0;
         }
 
+        float pidErrorAttenC = 0.0f;
+        String pidErrorAttenToken = get_token(pid, 9, ',');
+        if (pidErrorAttenToken.length() > 0) {
+            pidErrorAttenC = pidErrorAttenToken.toFloat();
+        }
+
         ESP_LOGI(LOG_TAG, "BLE received PID string: '%s'", pid.c_str());
         ESP_LOGI(LOG_TAG,
-                 "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f frzEn=%d graceEn=%d",
+                 "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f frzEn=%d graceEn=%d "
+                 "atten=%.1f",
                  Kp, Ki, Kd, Kf, static_cast<unsigned long>(pidFreezeGraceMs), kffEnabled ? 1 : 0, incomingWaterTempC,
-                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0);
+                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC);
         if (pidSettingsCallback != nullptr) {
             pidSettingsCallback(Kp, Ki, Kd, Kf, pidFreezeGraceMs, kffEnabled, incomingWaterTempC, pidFreezeEnabled,
-                                pidGraceEnabled);
+                                pidGraceEnabled, pidErrorAttenC);
         }
     } else if (pCharacteristic->getUUID().equals(NimBLEUUID(PUMP_MODEL_COEFFS_CHAR_UUID))) {
         auto pumpModelCoeffs = String(pCharacteristic->getValue().c_str());
