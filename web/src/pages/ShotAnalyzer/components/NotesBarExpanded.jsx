@@ -167,14 +167,14 @@ export function NotesBarExpanded({
               <div className='mb-1 flex items-center justify-between'>
                 <div className={labelCls}>Notes</div>
                 <span className='text-base-content/40 text-xs'>
-                  {(notes.notes || '').length}/200
+                  {(notes.notes || '').length}/1000
                 </span>
               </div>
               <textarea
                 className='textarea textarea-bordered textarea-sm w-full text-sm'
                 rows='3'
                 value={notes.notes}
-                maxLength={200}
+                maxLength={1000}
                 onChange={e => onInputChange('notes', e.target.value)}
                 placeholder='Tasting notes, brewing observations...'
               />
