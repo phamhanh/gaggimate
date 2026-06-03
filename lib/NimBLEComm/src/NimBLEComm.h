@@ -18,6 +18,7 @@
 #define INFO_UUID "f8d7203b-e00c-48e2-83ba-37ff49cdba74"
 
 #define PRESSURE_SCALE_UUID "3aa65ab6-2dda-4c95-9cf3-58b2a0480623"
+#define TEMP_PROBE_FILTER_UUID "c7f8e3a2-1b4d-4e6a-9c8f-2d5e1a0b3f72"
 #define SENSOR_DATA_UUID "62b69e72-ac19-4d4b-bd53-2edd65330c93"
 #define OUTPUT_CONTROL_UUID "77fbb08f-c29c-4f2e-8e1d-ed0a9afa5e1a"
 #define VOLUMETRIC_MEASUREMENT_UUID "b0080557-3865-4a9c-be37-492d77ee5951"
@@ -56,6 +57,7 @@ using void_callback_t = std::function<void()>;
 
 // New combined callbacks
 using float_callback_t = std::function<void(float val)>;
+using temp_probe_filter_callback_t = std::function<void(bool enabled, float alpha)>;
 using int_callback_t = std::function<void(int val)>;
 using simple_output_callback_t = std::function<void(bool valve, float pumpSetpoint, float boilerSetpoint)>;
 using advanced_output_callback_t =

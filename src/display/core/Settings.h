@@ -57,6 +57,8 @@ class Settings {
     int getTargetSteamTemp() const { return targetSteamTemp; }
     int getTargetWaterTemp() const { return targetWaterTemp; }
     int getTemperatureOffset() const { return temperatureOffset; }
+    bool isTempProbeFilterEnabled() const { return tempProbeFilterEnabled; }
+    float getTempProbeFilterAlpha() const { return tempProbeFilterAlpha; }
     float getPressureScaling() const { return pressureScaling; }
     double getTargetGrindVolume() const { return targetGrindVolume; }
     int getTargetGrindDuration() const { return targetGrindDuration; }
@@ -113,6 +115,8 @@ class Settings {
     void setTargetSteamTemp(int target_steam_temp);
     void setTargetWaterTemp(int target_water_temp);
     void setTemperatureOffset(int temperature_offset);
+    void setTempProbeFilterEnabled(bool enabled);
+    void setTempProbeFilterAlpha(float alpha);
     void setPressureScaling(float pressure_scaling);
     void setTargetGrindVolume(double target_grind_volume);
     void setTargetGrindDuration(int target_duration);
@@ -211,6 +215,8 @@ class Settings {
     int targetSteamTemp = 155;
     int targetWaterTemp = 80;
     int temperatureOffset = DEFAULT_TEMPERATURE_OFFSET;
+    bool tempProbeFilterEnabled = true;
+    float tempProbeFilterAlpha = 0.05f;
     float pressureScaling = DEFAULT_PRESSURE_SCALING;
     double targetGrindVolume = 18;
     int targetGrindDuration = 25000;

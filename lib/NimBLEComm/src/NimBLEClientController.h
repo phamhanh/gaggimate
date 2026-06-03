@@ -20,6 +20,7 @@ class NimBLEClientController : public NimBLEAdvertisedDeviceCallbacks, NimBLECli
     void sendPidSettings(const String &pid);
     void sendPumpModelCoeffs(const String &pumpModelCoeffs);
     void setPressureScale(float scale);
+    void setTempProbeFilter(bool enabled, float alpha);
     void sendLedControl(uint8_t channel, uint8_t brightness);
     bool isReadyForConnection() const;
     bool isConnected();
@@ -57,6 +58,7 @@ class NimBLEClientController : public NimBLEAdvertisedDeviceCallbacks, NimBLECli
     NimBLERemoteCharacteristic *sensorChar = nullptr;
     NimBLERemoteCharacteristic *outputControlChar = nullptr;
     NimBLERemoteCharacteristic *pressureScaleChar = nullptr;
+    NimBLERemoteCharacteristic *tempProbeFilterChar = nullptr;
     NimBLERemoteCharacteristic *volumetricMeasurementChar = nullptr;
     NimBLERemoteCharacteristic *volumetricTareChar = nullptr;
     NimBLERemoteCharacteristic *ledControlChar = nullptr;
@@ -82,6 +84,7 @@ class NimBLEClientController : public NimBLEAdvertisedDeviceCallbacks, NimBLECli
     // pathological wattage from a custom client doesn't silently truncate.
     char autotuneBuffer[40]{};
     char pressureScaleBuffer[10]{};
+    char tempProbeFilterBuffer[16]{};
 
     // BLEAdvertisedDeviceCallbacks override
     void onResult(NimBLEAdvertisedDevice *advertisedDevice) override;

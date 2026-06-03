@@ -60,6 +60,9 @@ void NimBLEServerController::initServer(const String infoString) {
     pressureScaleChar = pService->createCharacteristic(PRESSURE_SCALE_UUID, NIMBLE_PROPERTY::WRITE);
     pressureScaleChar->setCallbacks(this); // Use this class as the callback handler
 
+    tempProbeFilterChar = pService->createCharacteristic(TEMP_PROBE_FILTER_UUID, NIMBLE_PROPERTY::WRITE);
+    tempProbeFilterChar->setCallbacks(this);
+
     volumetricMeasurementChar = pService->createCharacteristic(VOLUMETRIC_MEASUREMENT_UUID, NIMBLE_PROPERTY::NOTIFY);
     volumetricTareChar = pService->createCharacteristic(VOLUMETRIC_TARE_UUID, NIMBLE_PROPERTY::WRITE);
     volumetricTareChar->setCallbacks(this);
@@ -164,6 +167,10 @@ void NimBLEServerController::registerAltControlCallback(const pin_control_callba
 void NimBLEServerController::registerPingCallback(const ping_callback_t &callback) { pingCallback = callback; }
 void NimBLEServerController::registerAutotuneCallback(const autotune_callback_t &callback) { autotuneCallback = callback; }
 void NimBLEServerController::registerPressureScaleCallback(const float_callback_t &callback) { pressureScaleCallback = callback; }
+
+void NimBLEServerController::registerTempProbeFilterCallback(const temp_probe_filter_callback_t &callback) {
+    tempProbeFilterCallback = callback;
+}
 
 void NimBLEServerController::registerTareCallback(const void_callback_t &callback) { tareCallback = callback; }
 
@@ -340,6 +347,15 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
         ESP_LOGV(LOG_TAG, "Received pressure scale: %.2f", scale_value);
         if (pressureScaleCallback != nullptr) {
             pressureScaleCallback(scale_value);
+        }
+    } else if (pCharacteristic->getUUID().equals(NimBLEUUID(TEMP_PROBE_FILTER_UUID))) {
+        String filter_string = pCharacteristic->getValue().c_str();
+        bool enabled = get_token(filter_string, 0, ',', "1").toInt() != 0;
+        float alpha = get_token(filter_string, 1, ',', "0.050").toFloat();
+
+        ESP_LOGV(LOG_TAG, "Received temp probe filter: enabled=%d alpha=%.3f", enabled ? 1 : 0, alpha);
+        if (tempProbeFilterCallback != nullptr) {
+            tempProbeFilterCallback(enabled, alpha);
         }
     } else if (pCharacteristic->getUUID().equals(NimBLEUUID(VOLUMETRIC_TARE_UUID))) {
         ESP_LOGV(LOG_TAG, "Received tare");

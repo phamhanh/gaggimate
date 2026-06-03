@@ -30,6 +30,7 @@ class Controller {
     void setMode(int newMode);
     void setTargetTemp(float temperature);
     void setPressureScale();
+    void syncTempProbeFilterToController();
     void syncPumpConfigToController();
     void setTargetGrindDuration(int duration);
     void setTargetGrindVolume(double volume);

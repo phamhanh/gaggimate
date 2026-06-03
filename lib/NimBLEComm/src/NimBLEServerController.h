@@ -28,6 +28,7 @@ class NimBLEServerController : public NimBLEServerCallbacks, public NimBLECharac
     void registerPingCallback(const ping_callback_t &callback);
     void registerAutotuneCallback(const autotune_callback_t &callback);
     void registerPressureScaleCallback(const float_callback_t &callback);
+    void registerTempProbeFilterCallback(const temp_probe_filter_callback_t &callback);
     void registerTareCallback(const void_callback_t &callback);
     void registerLedControlCallback(const led_control_callback_t &callback);
     void setInfo(String infoString);
@@ -40,6 +41,7 @@ class NimBLEServerController : public NimBLEServerCallbacks, public NimBLECharac
 
     NimBLECharacteristic *outputControlChar = nullptr;
     NimBLECharacteristic *pressureScaleChar = nullptr;
+    NimBLECharacteristic *tempProbeFilterChar = nullptr;
     NimBLECharacteristic *altControlChar = nullptr;
     NimBLECharacteristic *pingChar = nullptr;
     NimBLECharacteristic *pidControlChar = nullptr;
@@ -64,6 +66,7 @@ class NimBLEServerController : public NimBLEServerCallbacks, public NimBLECharac
     ping_callback_t pingCallback = nullptr;
     autotune_callback_t autotuneCallback = nullptr;
     float_callback_t pressureScaleCallback = nullptr;
+    temp_probe_filter_callback_t tempProbeFilterCallback = nullptr;
     void_callback_t tareCallback = nullptr;
     led_control_callback_t ledControlCallback = nullptr;
     char sensorDataBuffer[160]{};

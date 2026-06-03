@@ -462,6 +462,7 @@ void Controller::loop() {
         setPressureScale();
         syncPidToController();
         syncPumpConfigToController();
+        syncTempProbeFilterToController();
         if (!loaded) {
             loaded = true;
             if (settings.getStartupMode() == MODE_STANDBY)
@@ -629,6 +630,13 @@ void Controller::setPressureScale(void) {
     if (systemInfo.capabilities.pressure) {
         clientController.setPressureScale(settings.getPressureScaling());
     }
+}
+
+void Controller::syncTempProbeFilterToController(void) {
+    if (!clientController.isConnected()) {
+        return;
+    }
+    clientController.setTempProbeFilter(settings.isTempProbeFilterEnabled(), settings.getTempProbeFilterAlpha());
 }
 
 void Controller::syncPumpConfigToController(void) {

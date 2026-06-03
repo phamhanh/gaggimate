@@ -580,6 +580,9 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
                 settings->setTargetWaterTemp(request->arg("targetWaterTemp").toInt());
             if (request->hasArg("temperatureOffset"))
                 settings->setTemperatureOffset(request->arg("temperatureOffset").toInt());
+            settings->setTempProbeFilterEnabled(request->hasArg("tempProbeFilterEnabled"));
+            if (request->hasArg("tempProbeFilterAlpha"))
+                settings->setTempProbeFilterAlpha(request->arg("tempProbeFilterAlpha").toFloat());
             if (request->hasArg("pressureScaling"))
                 settings->setPressureScaling(request->arg("pressureScaling").toFloat());
             if (request->hasArg("pid"))
@@ -727,6 +730,7 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
         controller->setTargetTemp(controller->getTargetTemp());
         controller->syncPumpConfigToController();
         controller->syncPidToController();
+        controller->syncTempProbeFilterToController();
     }
 
     AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -762,6 +766,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["wifiPassword"] = apMode ? "---unchanged---" : settings.getWifiPassword();
     doc["mdnsName"] = settings.getMdnsName();
     doc["temperatureOffset"] = String(settings.getTemperatureOffset());
+    doc["tempProbeFilterEnabled"] = settings.isTempProbeFilterEnabled();
+    doc["tempProbeFilterAlpha"] = settings.getTempProbeFilterAlpha();
     doc["pressureScaling"] = String(settings.getPressureScaling());
     doc["boilerFillActive"] = settings.isBoilerFillActive();
     doc["startupFillTime"] = settings.getStartupFillTime() / 1000;

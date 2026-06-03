@@ -15,6 +15,8 @@ Settings::Settings() {
     grindDelay = preferences.getDouble("del_gd", 1000.0);
     delayAdjust = preferences.getBool("del_ad", true);
     temperatureOffset = preferences.getInt("to", DEFAULT_TEMPERATURE_OFFSET);
+    tempProbeFilterEnabled = preferences.getBool("tpf_en", true);
+    tempProbeFilterAlpha = preferences.getFloat("tpf_a", 0.05f);
     pressureScaling = preferences.getFloat("ps", DEFAULT_PRESSURE_SCALING);
     pid = preferences.getString("pid", DEFAULT_PID);
     pumpModelCoeffs = preferences.getString("pmc", DEFAULT_PUMP_MODEL_COEFFS);
@@ -151,6 +153,16 @@ void Settings::setTargetWaterTemp(const int target_water_temp) {
 
 void Settings::setTemperatureOffset(const int temperature_offset) {
     temperatureOffset = temperature_offset;
+    save();
+}
+
+void Settings::setTempProbeFilterEnabled(const bool enabled) {
+    tempProbeFilterEnabled = enabled;
+    save();
+}
+
+void Settings::setTempProbeFilterAlpha(const float alpha) {
+    tempProbeFilterAlpha = std::clamp(alpha, 0.01f, 1.0f);
     save();
 }
 
@@ -566,6 +578,8 @@ void Settings::doSave() {
     preferences.putDouble("del_gd", grindDelay);
     preferences.putBool("del_ad", delayAdjust);
     preferences.putInt("to", temperatureOffset);
+    preferences.putBool("tpf_en", tempProbeFilterEnabled);
+    preferences.putFloat("tpf_a", tempProbeFilterAlpha);
     preferences.putFloat("ps", pressureScaling);
     preferences.putString("pid", pid);
     preferences.putString("pmc", pumpModelCoeffs);

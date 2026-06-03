@@ -67,6 +67,9 @@ void GaggiMateController::setup() {
 
     this->thermocouple->setup();
     this->heater->setup();
+    _ble.registerTempProbeFilterCallback([this](bool enabled, float alpha) {
+        this->thermocouple->setFilter(enabled, alpha);
+    });
     this->valve->setup();
     this->alt->setup();
     this->pump->setup();

@@ -1,6 +1,7 @@
 #include "Max31855Thermocouple.h"
 #include <Arduino.h>
 #include <SPI.h>
+#include <algorithm>
 #include <freertos/FreeRTOS.h>
 
 Max31855Thermocouple::Max31855Thermocouple(const int csPin, const int misoPin, const int sckPin,
@@ -15,6 +16,32 @@ Max31855Thermocouple::Max31855Thermocouple(const int csPin, const int misoPin, c
 float Max31855Thermocouple::read() { return isErrorState() ? 0.0f : temperature; }
 
 bool Max31855Thermocouple::isErrorState() { return temperature <= 0 || errorCount >= MAX31855_MAX_ERRORS; }
+
+float Max31855Thermocouple::clampFilterAlpha(const float alpha) {
+    return std::clamp(alpha, TEMP_PROBE_FILTER_ALPHA_MIN, TEMP_PROBE_FILTER_ALPHA_MAX);
+}
+
+void Max31855Thermocouple::seedFilterFromRaw() {
+    if (lastRawTemp > 0.0f) {
+        temperature = lastRawTemp;
+    }
+}
+
+void Max31855Thermocouple::setFilterEnabled(const bool enabled) {
+    filterEnabled = enabled;
+    seedFilterFromRaw();
+}
+
+void Max31855Thermocouple::setFilterAlpha(const float alpha) {
+    filterAlpha = clampFilterAlpha(alpha);
+    seedFilterFromRaw();
+}
+
+void Max31855Thermocouple::setFilter(const bool enabled, const float alpha) {
+    filterEnabled = enabled;
+    filterAlpha = clampFilterAlpha(alpha);
+    seedFilterFromRaw();
+}
 
 void Max31855Thermocouple::setup() {
     SPI.begin();
@@ -58,7 +85,12 @@ void Max31855Thermocouple::loop() {
 
     if (temp <= 0.0f)
         return;
-    temperature = 0.1f * temp + 0.9f * temperature;
+    lastRawTemp = temp;
+    if (filterEnabled) {
+        temperature = filterAlpha * temp + (1.0f - filterAlpha) * temperature;
+    } else {
+        temperature = temp;
+    }
     ESP_LOGV(LOG_TAG, "Updated temperature: %2f\n", temperature);
     callback(temperature);
 }

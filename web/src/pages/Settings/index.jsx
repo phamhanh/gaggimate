@@ -113,6 +113,8 @@ export function Settings() {
       const graceMs = fetchedSettings.pidFreezeGraceMs ?? 60000;
       settingsWithToggle.pidFreezeGraceSec = Math.round(graceMs / 1000);
       settingsWithToggle.incomingWaterTempC = fetchedSettings.incomingWaterTempC ?? 23;
+      settingsWithToggle.tempProbeFilterEnabled = fetchedSettings.tempProbeFilterEnabled ?? true;
+      settingsWithToggle.tempProbeFilterAlpha = fetchedSettings.tempProbeFilterAlpha ?? 0.05;
       settingsWithToggle.pidErrorAttenC = fetchedSettings.pidErrorAttenC ?? 0;
       settingsWithToggle.pidPdMuteEnabled = fetchedSettings.pidPdMuteEnabled ?? false;
       settingsWithToggle.pidPdMuteAboveC = fetchedSettings.pidPdMuteAboveC ?? 0.5;
@@ -194,6 +196,9 @@ export function Settings() {
       }
       if (key === 'kffEnabled') {
         value = formData.kffEnabled === false;
+      }
+      if (key === 'tempProbeFilterEnabled') {
+        value = formData.tempProbeFilterEnabled === false;
       }
       if (key === 'pidFreezeEnabled') {
         value = formData.pidFreezeEnabled === false;
@@ -303,6 +308,14 @@ export function Settings() {
       }
       const stableSec = Number(formData.stableDurationSec ?? 8);
       formDataToSubmit.set('stableDurationMs', String(Math.max(0, Math.round(stableSec * 1000))));
+
+      if (formData.tempProbeFilterEnabled) {
+        formDataToSubmit.set('tempProbeFilterEnabled', '1');
+      }
+      if (formData.tempProbeFilterAlpha !== undefined) {
+        const alpha = Math.min(1, Math.max(0.01, Number(formData.tempProbeFilterAlpha)));
+        formDataToSubmit.set('tempProbeFilterAlpha', String(alpha));
+      }
 
       const flow1Bar = formDataToSubmit.get('pumpFlow1Bar');
       const flow9Bar = formDataToSubmit.get('pumpFlow9Bar');
@@ -1127,6 +1140,43 @@ export function Settings() {
                 </div>
               </div>
               </>
+            )}
+            <div className='form-control mb-4'>
+              <label className='label cursor-pointer'>
+                <span className='label-text'>Enable probe smoothing</span>
+                <input
+                  id='tempProbeFilterEnabled'
+                  name='tempProbeFilterEnabled'
+                  type='checkbox'
+                  className='toggle toggle-primary'
+                  checked={formData.tempProbeFilterEnabled !== false}
+                  onChange={onChange('tempProbeFilterEnabled')}
+                />
+              </label>
+              <p className='mt-2 text-xs opacity-70'>
+                Smooths boiler probe readings before PID and graphs. <strong>Alpha 0.01–1.0:</strong> lower values react
+                more slowly (less noise); higher values track faster. Default <strong>0.05</strong>. Turn off only for
+                diagnosis — PID may chatter. Separate from idle P/D softening and the controller&apos;s derivative
+                filter.
+              </p>
+            </div>
+            {formData.tempProbeFilterEnabled !== false && (
+              <div className='form-control mb-4'>
+                <label htmlFor='tempProbeFilterAlpha' className='mb-2 block text-sm font-medium'>
+                  Smoothing alpha
+                </label>
+                <input
+                  id='tempProbeFilterAlpha'
+                  name='tempProbeFilterAlpha'
+                  type='number'
+                  step='0.01'
+                  min='0.01'
+                  max='1'
+                  className='input input-bordered w-full'
+                  value={formData.tempProbeFilterAlpha ?? 0.05}
+                  onChange={onChange('tempProbeFilterAlpha')}
+                />
+              </div>
             )}
             <div className='form-control mb-4'>
               <label htmlFor='temperatureOffset' className='mb-2 block text-sm font-medium'>

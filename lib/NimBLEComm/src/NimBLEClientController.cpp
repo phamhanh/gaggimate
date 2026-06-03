@@ -106,6 +106,7 @@ bool NimBLEClientController::connectToServer() {
     pumpModelCoeffsChar = pRemoteService->getCharacteristic(NimBLEUUID(PUMP_MODEL_COEFFS_CHAR_UUID));
     infoChar = pRemoteService->getCharacteristic(NimBLEUUID(INFO_UUID));
     pressureScaleChar = pRemoteService->getCharacteristic(NimBLEUUID(PRESSURE_SCALE_UUID));
+    tempProbeFilterChar = pRemoteService->getCharacteristic(NimBLEUUID(TEMP_PROBE_FILTER_UUID));
     volumetricTareChar = pRemoteService->getCharacteristic(NimBLEUUID(VOLUMETRIC_TARE_UUID));
     ledControlChar = pRemoteService->getCharacteristic(NimBLEUUID(LED_CONTROL_UUID));
 
@@ -204,6 +205,13 @@ void NimBLEClientController::setPressureScale(float scale) {
     }
 }
 
+void NimBLEClientController::setTempProbeFilter(const bool enabled, const float alpha) {
+    if (client->isConnected() && tempProbeFilterChar != nullptr) {
+        snprintf(tempProbeFilterBuffer, sizeof(tempProbeFilterBuffer), "%d,%.3f", enabled ? 1 : 0, alpha);
+        tempProbeFilterChar->writeValue(tempProbeFilterBuffer);
+    }
+}
+
 void NimBLEClientController::sendLedControl(uint8_t channel, uint8_t brightness) {
     if (client->isConnected() && ledControlChar != nullptr) {
         ledControlChar->writeValue(String(channel) + "," + String(brightness), false);
@@ -268,6 +276,7 @@ void NimBLEClientController::onDisconnect(NimBLEClient *pServer) {
     sensorChar = nullptr;
     outputControlChar = nullptr;
     pressureScaleChar = nullptr;
+    tempProbeFilterChar = nullptr;
     volumetricMeasurementChar = nullptr;
     volumetricTareChar = nullptr;
     ledControlChar = nullptr;

@@ -100,7 +100,7 @@ New shots record **inlet temp, Kff gain, pump 1/9 bar flows, and `kffEnabled`** 
 
 Three **1 mm K-type** sensors: grouphead brew path, boiler exit, and **live inlet** (the only one Kff really needs). Challenge: cheap double-ferrule 1 mm fittings.
 
-I added **0.1 °C** dials, a softer thermocouple filter, and **inlet water ±** on the brew screen.
+I added **0.1 °C** dials, a **configurable probe EMA** (default α=0.05, on/off in Settings — upstream fixed α=0.2 at clone), and **inlet water ±** on the brew screen.
 
 ### The real fix: a pre-heater block
 
