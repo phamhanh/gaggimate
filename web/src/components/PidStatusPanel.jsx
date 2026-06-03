@@ -60,6 +60,11 @@ export function PidStatusPanel() {
 
   return (
     <div className='flex flex-col gap-4'>
+      <StatGroup title='Temperature'>
+        <StatRow label='CT' value={`${fmt(status.currentTemperature, 1)} °C`} />
+        <StatRow label='TT' value={`${fmt(status.targetTemperature, 1)} °C`} />
+      </StatGroup>
+
       <StatGroup title='Stored PID'>
         <StatRow label='Kp' value={fmt(status.kp, 3)} />
         <StatRow label='Ki' value={fmt(status.ki, 3)} />
@@ -68,7 +73,6 @@ export function PidStatusPanel() {
       </StatGroup>
 
       <StatGroup title='Power'>
-        <StatRow label='Heater' value={fmt(status.heaterPower, 1)} />
         <StatRow label='Pump' value={`${fmt(status.pumpPower, 1)} %`} />
         <StatRow label='Total' value={fmt(status.totalPower, 1)} />
       </StatGroup>
