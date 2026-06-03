@@ -48,6 +48,7 @@ class WebUIPlugin : public Plugin {
     void handleBLEScaleInfo(AsyncWebServerRequest *request);
     void updateOTAStatus(const String &version);
     void updateOTAProgress(uint8_t phase, int progress);
+    void sendOTAError(const String &message);
     void sendAutotuneResult();
     void sendAutotuneFailed();
 

@@ -2,6 +2,29 @@
 #include <HTTPClient.h>
 #include <SPIFFS.h>
 
+namespace {
+
+constexpr int MIN_FIRMWARE_BYTES = 1024;
+constexpr int DOWNLOAD_CHUNK_SIZE = 1024;
+
+int clampProgress(double progress) {
+    if (progress != progress || progress < 0.0) {
+        return 0;
+    }
+    if (progress > 100.0) {
+        return 100;
+    }
+    return static_cast<int>(progress);
+}
+
+void reportProgress(const ctr_progress_callback_t &callback, double progress) {
+    if (callback) {
+        callback(clampProgress(progress));
+    }
+}
+
+} // namespace
+
 void ControllerOTA::init(NimBLEClient *client, const ctr_progress_callback_t &progress_callback) {
     this->client = client;
     progressCallback = progress_callback;
@@ -18,17 +41,23 @@ void ControllerOTA::init(NimBLEClient *client, const ctr_progress_callback_t &pr
     }
 }
 
-void ControllerOTA::update(WiFiClientSecure &wifi_client, const String &release_url) {
+bool ControllerOTA::update(WiFiClientSecure &wifi_client, const String &release_url) {
     if (SPIFFS.exists("/board-firmware.bin")) {
         ESP_LOGI("ControllerOTA", "Removing previous update file");
         SPIFFS.remove("/board-firmware.bin");
     }
     if (!downloadFile(wifi_client, release_url)) {
         ESP_LOGE("ControllerOTA", "Download of firmware file failed");
+        return false;
     }
     File file = SPIFFS.open("/board-firmware.bin", FILE_READ);
-    runUpdate(file, file.size());
+    if (!file) {
+        ESP_LOGE("ControllerOTA", "Failed to open downloaded firmware");
+        return false;
+    }
+    const bool ok = runUpdate(file, file.size());
     file.close();
+    return ok;
 }
 
 bool ControllerOTA::downloadFile(WiFiClientSecure &wifi_client, const String &release_url) {
@@ -54,7 +83,7 @@ bool ControllerOTA::downloadFile(WiFiClientSecure &wifi_client, const String &re
     }
 
     if (len == 0) {
-        ESP_LOGE("ControllerOTA", "Could not fetch firmware");
+        ESP_LOGE("ControllerOTA", "Could not fetch firmware (zero Content-Length)");
         http.end();
         return false;
     }
@@ -69,27 +98,83 @@ bool ControllerOTA::downloadFile(WiFiClientSecure &wifi_client, const String &re
     }
 
     File file = SPIFFS.open("/board-firmware.bin", FILE_WRITE, true);
+    if (!file) {
+        ESP_LOGE("ControllerOTA", "Failed to open SPIFFS for firmware download");
+        http.end();
+        return false;
+    }
 
     int written = 0;
-    while (written < len) {
-        int bufferSize = min(1024, len - written);
-        uint8_t buffer[bufferSize];
-        fillBuffer(*tcp, buffer, bufferSize);
-        file.write(buffer, bufferSize);
-        written += bufferSize;
-        double progress = (static_cast<double>(written) / static_cast<double>(len)) * 50.0;
-        progressCallback(static_cast<int>(progress));
+    uint8_t buffer[DOWNLOAD_CHUNK_SIZE];
+
+    if (len > 0) {
+        while (written < len) {
+            int bufferSize = min(DOWNLOAD_CHUNK_SIZE, len - written);
+            fillBuffer(*tcp, buffer, bufferSize);
+            file.write(buffer, bufferSize);
+            written += bufferSize;
+            reportProgress(progressCallback, (static_cast<double>(written) / static_cast<double>(len)) * 50.0);
+        }
+    } else {
+        ESP_LOGI("ControllerOTA", "Content-Length unknown; reading until stream ends");
+        while (http.connected() || tcp->available()) {
+            int avail = tcp->available();
+            if (avail <= 0) {
+                if (!http.connected()) {
+                    break;
+                }
+                delay(10);
+                continue;
+            }
+            int toRead = min(DOWNLOAD_CHUNK_SIZE, avail);
+            int n = tcp->readBytes(buffer, toRead);
+            if (n <= 0) {
+                break;
+            }
+            file.write(buffer, n);
+            written += n;
+        }
+        reportProgress(progressCallback, 50.0);
     }
-    ESP_LOGI("ControllerOTA", "Downloaded firmware file with %d bytes to /board-firmware.bin", len);
+
     file.close();
     http.end();
+
+    if (written < MIN_FIRMWARE_BYTES) {
+        ESP_LOGE("ControllerOTA", "Firmware too small (%d bytes, minimum %d)", written, MIN_FIRMWARE_BYTES);
+        SPIFFS.remove("/board-firmware.bin");
+        return false;
+    }
+
+    if (len > 0 && written != len) {
+        ESP_LOGE("ControllerOTA", "Incomplete download (%d of %d bytes)", written, len);
+        SPIFFS.remove("/board-firmware.bin");
+        return false;
+    }
+
+    ESP_LOGI("ControllerOTA", "Downloaded firmware file with %d bytes to /board-firmware.bin", written);
     return true;
 }
 
-void ControllerOTA::runUpdate(Stream &in, uint32_t size) {
+bool ControllerOTA::runUpdate(Stream &in, uint32_t size) {
+    if (rxChar == nullptr || client == nullptr || !client->isConnected()) {
+        ESP_LOGE("ControllerOTA", "BLE OTA not initialized or not connected");
+        return false;
+    }
+
+    if (size == 0) {
+        ESP_LOGE("ControllerOTA", "Refusing BLE update with zero-byte firmware");
+        return false;
+    }
+
     ESP_LOGI("ControllerOTA", "Sending update instructions over BLE. File Size: %d", size);
     fileParts = (size + PART_SIZE - 1) / PART_SIZE;
     currentPart = 0;
+
+    if (fileParts == 0) {
+        ESP_LOGE("ControllerOTA", "Refusing BLE update with zero parts");
+        return false;
+    }
 
     uint8_t fileLengthBytes[] = {
         0xFE,
@@ -111,21 +196,27 @@ void ControllerOTA::runUpdate(Stream &in, uint32_t size) {
     sendData(updateStart, 1);
     ESP_LOGI("ControllerOTA", "Waiting for signal from controller");
 
+    bool success = false;
     while (client->isConnected()) {
         uint8_t signal = lastSignal;
         lastSignal = 0x00;
         if (signal == 0xAA || signal == 0xF1) {
-            // Start update or send next part
             ESP_LOGV("ControllerOTA", "Sending part %d / %d", currentPart + 1, fileParts);
             sendPart(in, size);
             currentPart++;
             notifyUpdate();
         } else if (signal == 0xF2 || signal == 0xFF) {
+            success = true;
             break;
         }
         delay(50);
     }
-    ESP_LOGI("ControllerOTA", "Controller update finished");
+    if (success) {
+        ESP_LOGI("ControllerOTA", "Controller update finished");
+    } else {
+        ESP_LOGE("ControllerOTA", "Controller update did not complete");
+    }
+    return success;
 }
 
 void ControllerOTA::sendData(uint8_t *data, uint16_t len) const {
@@ -163,8 +254,11 @@ void ControllerOTA::fillBuffer(Stream &in, uint8_t *buffer, uint16_t len) const 
 }
 
 void ControllerOTA::notifyUpdate() const {
+    if (fileParts == 0) {
+        return;
+    }
     double progress = (static_cast<double>(currentPart) / static_cast<double>(fileParts)) * 50.0 + 50.0;
-    progressCallback(static_cast<int>(progress));
+    reportProgress(progressCallback, progress);
 }
 
 void ControllerOTA::sendPart(Stream &in, uint32_t totalSize) const {

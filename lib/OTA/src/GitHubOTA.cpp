@@ -9,7 +9,8 @@
 
 GitHubOTA::GitHubOTA(const String &display_version, const String &controller_version, const String &release_url,
                      const phase_callback_t &phase_callback, const progress_callback_t &progress_callback,
-                     const String &firmware_name, const String &filesystem_name, const String &controller_firmware_name) {
+                     const ota_error_callback_t &error_callback, const String &firmware_name, const String &filesystem_name,
+                     const String &controller_firmware_name) {
     ESP_LOGV("GitHubOTA", "GitHubOTA(version: %s, firmware_name: %s, fetch_url_via_redirect: %d)\n", version.c_str(),
              firmware_name.c_str(), fetch_url_via_redirect);
 
@@ -21,6 +22,7 @@ GitHubOTA::GitHubOTA(const String &display_version, const String &controller_ver
     _controller_firmware_name = controller_firmware_name;
     _phase_callback = phase_callback;
     _progress_callback = progress_callback;
+    _error_callback = error_callback;
 
     Updater.rebootOnUpdate(false);
     _wifi_client.setCACertBundle(x509_crt_imported_bundle_bin_start);
@@ -94,8 +96,14 @@ void GitHubOTA::update(bool controller, bool display) {
         ESP_LOGI(TAG, "Controller update is required, running firmware update.");
         this->phase = PHASE_CONTROLLER_FW;
         this->_phase_callback(PHASE_CONTROLLER_FW);
-        _controller_ota.update(_wifi_client, _latest_url + _controller_firmware_name);
-        ESP_LOGI(TAG, "Controller update successful. Restarting...\n");
+        if (!_controller_ota.update(_wifi_client, _latest_url + _controller_firmware_name)) {
+            ESP_LOGE(TAG, "Controller update failed");
+            if (_error_callback) {
+                _error_callback("Controller firmware update failed");
+            }
+            return;
+        }
+        ESP_LOGI(TAG, "Controller update successful.");
         updateExecuted = true;
     }
 
@@ -107,6 +115,9 @@ void GitHubOTA::update(bool controller, bool display) {
 
         if (result != HTTP_UPDATE_OK) {
             ESP_LOGI(TAG, "Update failed: %s\n", Updater.getLastErrorString().c_str());
+            if (_error_callback) {
+                _error_callback("Display firmware update failed");
+            }
             return;
         }
 
@@ -116,18 +127,19 @@ void GitHubOTA::update(bool controller, bool display) {
 
         if (result != HTTP_UPDATE_OK) {
             ESP_LOGI(TAG, "Filesystem Update failed: %s\n", Updater.getLastErrorString().c_str());
+            if (_error_callback) {
+                _error_callback("Display filesystem update failed");
+            }
             return;
         }
 
-        ESP_LOGI(TAG, "Update successful. Restarting...\n");
-        this->phase = PHASE_FINISHED;
-        this->_phase_callback(PHASE_FINISHED);
+        ESP_LOGI(TAG, "Display update successful.");
         updateExecuted = true;
     }
-    this->phase = PHASE_FINISHED;
-    this->_phase_callback(PHASE_FINISHED);
 
     if (updateExecuted) {
+        this->phase = PHASE_FINISHED;
+        this->_phase_callback(PHASE_FINISHED);
         delay(1000);
         ESP.restart();
     }

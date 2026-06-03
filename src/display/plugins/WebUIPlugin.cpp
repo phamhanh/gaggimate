@@ -106,6 +106,7 @@ void WebUIPlugin::setup(Controller *_controller, PluginManager *_pluginManager) 
             pluginManager->trigger("ota:update:progress", "progress", progress);
             updateOTAProgress(phase, progress);
         },
+        [this](const String &message) { sendOTAError(message); },
         "display-firmware.bin", "display-filesystem.bin", "board-firmware.bin");
     pluginManager->on("controller:wifi:connect", [this](Event const &event) {
         apMode = event.getInt("AP");
@@ -915,9 +916,17 @@ void WebUIPlugin::updateOTAProgress(uint8_t phase, int progress) {
     JsonDocument doc;
     doc["tp"] = "evt:ota-progress";
     doc["phase"] = phase;
-    doc["progress"] = progress;
+    doc["progress"] = constrain(progress, 0, 100);
     String message = doc.as<String>();
     ws.textAll(message);
+}
+
+void WebUIPlugin::sendOTAError(const String &message) {
+    JsonDocument doc;
+    doc["tp"] = "evt:ota-error";
+    doc["message"] = message;
+    String payload = doc.as<String>();
+    ws.textAll(payload);
 }
 
 void WebUIPlugin::sendAutotuneResult() {

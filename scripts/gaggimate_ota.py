@@ -192,6 +192,8 @@ def run_single_ota(
     with client_cls(host, port, timeout=connect_timeout) as client:
         client.start_ota(component)
         for message in client.iter_messages(timeout=timeout):
+            if message.get("tp") == "evt:ota-error":
+                raise RuntimeError(message.get("message", "OTA failed"))
             if message.get("tp") != "evt:ota-progress":
                 continue
             phase = int(message.get("phase", 0))

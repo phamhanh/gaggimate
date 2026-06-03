@@ -28,6 +28,7 @@ export function OTA() {
   const [formData, setFormData] = useState({});
   const [phase, setPhase] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [otaError, setOtaError] = useState('');
   const rssi = machine.value.status.rssi;
 
   const downloadSupportData = useCallback(async () => {
@@ -57,12 +58,21 @@ export function OTA() {
     };
   }, [apiService]);
   useEffect(() => {
-    const listenerId = apiService.on('evt:ota-progress', msg => {
-      setProgress(msg.progress);
+    const progressListenerId = apiService.on('evt:ota-progress', msg => {
+      const raw = Number(msg.progress);
+      const clamped = Math.min(100, Math.max(0, Number.isFinite(raw) ? raw : 0));
+      setProgress(clamped);
       setPhase(msg.phase);
     });
+    const errorListenerId = apiService.on('evt:ota-error', msg => {
+      setPhase(0);
+      setProgress(0);
+      setSubmitting(false);
+      setOtaError(msg.message || 'Update failed');
+    });
     return () => {
-      apiService.off('evt:ota-progress', listenerId);
+      apiService.off('evt:ota-progress', progressListenerId);
+      apiService.off('evt:ota-error', errorListenerId);
     };
   }, [apiService]);
 
@@ -105,6 +115,7 @@ export function OTA() {
 
   const onUpdate = useCallback(
     component => {
+      setOtaError('');
       apiService.send({ tp: 'req:ota-start', cp: component });
     },
     [apiService],
@@ -141,7 +152,9 @@ export function OTA() {
                 ? 'Updating controller firmware'
                 : 'Finished'}
         </span>
-        <span className='text-lg font-medium'>{phase === 4 ? 100 : progress}%</span>
+        <span className='text-lg font-medium'>
+          {phase === 4 ? 100 : Math.min(100, Math.max(0, progress))}%
+        </span>
         {phase === 4 && (
           <a href='/' className='btn btn-primary'>
             Back
@@ -156,6 +169,12 @@ export function OTA() {
       <div className='mb-4 flex flex-row items-center gap-2'>
         <h2 className='flex-grow text-2xl font-bold sm:text-3xl'>System & Updates</h2>
       </div>
+
+      {otaError && (
+        <div className='alert alert-error mb-4'>
+          <span>{otaError}</span>
+        </div>
+      )}
 
       <form key='ota' method='post' action='/api/ota' ref={formRef} onSubmit={onSubmit}>
         <div className='grid grid-cols-1 gap-4 lg:grid-cols-12'>

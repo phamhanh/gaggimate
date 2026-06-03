@@ -15,6 +15,7 @@ constexpr uint8_t PHASE_FINISHED = 4;
 
 using phase_callback_t = std::function<void(uint8_t phase)>;
 using progress_callback_t = std::function<void(uint8_t phase, int progress)>;
+using ota_error_callback_t = std::function<void(const String &message)>;
 
 extern const uint8_t x509_crt_imported_bundle_bin_start[] asm("_binary_x509_crt_bundle_start");
 
@@ -22,6 +23,7 @@ class GitHubOTA {
   public:
     GitHubOTA(const String &display_version, const String &controller_version, const String &release_url,
               const phase_callback_t &phase_callback, const progress_callback_t &progress_callback,
+              const ota_error_callback_t &error_callback = nullptr,
               const String &firmware_name = "firmware.bin", const String &filesystem_name = "filesystem.bin",
               const String &controller_firmware_name = "controller.bin");
 
@@ -53,6 +55,7 @@ class GitHubOTA {
     ControllerOTA _controller_ota;
     phase_callback_t _phase_callback = nullptr;
     progress_callback_t _progress_callback = nullptr;
+    ota_error_callback_t _error_callback = nullptr;
 };
 
 #endif

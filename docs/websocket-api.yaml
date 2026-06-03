@@ -28,6 +28,7 @@ channels:
           - $ref: '#/components/messages/StatusEvent'
           - $ref: '#/components/messages/OtaSettingsResponse'
           - $ref: '#/components/messages/OtaProgressEvent'
+          - $ref: '#/components/messages/OtaErrorEvent'
           - $ref: '#/components/messages/AutotuneResultEvent'
           - $ref: '#/components/messages/ProfilesListResponse'
           - $ref: '#/components/messages/ProfilesLoadResponse'
@@ -166,6 +167,15 @@ components:
         progress:
           type: integer
       required: [tp, phase, progress]
+    OtaErrorPayload:
+      type: object
+      properties:
+        tp:
+          type: string
+          enum: ['evt:ota-error']
+        message:
+          type: string
+      required: [tp, message]
     AutotuneResultPayload:
       type: object
       properties:
@@ -187,6 +197,9 @@ components:
     OtaProgressEvent:
       payload:
         $ref: '#/components/schemas/OtaProgressPayload'
+    OtaErrorEvent:
+      payload:
+        $ref: '#/components/schemas/OtaErrorPayload'
     AutotuneResultEvent:
       payload:
         $ref: '#/components/schemas/AutotuneResultPayload'
