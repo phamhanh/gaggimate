@@ -9,7 +9,7 @@ Live boiler PID terms and stored gains exposed on **`evt:status`** (WebSocket, ~
 | A | BLE transport | **A1** — extend 12-field CSV on `SENSOR_DATA_UUID` (backward compatible: ≥7 fields) |
 | B | Frozen semantics | When `frozen=1`, report **actual contributing terms**: `p=0`, `i=latched I sum`, `d=0`, `kff=live disturbance FF` |
 | C | WS payload | **C1** — merge `pidLive` into `evt:status` (same helper as HTTP) |
-| D | Web UI | **D0** — API only (dashboard may bind later) |
+| D | Web UI | **D0** — `/pid-monitor` charts `ct`/`tt` and `pidLive`; scalars from `evt:status` |
 | E | Set PID | **E1** — `req:set-pid` WebSocket with optional `persist` |
 
 ## Data path

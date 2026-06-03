@@ -18,6 +18,7 @@ import { Navigation } from './components/Navigation.jsx';
 import { ProfileList } from './pages/ProfileList/index.jsx';
 import { ProfileEdit } from './pages/ProfileEdit/index.jsx';
 import { Autotune } from './pages/Autotune/index.jsx';
+import { PidMonitor } from './pages/PidMonitor/index.jsx';
 import { ShotHistory } from './pages/ShotHistory/index.jsx';
 import { ShotAnalyzer } from './pages/ShotAnalyzer/index.jsx';
 import { StatisticsPage } from './pages/Statistics/index.jsx';
@@ -46,6 +47,7 @@ export function App() {
                         <Route path='/ota' component={OTA} />
                         <Route path='/scales' component={Scales} />
                         <Route path='/pidtune' component={Autotune} />
+                        <Route path='/pid-monitor' component={PidMonitor} />
                         <Route path='/history' component={ShotHistory} />
                         <Route path='/analyzer' component={ShotAnalyzer} />
                         <Route path='/statistics' component={StatisticsPage} />

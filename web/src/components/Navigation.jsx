@@ -9,6 +9,7 @@ import { faCog } from '@fortawesome/free-solid-svg-icons/faCog';
 import { faRotate } from '@fortawesome/free-solid-svg-icons/faRotate';
 import { faMagnifyingGlassChart } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlassChart';
 import { faChartSimple } from '@fortawesome/free-solid-svg-icons/faChartSimple';
+import { faChartLine } from '@fortawesome/free-solid-svg-icons/faChartLine';
 
 function MenuItem(props) {
   let className =
@@ -45,6 +46,7 @@ export function Navigation(props) {
       <hr className='h-5 border-0' />
       <div className='space-y-1.5'>
         <MenuItem label='PID Autotune' link='/pidtune' icon={faTemperatureHalf} />
+        <MenuItem label='PID Live' link='/pid-monitor' icon={faChartLine} />
         <MenuItem label='Bluetooth Devices' link='/scales' icon={faBluetoothB} />
         <MenuItem label='Settings' link='/settings' icon={faCog} />
       </div>

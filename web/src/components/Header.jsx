@@ -12,6 +12,7 @@ import { faGithub } from '@fortawesome/free-brands-svg-icons/faGithub';
 import { faDiscord } from '@fortawesome/free-brands-svg-icons/faDiscord';
 import { faMagnifyingGlassChart } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlassChart';
 import { faChartSimple } from '@fortawesome/free-solid-svg-icons/faChartSimple';
+import { faChartLine } from '@fortawesome/free-solid-svg-icons/faChartLine';
 
 function HeaderItem(props) {
   const { path } = useLocation();
@@ -134,6 +135,12 @@ export function Header() {
               label='PID Autotune'
               link='/pidtune'
               icon={faTemperatureHalf}
+              onClick={() => openCb(false)}
+            />
+            <HeaderItem
+              label='PID Live'
+              link='/pid-monitor'
+              icon={faChartLine}
               onClick={() => openCb(false)}
             />
             <HeaderItem

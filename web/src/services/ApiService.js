@@ -191,9 +191,20 @@ export default class ApiService {
       kd: message.kd,
       kffGain: message.kffGain ?? message.kff,
       heaterPower: message.heaterPower ?? message.out,
+      pumpPower: message.pumpPower ?? 0,
+      totalPower: message.totalPower ?? 0,
       pidLive: message.pidLive || null,
     };
-    const historyEntry = { ...newStatus };
+    const pid = message.pidLive || {};
+    const historyEntry = {
+      ...newStatus,
+      pidP: pid.p ?? 0,
+      pidI: pid.i ?? 0,
+      pidD: pid.d ?? 0,
+      pidKff: pid.kff ?? 0,
+      pidOut: pid.out ?? message.heaterPower ?? message.out ?? 0,
+      pidFrozen: pid.frozen ?? 0,
+    };
     delete historyEntry.process;
     const newValue = {
       ...machine.value,
@@ -210,7 +221,7 @@ export default class ApiService {
       },
       history: [...machine.value.history, historyEntry],
     };
-    newValue.history = newValue.history.slice(-600);
+    newValue.history = newValue.history.slice(-1200);
     machine.value = newValue;
   }
 }
