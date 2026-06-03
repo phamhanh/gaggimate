@@ -18,8 +18,10 @@ DEFAULT_STATE_PATH = ROOT / "device-data" / "pid-tune" / "state.json"
 class LadderState:
     host: str
     started_at: str
+    phase: str = "tuning"
     current_scenario: str | None = None
     completed: list[str] = field(default_factory=list)
+    verified: list[str] = field(default_factory=list)
     gains: dict[str, float] = field(default_factory=dict)
     last_metrics: dict[str, Any] = field(default_factory=dict)
 
@@ -38,6 +40,10 @@ class LadderState:
             self.completed.append(scenario_id)
         self.current_scenario = None
 
+    def mark_verified(self, scenario_id: str) -> None:
+        if scenario_id not in self.verified:
+            self.verified.append(scenario_id)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -46,22 +52,30 @@ class LadderState:
         return cls(
             host=str(data.get("host", "")),
             started_at=str(data.get("started_at", "")),
+            phase=str(data.get("phase", "tuning")),
             current_scenario=data.get("current_scenario"),
             completed=list(data.get("completed", [])),
+            verified=list(data.get("verified", [])),
             gains=dict(data.get("gains", {})),
             last_metrics=dict(data.get("last_metrics", {})),
         )
 
 
-def load_state(path: Path = DEFAULT_STATE_PATH) -> LadderState | None:
-    if not path.is_file():
+def _state_path(path: Path | None) -> Path:
+    return DEFAULT_STATE_PATH if path is None else path
+
+
+def load_state(path: Path | None = None) -> LadderState | None:
+    resolved = _state_path(path)
+    if not resolved.is_file():
         return None
-    return LadderState.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    return LadderState.from_dict(json.loads(resolved.read_text(encoding="utf-8")))
 
 
-def save_state(state: LadderState, path: Path = DEFAULT_STATE_PATH) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state.to_dict(), indent=2) + "\n", encoding="utf-8")
+def save_state(state: LadderState, path: Path | None = None) -> None:
+    resolved = _state_path(path)
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    resolved.write_text(json.dumps(state.to_dict(), indent=2) + "\n", encoding="utf-8")
 
 
 def new_state(host: str, gains: PidGains) -> LadderState:

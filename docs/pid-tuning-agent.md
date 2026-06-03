@@ -51,19 +51,21 @@ python3 -c "from gaggimate_ws import print_status_once; print_status_once('$HOST
 
 ## Unattended five-scenario ladder
 
-One command runs **S1 → S5** in order, tuning PID per scenario until acceptance, then **one** NVS persist at the end.
+Two phases: **tune** each scenario S1→S5 until acceptance, then **one verification lap** S1→S5 (prep + single `tt=92` test, no gain changes). Every `set_pid` **always** writes NVS (`persist=true`) so `/api/status` matches what is being tested.
 
-| ID | Name | Start `ct` band | Test |
-|----|------|-----------------|------|
-| S1 | `near_88` | 87–89 °C | Step `tt` to **92 °C**, record ramp |
-| S2 | `near_85` | 84–86 °C | Step to 92 °C |
-| S3 | `near_60` | 58–62 °C | Step to 92 °C |
-| S4 | `near_30` | 28–32 °C | Step to 92 °C |
-| S5 | `cold_soak` | ≤2 °C | `tt=0` for **1 h**, then ramp to 92 °C |
+| ID | Name | Prep cool `tt` | Prep rule | Test |
+|----|------|----------------|-----------|------|
+| S1 | `near_88` | 88 °C | wait until `ct ≤ 89`; **record 300 s at cool tt** | Step `tt` to **92 °C**, record ramp |
+| S2 | `near_85` | 85 °C | wait until `ct ≤ 86`; **record 300 s at cool tt** | Step to 92 °C |
+| S3 | `near_60` | 60 °C (via 88→85 if needed) | wait until `ct ≤ 61`; **record 300 s at cool tt** | Step to 92 °C |
+| S4 | `near_30` | 30 °C (via 88→85→60 if needed) | wait until `ct ≤ 31`; **record 300 s at cool tt** | Step to 92 °C |
+| S5 | `cold_soak` | 0 °C | cool to 0; **10 min plateau** + **1 h soak** | Step to 92 °C |
 
-**Passive cooling** between scenarios: set `tt` to waypoints **85 → 60 → 30 → 0** (only steps still above current `ct`) and wait until `ct` reaches each step. There is no active cooling—cool-down can take tens of minutes to hours.
+**Prep rule:** if `ct` is already at or below the scenario’s cool target (+1 °C tolerance), skip cooling **and the hold** and go straight to the 92 °C ramp test. After active cooling, **record 300 s at the cool tt** (`prep_hold_s` in `config.yaml`; `0` disables), then step to 92 °C for the ramp test.
 
 ### Run
+
+**Apply + verify:** every PID change is written with `persist=true` and checked against `/api/status` before continuing. See [pid-tune-handover.md](pid-tune-handover.md) if `kp`/`ki`/`kd` do not update.
 
 ```bash
 HOST=gaggimate.plumvillage.org
@@ -79,18 +81,21 @@ python3 scripts/gaggimate_pid_tune.py --host "$HOST"
 ### Expectations
 
 - First full ladder often takes **6–12+ hours** depending on starting `ct` and ambient loss—not minutes.
+- After tuning accepts all five scenarios, verification runs **one full S1→S5 lap** before declaring success. If a scenario fails verification, that scenario is re-tuned once and verification repeats (max one retry lap).
 - Machine must stay powered, filled with water, and reachable on the network.
 - Abort if `ct` > **160 °C** or `pidLive.frozen` ≠ 0 during idle tune.
 
 ### Resume
 
-Progress is written to `device-data/pid-tune/state.json` after each scenario and iteration. On disconnect, re-run with `--resume` on the same `--host`.
+Progress is written to `device-data/pid-tune/state.json` after each scenario and iteration. Fields include `phase` (`tuning` | `verification`), `completed`, and `verified`. On disconnect, re-run with `--resume` on the same `--host`.
 
 ### Config
 
 Bands, timeouts, and acceptance limits: [`scripts/pid_tune/config.yaml`](../scripts/pid_tune/config.yaml) (JSON-compatible; loaded via `config.py`).
 
-Default cool timeouts per waypoint: 85 °C → 20 min; 60 °C → 45 min; 30 °C → 90 min; 0 °C → 120 min.
+The runner reloads `config.yaml` from disk at the **start of each tune iteration** (immediately before the next PID triplet is applied for prep + ramp). You can edit timeouts, acceptance, and record windows during a long ladder without restarting the CLI; changes apply on the next iteration, not mid-prep or mid-ramp. The verification lap uses config loaded once when tuning finishes (not per verify scenario). Avoid changing scenario `id`s while `state.json` resume is active.
+
+Default cool timeouts per waypoint: 85 / 60 / 30 °C → **3 h** each; 0 °C → 120 min. `verification_laps`: **1** (plus one retry lap after re-tune on verify failure).
 
 ### Debug (single scenario)
 
@@ -141,7 +146,7 @@ python3 scripts/gaggimate_pid_tune.py --host "$HOST" --dry-run
 ## Safety
 
 - Abort if `ct` > **160 °C**.
-- Use `persist=false` during trials; ladder persists **once** after all five scenarios accept.
+- **Every** trial and ramp step calls `req:set-pid` with **`persist=true`** (NVS + controller). Check `/api/status` `kp`/`ki`/`kd` after each apply to confirm.
 - Attend the machine for the first abbreviated test; overnight runs need stable power and network.
 
 ## Acceptance (per scenario)

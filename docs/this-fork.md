@@ -88,6 +88,10 @@ Developed iteratively with AI:
 
 This fork includes upstream autotune (SIMC, Kff-from-wattage). **I did not autotune this Iberital Express.** The boiler element is **1000 W** (final). Fresh firmware defaults use **Kff = 1.0** in the PID CSV (`combinedKff = 1000 / 1000 W`). See [thermal-kff-tuning.md](thermal-kff-tuning.md) for all Settings names and defaults.
 
+### Unattended PID tuning ladder
+
+Upstream's autotune characterises the boiler from a single operating point. On this machine that does not generalise: cold-water ingress means the gains that behave at a warm 88 °C start are not the gains that behave from a cold soak. So this fork adds an **unattended, host-driven tuning ladder** (`scripts/pid_tune/`, "Plan 2") that drives the machine through five start conditions — `near_88`, `near_85`, `near_60`, `near_30`, and a full `cold_soak` — over the live `pidLive` WebSocket telemetry, scores each ramp to 92 °C (overshoot, time-to-band, in-band dwell, steady-state error), and iterates gains until every scenario is accepted, then runs a verification lap. It is designed to run for hours unattended, so it tolerates transient BLE telemetry dropouts and resumes from saved state. Each gain apply relies on the firmware's `Heater::setTunings` → `simplePid->reset()` to zero the integral, rather than any host-side reset trick. Full workflow in [pid-tuning-agent.md](pid-tuning-agent.md).
+
 ### Shot log thermal snapshot (v6)
 
 New shots record **inlet temp, Kff gain, pump 1/9 bar flows, and `kffEnabled`** in the `.slog` header at brew start so exports carry the settings that were active **during that shot** (not today's live Settings). **`scripts/analyze_kff_shot.py`** replays per-phase Kff from JSON for tuning; details in [thermal-kff-tuning.md](thermal-kff-tuning.md).

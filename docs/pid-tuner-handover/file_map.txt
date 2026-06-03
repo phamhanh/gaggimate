@@ -1,0 +1,21 @@
+File inventory — PID tuner bug investigation
+Files examined: 12 / 30 depth limit
+
+# ──────────────────────────────────────────────────────────────
+FILE                                                          LINES READ   REASON
+# ──────────────────────────────────────────────────────────────
+scripts/pid_tune/runner.py                                    1–590        Core ladder orchestration; acceptance_ok, collect_samples, run_ramp_test
+scripts/pid_tune/scenarios.py                                 1–109        Scenario definitions, waypoint routing, prep_done logic
+scripts/pid_tune/suggest_gains.py                             1–153        Gain advisor — overlapping if-branch bug found here
+scripts/pid_tune/pid_apply.py                                 1–108        _clear_integral_before_apply hack — primary investigation target
+scripts/pid_tune/metrics.py                                   1–206        score_run, in_band_fraction, variance_in_band
+scripts/pid_tune/thermal.py                                   1–178        cool_to_waypoints, cold_equilibrate_at_zero, wait_until_ct
+scripts/pid_tune/session.py                                   1–81         pid_tune_session context manager, ensure_brew_mode
+scripts/pid_tune/config.py                                    1–115        LadderConfig; cold_soak_duration_s disconnect found here
+scripts/pid_tune/state.py                                     1–88         LadderState persistence
+scripts/gaggimate_ws.py                                       260–289      set_pid WS payload — persist=True confirmed
+src/display/plugins/WebUIPlugin.cpp                           390–445      req:set-pid handler — saves NVS, calls sendPidSettings BLE
+lib/GaggiMateController/src/GaggiMateController.cpp           115–155      BLE registerPidSettingsCallback → heater->setTunings
+lib/GaggiMateController/src/peripherals/Heater.cpp            1–337        setTunings (guard + reset call), loopPid, setupPid
+.pio/libdeps/controller/NayrodPID/SimplePID.cpp               1–198        reset(), resetFeedbackController(), setControllerPIDGains, anti-windup
+.pio/libdeps/controller/NayrodPID/SimplePID.h                 1–93         Class interface — isInitialized, feedback_integralState fields

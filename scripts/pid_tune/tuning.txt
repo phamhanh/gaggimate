@@ -1,0 +1,867 @@
+near_88 before prep: set (3.820480564376954, 0.06144000000000001, 1500.0), verifying on /api/status …
+near_88 before prep: waiting — want (3.820480564376954, 0.06144000000000001, 1500.0) have (3.82, 0.061, 1500.0)
+near_88 before prep: verified (3.82, 0.061, 1500.0) on device
+near_88: prep start — 2026-06-03 01:33:59 ct=94.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+cool: target tt=85°C, wait ct<=86.0 (timeout 180 min)
+cool: set tt=85°C — 2026-06-03 01:33:59 ct=94.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 86.0 (10799s left) — 2026-06-03 01:33:59 ct=94.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 86.0 (10769s left) — 2026-06-03 01:34:30 ct=94.5°C tt=85.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 86.0 (10739s left) — 2026-06-03 01:35:00 ct=93.6°C tt=85.0°C Kp=3.82 Ki=0.061 Kd=1500
+^CTraceback (most recent call last):
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_pid_tune.py", line 49, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_pid_tune.py", line 34, in main
+    result = run_full_ladder(
+        host,
+    ...<5 lines>...
+        only=args.only,
+    )
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 558, in run_full_ladder
+    ensure_brew_mode(client)
+                    ^^^^^^^^
+    ...<8 lines>...
+    skip_tuning = state.phase == "verification" and tuning_done and only is None
+    ^^^^^^^^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 324, in tune_scenario_until_accept
+    max_iter = config.max_iter_per_scenario
+                         ^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    
+    
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 270, in run_scenario_once
+    log_status(client, log, f"{scenario.id}: prep done —")
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 237, in ensure_prep
+                client,
+    ...<11 lines>...
+    
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/thermal.py", line 78, in cool_to_waypoints
+    wait_until_ct(client, "<=", threshold, timeout_s, log=emit)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/thermal.py", line 52, in wait_until_ct
+    time.sleep(0.5)
+    ~~~~~~~~~~^^^^^
+KeyboardInterrupt
+
+~/projects/gaggimate % 
+~/projects/gaggimate % python3 scripts/gaggimate_pid_tune.py --host gaggimate.plumvillage.org --resume | tee -a pid-tuning.txt
+
+start: 2026-06-03 01:35:14 ct=93.0°C tt=85.0°C Kp=3.82 Ki=0.061 Kd=1500
+resume: phase=tuning completed=[] verified=[] gains=(3.820480564376954, 0.06144000000000001, 1500.0)
+  [cool via [88]] near_88 ct=93.0
+  [cool via [85]] near_85 ct=93.0
+  [cool via [88, 85, 60]] near_60 ct=93.0
+  [cool via [88, 85, 60, 30]] near_30 ct=93.0
+  [cool via [88, 85, 60, 30]] cold_soak ct=93.0
+ladder preflight: set (3.820480564376954, 0.06144000000000001, 1500.0), verifying on /api/status …
+ladder preflight: verified (3.82, 0.061, 1500.0) on device
+near_88: === iteration 1/60 gains=(3.820480564376954, 0.06144000000000001, 1500.0) ===
+near_88: device before apply — 2026-06-03 01:35:15 ct=92.9°C tt=85.0°C Kp=3.82 Ki=0.061 Kd=1500
+near_88 before prep: set (3.820480564376954, 0.06144000000000001, 1500.0), verifying on /api/status …
+near_88 before prep: verified (3.82, 0.061, 1500.0) on device
+near_88: prep start — 2026-06-03 01:35:15 ct=92.9°C tt=85.0°C Kp=3.82 Ki=0.061 Kd=1500
+cool: target tt=88°C, wait ct<=89.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 01:35:16 ct=92.9°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 89.0 (10799s left) — 2026-06-03 01:35:17 ct=92.8°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 89.0 (10769s left) — 2026-06-03 01:35:47 ct=92.0°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 89.0 (10739s left) — 2026-06-03 01:36:17 ct=91.2°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 89.0 (10708s left) — 2026-06-03 01:36:47 ct=90.4°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: waiting <= 89.0 (10678s left) — 2026-06-03 01:37:18 ct=89.6°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+thermal: reached <= 89.0 — 2026-06-03 01:37:41 ct=89.0°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+near_88: prep done — 2026-06-03 01:37:42 ct=89.0°C tt=88.0°C Kp=3.82 Ki=0.061 Kd=1500
+near_88 ramp: set (3.820480564376954, 0.06144000000000001, 1500.0), verifying on /api/status …
+near_88 ramp: verified (3.82, 0.061, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 01:37:42 ct=89.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=0s (479s left) — 2026-06-03 01:37:43 ct=89.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: started — 2026-06-03 01:37:43 ct=89.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=16s (464s left) — 2026-06-03 01:37:58 ct=88.6°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=31s (449s left) — 2026-06-03 01:38:13 ct=88.3°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=46s (434s left) — 2026-06-03 01:38:28 ct=88.2°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=61s (419s left) — 2026-06-03 01:38:43 ct=88.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=76s (404s left) — 2026-06-03 01:38:58 ct=87.9°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=91s (389s left) — 2026-06-03 01:39:13 ct=87.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=106s (373s left) — 2026-06-03 01:39:29 ct=87.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=121s (358s left) — 2026-06-03 01:39:44 ct=87.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=136s (343s left) — 2026-06-03 01:39:59 ct=87.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=151s (328s left) — 2026-06-03 01:40:14 ct=87.4°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=167s (313s left) — 2026-06-03 01:40:29 ct=87.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=182s (298s left) — 2026-06-03 01:40:44 ct=87.4°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=197s (283s left) — 2026-06-03 01:40:59 ct=87.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=212s (267s left) — 2026-06-03 01:41:15 ct=87.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=227s (252s left) — 2026-06-03 01:41:30 ct=87.6°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=242s (237s left) — 2026-06-03 01:41:45 ct=87.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=257s (222s left) — 2026-06-03 01:42:00 ct=87.9°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=273s (207s left) — 2026-06-03 01:42:15 ct=88.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=288s (192s left) — 2026-06-03 01:42:30 ct=88.2°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=303s (177s left) — 2026-06-03 01:42:45 ct=88.4°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=318s (162s left) — 2026-06-03 01:43:00 ct=88.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=333s (147s left) — 2026-06-03 01:43:15 ct=88.8°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=348s (132s left) — 2026-06-03 01:43:30 ct=89.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=363s (117s left) — 2026-06-03 01:43:45 ct=89.1°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=378s (102s left) — 2026-06-03 01:44:00 ct=89.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=393s (86s left) — 2026-06-03 01:44:15 ct=89.7°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=408s (71s left) — 2026-06-03 01:44:31 ct=90.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=423s (56s left) — 2026-06-03 01:44:46 ct=90.1°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=438s (41s left) — 2026-06-03 01:45:01 ct=90.5°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=453s (26s left) — 2026-06-03 01:45:16 ct=90.6°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+record near_88: t=469s (11s left) — 2026-06-03 01:45:31 ct=91.0°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500
+near_88: record done — 2026-06-03 01:45:43 ct=91.1°C tt=92.0°C Kp=3.82 Ki=0.061 Kd=1500 overshoot=0.00°C time_to_band=None final_err=-0.94°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.5, 'time_to_band_s': None, 'max_overshoot_c': 0.0, 'max_undershoot_c': 4.69, 'final_error_c': -0.936, 'in_band_fraction': 0.0, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 479.8, 'sample_count': 946, 'frozen_samples': 0} accept=False
+near_88 iter 1: {'scenario': 'near_88', 'iteration': 1, 'metrics': {'target_temp': 92.0, 'band_c': 0.5, 'time_to_band_s': None, 'max_overshoot_c': 0.0, 'max_undershoot_c': 4.69, 'final_error_c': -0.936, 'in_band_fraction': 0.0, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 479.8, 'sample_count': 946, 'frozen_samples': 0}, 'gains': (3.820480564376954, 0.06144000000000001, 1500.0), 'accept': False}
+near_88: suggest (4.2025286208146495, 0.073728, 1500.0) — slow/no-overshoot:↑Kp; failed-60s-hold:↑Ki
+near_88 after suggest: set (4.2025286208146495, 0.073728, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (4.203, 0.074, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 2/60 gains=(4.2025286208146495, 0.073728, 1500.0) ===
+near_88: device before apply — 2026-06-03 01:45:48 ct=91.1°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+near_88 before prep: set (4.2025286208146495, 0.073728, 1500.0), verifying on /api/status …
+near_88 before prep: verified (4.203, 0.074, 1500.0) on device
+near_88: prep start — 2026-06-03 01:45:48 ct=91.1°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+cool: target tt=88°C, wait ct<=89.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 01:45:48 ct=91.1°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+thermal: waiting <= 89.0 (10799s left) — 2026-06-03 01:45:48 ct=91.1°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+thermal: waiting <= 89.0 (10769s left) — 2026-06-03 01:46:18 ct=91.3°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+thermal: waiting <= 89.0 (10739s left) — 2026-06-03 01:46:48 ct=90.5°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+thermal: waiting <= 89.0 (10709s left) — 2026-06-03 01:47:19 ct=89.9°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+thermal: waiting <= 89.0 (10679s left) — 2026-06-03 01:47:49 ct=89.5°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+thermal: reached <= 89.0 — 2026-06-03 01:48:07 ct=89.0°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+cool: prep complete — 2026-06-03 01:48:08 ct=89.0°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+near_88: prep done — 2026-06-03 01:48:08 ct=89.0°C tt=88.0°C Kp=4.20 Ki=0.074 Kd=1500
+near_88 ramp: set (4.2025286208146495, 0.073728, 1500.0), verifying on /api/status …
+near_88 ramp: verified (4.203, 0.074, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 01:48:09 ct=88.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=1s (479s left) — 2026-06-03 01:48:09 ct=88.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: started — 2026-06-03 01:48:09 ct=88.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=16s (464s left) — 2026-06-03 01:48:24 ct=88.7°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=31s (449s left) — 2026-06-03 01:48:39 ct=88.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=46s (434s left) — 2026-06-03 01:48:54 ct=88.5°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=61s (419s left) — 2026-06-03 01:49:09 ct=88.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=76s (404s left) — 2026-06-03 01:49:24 ct=88.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=91s (389s left) — 2026-06-03 01:49:40 ct=88.3°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=106s (374s left) — 2026-06-03 01:49:55 ct=88.2°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=121s (359s left) — 2026-06-03 01:50:10 ct=88.2°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=136s (344s left) — 2026-06-03 01:50:25 ct=88.5°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=151s (328s left) — 2026-06-03 01:50:40 ct=88.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=166s (313s left) — 2026-06-03 01:50:55 ct=88.6°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=181s (298s left) — 2026-06-03 01:51:10 ct=88.6°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=196s (283s left) — 2026-06-03 01:51:25 ct=88.8°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=211s (268s left) — 2026-06-03 01:51:40 ct=88.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=226s (253s left) — 2026-06-03 01:51:55 ct=89.1°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=241s (238s left) — 2026-06-03 01:52:10 ct=89.2°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=257s (223s left) — 2026-06-03 01:52:26 ct=89.5°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=272s (208s left) — 2026-06-03 01:52:41 ct=89.6°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=287s (193s left) — 2026-06-03 01:52:56 ct=89.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=302s (178s left) — 2026-06-03 01:53:11 ct=89.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=317s (162s left) — 2026-06-03 01:53:26 ct=90.2°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=332s (147s left) — 2026-06-03 01:53:41 ct=90.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=347s (132s left) — 2026-06-03 01:53:56 ct=90.7°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=362s (117s left) — 2026-06-03 01:54:11 ct=90.9°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=377s (102s left) — 2026-06-03 01:54:26 ct=91.3°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=392s (87s left) — 2026-06-03 01:54:41 ct=91.3°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=407s (72s left) — 2026-06-03 01:54:56 ct=91.5°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=422s (57s left) — 2026-06-03 01:55:11 ct=91.6°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=437s (42s left) — 2026-06-03 01:55:26 ct=92.0°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=452s (27s left) — 2026-06-03 01:55:41 ct=92.5°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+record near_88: t=468s (12s left) — 2026-06-03 01:55:56 ct=92.5°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+near_88: record done — 2026-06-03 01:56:09 ct=92.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500 overshoot=0.55°C time_to_band=411.3164801597595 final_err=+0.43°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.5, 'time_to_band_s': 411.3164801597595, 'max_overshoot_c': 0.545, 'max_undershoot_c': 3.802, 'final_error_c': 0.429, 'in_band_fraction': 0.119, 'ct_variance_in_band': 0.0621, 'max_abs_i': 0.0, 'duration_s': 479.5, 'sample_count': 948, 'frozen_samples': 0} accept=False
+near_88 iter 2: {'scenario': 'near_88', 'iteration': 2, 'metrics': {'target_temp': 92.0, 'band_c': 0.5, 'time_to_band_s': 411.3164801597595, 'max_overshoot_c': 0.545, 'max_undershoot_c': 3.802, 'final_error_c': 0.429, 'in_band_fraction': 0.119, 'ct_variance_in_band': 0.0621, 'max_abs_i': 0.0, 'duration_s': 479.5,'sample_count': 948, 'frozen_samples': 0}, 'gains': (4.2025286208146495, 0.073728, 1500.0), 'accept': False}
+near_88: suggest (3.7822757587331846, 0.058982400000000004, 1500.0) — overshoot>0.5C:↓Kp↑Kd; failed-60s-hold:↓Ki
+near_88 after suggest: set (3.7822757587331846, 0.058982400000000004, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (3.782, 0.059, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 3/60 gains=(3.7822757587331846, 0.058982400000000004, 1500.0) ===
+near_88: device before apply — 2026-06-03 01:56:14 ct=92.4°C tt=92.0°C Kp=4.20 Ki=0.074 Kd=1500
+near_88 before prep: set (3.7822757587331846, 0.058982400000000004, 1500.0), verifying on /api/status …
+near_88 before prep: verified (3.782, 0.059, 1500.0) on device
+near_88: prep start — 2026-06-03 01:56:14 ct=92.4°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+cool: target tt=88°C, wait ct<=89.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 01:56:14 ct=92.4°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10799s left) — 2026-06-03 01:56:14 ct=92.4°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10769s left) — 2026-06-03 01:56:45 ct=92.8°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10739s left) — 2026-06-03 01:57:15 ct=92.0°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10709s left) — 2026-06-03 01:57:45 ct=90.9°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10679s left) — 2026-06-03 01:58:15 ct=90.7°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10649s left) — 2026-06-03 01:58:45 ct=89.9°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: waiting <= 89.0 (10618s left) — 2026-06-03 01:59:15 ct=89.2°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+thermal: reached <= 89.0 — 2026-06-03 01:59:29 ct=89.0°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+cool: prep complete — 2026-06-03 01:59:29 ct=89.0°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88: prep done — 2026-06-03 01:59:30 ct=89.0°C tt=88.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88 ramp: set (3.7822757587331846, 0.058982400000000004, 1500.0), verifying on /api/status …
+near_88 ramp: verified (3.782, 0.059, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 01:59:30 ct=89.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=1s (479s left) — 2026-06-03 01:59:31 ct=89.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: started — 2026-06-03 01:59:31 ct=89.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+^CTraceback (most recent call last):
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_pid_tune.py", line 49, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_pid_tune.py", line 34, in main
+    result = run_full_ladder(
+        host,
+    ...<5 lines>...
+        only=args.only,
+    )
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 578, in run_full_ladder
+        raise RuntimeError("pidLive missing — deploy Plan 1 firmware first")
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        state = None
+        ^^^^^^^^^^^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 344, in tune_scenario_until_accept
+    if dry_run:
+    
+    ...<7 lines>...
+    save_state(state)
+    ^^^^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 296, in run_scenario_once
+        ct_tolerance=config.ct_tolerance,
+                        ^^^^^^^^^^^^^^^^^
+        cold_soak_max_ct=config.cold_soak_max_ct,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 158, in run_ramp_test
+    samples = collect_samples(
+        client,
+    ...<3 lines>...
+        log=emit,
+    )
+  File "/Users/phamhanh/projects/gaggimate/scripts/pid_tune/runner.py", line 117, in collect_samples
+    client.stream_status(duration, on_status=on_status)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_ws.py", line 306, in stream_status
+    message = json.loads(self._recv_text())
+                         ~~~~~~~~~~~~~~~^^
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_ws.py", line 124, in _recv_text
+    header = self._recv_exact(2)
+  File "/Users/phamhanh/projects/gaggimate/scripts/gaggimate_ws.py", line 148, in _recv_exact
+    chunk = self._sock.recv(remaining)
+KeyboardInterrupt
+
+~/projects/gaggimate % python3 scripts/gaggimate_pid_tune.py --host gaggimate.plumvillage.org --resume | tee -a pid-tuning.txt
+
+start: 2026-06-03 01:59:39 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+resume: phase=tuning completed=[] verified=[] gains=(3.7822757587331846, 0.058982400000000004, 1500.0)
+  [ready] near_88 (ct=88.8, cool tt=88°C)
+  [cool via [85]] near_85 ct=88.8 → record hold 300s at tt=85 → ramp tt=92
+  [cool via [85, 60]] near_60 ct=88.8 → record hold 300s at tt=60 → ramp tt=92
+  [cool via [85, 60, 30]] near_30 ct=88.8 → record hold 300s at tt=30 → ramp tt=92
+  [cool via [85, 60, 30]] cold_soak ct=88.8
+ladder preflight: set (3.7822757587331846, 0.058982400000000004, 1500.0), verifying on /api/status …
+ladder preflight: verified (3.782, 0.059, 1500.0) on device
+near_88: === iteration 1/60 gains=(3.7822757587331846, 0.058982400000000004, 1500.0) ===
+near_88: device before apply — 2026-06-03 01:59:40 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88 before prep: set (3.7822757587331846, 0.058982400000000004, 1500.0), verifying on /api/status …
+near_88 before prep: verified (3.782, 0.059, 1500.0) on device
+near_88: prep start — 2026-06-03 01:59:41 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88: prep done (already cool) — 2026-06-03 01:59:41 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88 ramp: set (3.7822757587331846, 0.058982400000000004, 1500.0), verifying on /api/status …
+near_88 ramp: verified (3.782, 0.059, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 01:59:42 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=0s (479s left) — 2026-06-03 01:59:42 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: started — 2026-06-03 01:59:42 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=16s (464s left) — 2026-06-03 01:59:57 ct=88.7°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=31s (449s left) — 2026-06-03 02:00:12 ct=88.4°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=46s (434s left) — 2026-06-03 02:00:27 ct=88.3°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=61s (419s left) — 2026-06-03 02:00:42 ct=88.2°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=76s (404s left) — 2026-06-03 02:00:57 ct=88.1°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=91s (389s left) — 2026-06-03 02:01:12 ct=88.1°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=106s (374s left) — 2026-06-03 02:01:27 ct=88.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=121s (359s left) — 2026-06-03 02:01:42 ct=87.9°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=136s (344s left) — 2026-06-03 02:01:58 ct=87.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=151s (328s left) — 2026-06-03 02:02:13 ct=88.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=166s (313s left) — 2026-06-03 02:02:28 ct=88.1°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=181s (298s left) — 2026-06-03 02:02:43 ct=88.1°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=196s (283s left) — 2026-06-03 02:02:58 ct=88.1°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=211s (268s left) — 2026-06-03 02:03:13 ct=88.3°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=226s (253s left) — 2026-06-03 02:03:28 ct=88.4°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=241s (238s left) — 2026-06-03 02:03:43 ct=88.6°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=256s (223s left) — 2026-06-03 02:03:58 ct=88.6°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=271s (208s left) — 2026-06-03 02:04:13 ct=88.8°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=287s (193s left) — 2026-06-03 02:04:28 ct=88.9°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=302s (178s left) — 2026-06-03 02:04:43 ct=89.1°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=317s (163s left) — 2026-06-03 02:04:58 ct=89.3°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=332s (148s left) — 2026-06-03 02:05:13 ct=89.6°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=347s (133s left) — 2026-06-03 02:05:28 ct=89.7°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=362s (118s left) — 2026-06-03 02:05:43 ct=89.9°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=377s (103s left) — 2026-06-03 02:05:58 ct=90.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=392s (88s left) — 2026-06-03 02:06:14 ct=90.4°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=407s (73s left) — 2026-06-03 02:06:29 ct=90.6°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=422s (58s left) — 2026-06-03 02:06:44 ct=90.9°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=437s (42s left) — 2026-06-03 02:06:59 ct=91.0°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=452s (27s left) — 2026-06-03 02:07:14 ct=91.2°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+record near_88: t=467s (12s left) — 2026-06-03 02:07:29 ct=91.3°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500
+near_88: record done — 2026-06-03 02:07:42 ct=91.7°C tt=92.0°C Kp=3.78 Ki=0.059 Kd=1500 overshoot=0.00°C time_to_band=None final_err=-0.33°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': None, 'max_overshoot_c': 0.0, 'max_undershoot_c': 4.18, 'final_error_c': -0.331, 'in_band_fraction': 0.0, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 480.0, 'sample_count': 939, 'frozen_samples': 0} accept=False
+near_88 iter 1: {'scenario': 'near_88', 'iteration': 1, 'metrics': {'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': None, 'max_overshoot_c': 0.0, 'max_undershoot_c': 4.18, 'final_error_c': -0.331, 'in_band_fraction': 0.0, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 480.0, 'sample_count': 939, 'frozen_samples': 0}, 'gains': (3.7822757587331846, 0.058982400000000004, 1500.0), 'accept': False}
+near_88: suggest (4.160503334606504, 0.07077888, 1500.0) — slow/no-overshoot:↑Kp; failed-60s-hold:↑Ki
+near_88 after suggest: set (4.160503334606504, 0.07077888, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (4.161, 0.071, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 2/60 gains=(4.160503334606504, 0.07077888, 1500.0) ===
+near_88: device before apply — 2026-06-03 02:07:47 ct=91.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+near_88 before prep: set (4.160503334606504, 0.07077888, 1500.0), verifying on /api/status …
+near_88 before prep: verified (4.161, 0.071, 1500.0) on device
+near_88: prep start — 2026-06-03 02:07:47 ct=91.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+cool: target tt=88°C, wait ct<=89.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 02:07:47 ct=91.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: waiting <= 89.0 (10799s left) — 2026-06-03 02:07:47 ct=91.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: waiting <= 89.0 (10769s left) — 2026-06-03 02:08:17 ct=91.9°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: waiting <= 89.0 (10739s left) — 2026-06-03 02:08:48 ct=91.1°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: waiting <= 89.0 (10709s left) — 2026-06-03 02:09:18 ct=90.5°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: waiting <= 89.0 (10679s left) — 2026-06-03 02:09:48 ct=89.8°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: waiting <= 89.0 (10649s left) — 2026-06-03 02:10:18 ct=89.2°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+thermal: reached <= 89.0 — 2026-06-03 02:10:24 ct=89.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+cool: prep complete — 2026-06-03 02:10:24 ct=89.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+near_88: hold started at tt=88 — 2026-06-03 02:10:24 ct=89.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=0s (299s left) — 2026-06-03 02:10:24 ct=89.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: started — 2026-06-03 02:10:24 ct=89.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=15s (284s left) — 2026-06-03 02:10:40 ct=88.6°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=30s (269s left) — 2026-06-03 02:10:55 ct=88.3°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=46s (254s left) — 2026-06-03 02:11:10 ct=88.1°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=61s (238s left) — 2026-06-03 02:11:25 ct=87.8°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=76s (223s left) — 2026-06-03 02:11:40 ct=87.5°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=91s (208s left) — 2026-06-03 02:11:55 ct=87.2°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=106s (193s left) — 2026-06-03 02:12:11 ct=87.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=121s (178s left) — 2026-06-03 02:12:26 ct=86.8°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=137s (163s left) — 2026-06-03 02:12:41 ct=86.7°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=152s (148s left) — 2026-06-03 02:12:56 ct=86.3°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=167s (133s left) — 2026-06-03 02:13:11 ct=86.1°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=182s (118s left) — 2026-06-03 02:13:26 ct=86.0°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=197s (103s left) — 2026-06-03 02:13:41 ct=85.9°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=212s (88s left) — 2026-06-03 02:13:56 ct=85.8°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=227s (72s left) — 2026-06-03 02:14:12 ct=85.6°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=242s (57s left) — 2026-06-03 02:14:27 ct=85.5°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=257s (42s left) — 2026-06-03 02:14:42 ct=85.5°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=272s (27s left) — 2026-06-03 02:14:57 ct=85.4°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+hold near_88: t=287s (12s left) — 2026-06-03 02:15:12 ct=85.3°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+near_88: hold done — ct mean=86.6 min=85.3 max=89.0 err=-2.6°C samples=592
+near_88: prep done — 2026-06-03 02:15:24 ct=85.4°C tt=88.0°C Kp=4.16 Ki=0.071 Kd=1500
+near_88 ramp: set (4.160503334606504, 0.07077888, 1500.0), verifying on /api/status …
+near_88 ramp: verified (4.161, 0.071, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 02:15:25 ct=85.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=1s (479s left) — 2026-06-03 02:15:25 ct=85.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: started — 2026-06-03 02:15:25 ct=85.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=16s (464s left) — 2026-06-03 02:15:40 ct=85.3°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=31s (449s left) — 2026-06-03 02:15:55 ct=85.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=46s (434s left) — 2026-06-03 02:16:10 ct=85.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=61s (419s left) — 2026-06-03 02:16:26 ct=86.0°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=76s (404s left) — 2026-06-03 02:16:41 ct=86.2°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=91s (389s left) — 2026-06-03 02:16:56 ct=86.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=106s (373s left) — 2026-06-03 02:17:11 ct=86.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=121s (358s left) — 2026-06-03 02:17:26 ct=87.0°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=136s (343s left) — 2026-06-03 02:17:41 ct=87.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=152s (327s left) — 2026-06-03 02:17:57 ct=87.9°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=167s (312s left) — 2026-06-03 02:18:12 ct=88.1°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=182s (297s left) — 2026-06-03 02:18:27 ct=88.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=197s (282s left) — 2026-06-03 02:18:42 ct=88.9°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=213s (267s left) — 2026-06-03 02:18:57 ct=89.5°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=228s (252s left) — 2026-06-03 02:19:13 ct=89.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=243s (236s left) — 2026-06-03 02:19:28 ct=90.0°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=258s (221s left) — 2026-06-03 02:19:43 ct=90.5°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=274s (206s left) — 2026-06-03 02:19:58 ct=90.9°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=289s (191s left) — 2026-06-03 02:20:13 ct=91.3°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=304s (176s left) — 2026-06-03 02:20:29 ct=91.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=319s (160s left) — 2026-06-03 02:20:44 ct=92.1°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=334s (145s left) — 2026-06-03 02:20:59 ct=92.5°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=350s (130s left) — 2026-06-03 02:21:14 ct=92.8°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=365s (115s left) — 2026-06-03 02:21:29 ct=93.1°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=380s (100s left) — 2026-06-03 02:21:44 ct=93.5°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=395s (85s left) — 2026-06-03 02:22:00 ct=93.8°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=410s (69s left) — 2026-06-03 02:22:15 ct=94.1°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=425s (54s left) — 2026-06-03 02:22:30 ct=94.4°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=441s (39s left) — 2026-06-03 02:22:46 ct=94.5°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=456s (24s left) — 2026-06-03 02:23:01 ct=94.7°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+record near_88: t=471s (9s left) — 2026-06-03 02:23:16 ct=94.9°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500
+near_88: record done — 2026-06-03 02:23:25 ct=95.2°C tt=92.0°C Kp=4.16 Ki=0.071 Kd=1500 overshoot=3.16°C time_to_band=307.5179350376129 final_err=+3.16°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 307.5179350376129, 'max_overshoot_c': 3.162, 'max_undershoot_c': 6.792, 'final_error_c': 3.162, 'in_band_fraction': 0.032, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 480.0, 'sample_count': 944, 'frozen_samples': 0} accept=False
+near_88 iter 2: {'scenario': 'near_88', 'iteration': 2, 'metrics': {'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 307.5179350376129, 'max_overshoot_c': 3.162, 'max_undershoot_c': 6.792, 'final_error_c': 3.162, 'in_band_fraction': 0.032, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 480.0, 'sample_count': 944, 'frozen_samples': 0}, 'gains': (4.160503334606504, 0.07077888, 1500.0), 'accept': False}
+near_88: suggest (3.120377500954878, 0.05662310400000001, 1500.0) — severe-overshoot:↓↓Kp↑↑Kd; failed-60s-hold:↓Ki
+near_88 after suggest: set (3.120377500954878, 0.05662310400000001, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (3.12, 0.057, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 3/60 gains=(3.120377500954878, 0.05662310400000001, 1500.0) ===
+near_88: device before apply — 2026-06-03 02:23:30 ct=95.2°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88 before prep: set (3.120377500954878, 0.05662310400000001, 1500.0), verifying on /api/status …
+near_88 before prep: verified (3.12, 0.057, 1500.0) on device
+near_88: prep start — 2026-06-03 02:23:30 ct=95.1°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+cool: target tt=88°C, wait ct<=88.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 02:23:30 ct=95.2°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10799s left) — 2026-06-03 02:23:30 ct=95.2°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10769s left) — 2026-06-03 02:24:01 ct=95.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10739s left) — 2026-06-03 02:24:31 ct=94.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10709s left) — 2026-06-03 02:25:01 ct=93.3°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10679s left) — 2026-06-03 02:25:31 ct=92.7°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10648s left) — 2026-06-03 02:26:02 ct=91.8°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10618s left) — 2026-06-03 02:26:32 ct=90.9°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10588s left) — 2026-06-03 02:27:02 ct=90.3°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10558s left) — 2026-06-03 02:27:32 ct=89.3°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: waiting <= 88.0 (10528s left) — 2026-06-03 02:28:02 ct=88.6°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+thermal: reached <= 88.0 — 2026-06-03 02:28:31 ct=88.0°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+cool: prep complete — 2026-06-03 02:28:31 ct=88.0°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88: hold started at tt=88 — 2026-06-03 02:28:32 ct=87.9°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=1s (599s left) — 2026-06-03 02:28:32 ct=87.9°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: started — 2026-06-03 02:28:32 ct=87.9°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=16s (584s left) — 2026-06-03 02:28:47 ct=87.5°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=31s (569s left) — 2026-06-03 02:29:02 ct=87.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=46s (554s left) — 2026-06-03 02:29:17 ct=86.9°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=61s (539s left) — 2026-06-03 02:29:32 ct=86.6°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=76s (524s left) — 2026-06-03 02:29:47 ct=86.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=91s (509s left) — 2026-06-03 02:30:02 ct=86.0°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=106s (494s left) — 2026-06-03 02:30:17 ct=85.7°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=121s (479s left) — 2026-06-03 02:30:32 ct=85.5°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=136s (464s left) — 2026-06-03 02:30:48 ct=85.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=151s (448s left) — 2026-06-03 02:31:03 ct=85.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=166s (433s left) — 2026-06-03 02:31:18 ct=84.8°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=181s (418s left) — 2026-06-03 02:31:33 ct=84.6°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=196s (403s left) — 2026-06-03 02:31:48 ct=84.4°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=212s (388s left) — 2026-06-03 02:32:03 ct=84.4°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=227s (373s left) — 2026-06-03 02:32:18 ct=84.4°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=242s (358s left) — 2026-06-03 02:32:34 ct=84.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=257s (342s left) — 2026-06-03 02:32:49 ct=84.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=272s (327s left) — 2026-06-03 02:33:04 ct=84.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=287s (312s left) — 2026-06-03 02:33:19 ct=84.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=303s (297s left) — 2026-06-03 02:33:34 ct=84.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=318s (282s left) — 2026-06-03 02:33:49 ct=84.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=333s (267s left) — 2026-06-03 02:34:04 ct=84.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=348s (252s left) — 2026-06-03 02:34:19 ct=84.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=363s (237s left) — 2026-06-03 02:34:34 ct=84.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=378s (222s left) — 2026-06-03 02:34:49 ct=84.3°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=393s (206s left) — 2026-06-03 02:35:05 ct=84.4°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=408s (191s left) — 2026-06-03 02:35:20 ct=84.6°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=424s (176s left) — 2026-06-03 02:35:35 ct=84.8°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=439s (161s left) — 2026-06-03 02:35:50 ct=84.9°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=454s (146s left) — 2026-06-03 02:36:05 ct=85.0°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=469s (130s left) — 2026-06-03 02:36:21 ct=85.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=484s (115s left) — 2026-06-03 02:36:36 ct=85.3°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=499s (100s left) — 2026-06-03 02:36:51 ct=85.5°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=515s (85s left) — 2026-06-03 02:37:06 ct=85.7°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=530s (69s left) — 2026-06-03 02:37:22 ct=86.0°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=545s (54s left) — 2026-06-03 02:37:37 ct=86.1°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=561s (39s left) — 2026-06-03 02:37:52 ct=86.2°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=576s (24s left) — 2026-06-03 02:38:08 ct=86.5°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+hold near_88: t=591s (8s left) — 2026-06-03 02:38:23 ct=86.7°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88: hold done — ct mean=85.2 min=83.9 max=87.9 err=-1.2°C samples=1183
+near_88: prep done — 2026-06-03 02:38:32 ct=86.8°C tt=88.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88 ramp: set (3.120377500954878, 0.05662310400000001, 1500.0), verifying on /api/status …
+near_88 ramp: verified (3.12, 0.057, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 02:38:33 ct=86.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=0s (479s left) — 2026-06-03 02:38:33 ct=86.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: started — 2026-06-03 02:38:33 ct=86.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=15s (464s left) — 2026-06-03 02:38:48 ct=87.0°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=31s (449s left) — 2026-06-03 02:39:03 ct=87.4°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=46s (434s left) — 2026-06-03 02:39:18 ct=87.7°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=61s (419s left) — 2026-06-03 02:39:33 ct=88.2°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=76s (404s left) — 2026-06-03 02:39:48 ct=88.4°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=91s (389s left) — 2026-06-03 02:40:03 ct=88.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=106s (374s left) — 2026-06-03 02:40:19 ct=89.0°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=121s (358s left) — 2026-06-03 02:40:34 ct=89.6°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=136s (343s left) — 2026-06-03 02:40:49 ct=89.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=151s (328s left) — 2026-06-03 02:41:04 ct=90.2°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=167s (313s left) — 2026-06-03 02:41:19 ct=90.6°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=182s (298s left) — 2026-06-03 02:41:34 ct=91.0°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=197s (282s left) — 2026-06-03 02:41:50 ct=91.3°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=212s (267s left) — 2026-06-03 02:42:05 ct=91.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=227s (252s left) — 2026-06-03 02:42:20 ct=92.1°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=243s (237s left) — 2026-06-03 02:42:35 ct=92.4°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=258s (221s left) — 2026-06-03 02:42:51 ct=92.7°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=273s (206s left) — 2026-06-03 02:43:06 ct=93.1°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=289s (191s left) — 2026-06-03 02:43:22 ct=93.3°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=304s (175s left) — 2026-06-03 02:43:37 ct=93.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=319s (160s left) — 2026-06-03 02:43:52 ct=94.0°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=335s (145s left) — 2026-06-03 02:44:07 ct=94.3°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=350s (129s left) — 2026-06-03 02:44:23 ct=94.4°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=365s (114s left) — 2026-06-03 02:44:38 ct=94.7°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=381s (99s left) — 2026-06-03 02:44:53 ct=94.9°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=396s (83s left) — 2026-06-03 02:45:09 ct=95.2°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=411s (68s left) — 2026-06-03 02:45:24 ct=95.3°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=427s (53s left) — 2026-06-03 02:45:40 ct=95.5°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=442s (37s left) — 2026-06-03 02:45:55 ct=95.5°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=457s (22s left) — 2026-06-03 02:46:10 ct=95.7°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+record near_88: t=472s (7s left) — 2026-06-03 02:46:25 ct=95.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88: record done — 2026-06-03 02:46:33 ct=95.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500 overshoot=3.86°C time_to_band=212.17803597450256 final_err=+3.83°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 212.17803597450256, 'max_overshoot_c': 3.863, 'max_undershoot_c': 5.153, 'final_error_c': 3.829, 'in_band_fraction': 0.042, 'ct_variance_in_band': 0.0017, 'max_abs_i': 0.0, 'duration_s': 479.6, 'sample_count': 951, 'frozen_samples': 0} accept=False
+near_88 iter 3: {'scenario': 'near_88', 'iteration': 3, 'metrics': {'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 212.17803597450256, 'max_overshoot_c': 3.863, 'max_undershoot_c': 5.153, 'final_error_c': 3.829, 'in_band_fraction': 0.042, 'ct_variance_in_band': 0.0017, 'max_abs_i': 0.0, 'duration_s': 479.6, 'sample_count': 951, 'frozen_samples': 0}, 'gains': (3.120377500954878, 0.05662310400000001, 1500.0), 'accept': False}
+near_88: suggest (2.3402831257161587, 0.04529848320000001, 1500.0) — severe-overshoot:↓↓Kp↑↑Kd; failed-60s-hold:↓Ki
+near_88 after suggest: set (2.3402831257161587, 0.04529848320000001, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (2.34, 0.045, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 4/60 gains=(2.3402831257161587, 0.04529848320000001, 1500.0) ===
+near_88: device before apply — 2026-06-03 02:46:38 ct=95.8°C tt=92.0°C Kp=3.12 Ki=0.057 Kd=1500
+near_88 before prep: set (2.3402831257161587, 0.04529848320000001, 1500.0), verifying on /api/status …
+near_88 before prep: verified (2.34, 0.045, 1500.0) on device
+near_88: prep start — 2026-06-03 02:46:38 ct=95.8°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+cool: target tt=88°C, wait ct<=88.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 02:46:38 ct=95.8°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10799s left) — 2026-06-03 02:46:38 ct=95.9°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10769s left) — 2026-06-03 02:47:09 ct=95.6°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10739s left) — 2026-06-03 02:47:39 ct=94.6°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10708s left) — 2026-06-03 02:48:09 ct=93.9°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10678s left) — 2026-06-03 02:48:40 ct=93.2°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10647s left) — 2026-06-03 02:49:10 ct=92.3°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10617s left) — 2026-06-03 02:49:41 ct=91.5°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10587s left) — 2026-06-03 02:50:11 ct=90.7°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10556s left) — 2026-06-03 02:50:41 ct=90.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10526s left) — 2026-06-03 02:51:12 ct=89.2°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: waiting <= 88.0 (10496s left) — 2026-06-03 02:51:42 ct=88.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+thermal: reached <= 88.0 — 2026-06-03 02:51:59 ct=88.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+cool: prep complete — 2026-06-03 02:51:59 ct=88.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+near_88: hold started at tt=88 — 2026-06-03 02:51:59 ct=88.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=0s (599s left) — 2026-06-03 02:51:59 ct=88.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: started — 2026-06-03 02:51:59 ct=88.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=15s (584s left) — 2026-06-03 02:52:14 ct=87.6°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=30s (569s left) — 2026-06-03 02:52:29 ct=87.3°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=45s (554s left) — 2026-06-03 02:52:44 ct=86.9°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=60s (539s left) — 2026-06-03 02:52:59 ct=86.6°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=75s (524s left) — 2026-06-03 02:53:14 ct=86.3°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=91s (509s left) — 2026-06-03 02:53:29 ct=86.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=106s (493s left) — 2026-06-03 02:53:45 ct=85.7°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=121s (478s left) — 2026-06-03 02:54:00 ct=85.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=136s (463s left) — 2026-06-03 02:54:15 ct=85.1°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=152s (448s left) — 2026-06-03 02:54:31 ct=84.9°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=167s (433s left) — 2026-06-03 02:54:46 ct=84.8°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=182s (418s left) — 2026-06-03 02:55:01 ct=84.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=197s (403s left) — 2026-06-03 02:55:16 ct=84.3°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=212s (388s left) — 2026-06-03 02:55:31 ct=84.1°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=227s (372s left) — 2026-06-03 02:55:46 ct=84.0°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=243s (357s left) — 2026-06-03 02:56:02 ct=83.8°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=258s (341s left) — 2026-06-03 02:56:17 ct=83.7°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=273s (326s left) — 2026-06-03 02:56:32 ct=83.7°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=289s (311s left) — 2026-06-03 02:56:47 ct=83.5°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=305s (295s left) — 2026-06-03 02:57:03 ct=83.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=320s (280s left) — 2026-06-03 02:57:18 ct=83.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=335s (265s left) — 2026-06-03 02:57:34 ct=83.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=350s (250s left) — 2026-06-03 02:57:49 ct=83.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=365s (235s left) — 2026-06-03 02:58:04 ct=83.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=380s (220s left) — 2026-06-03 02:58:19 ct=83.5°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=395s (204s left) — 2026-06-03 02:58:34 ct=83.5°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=411s (189s left) — 2026-06-03 02:58:49 ct=83.6°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=426s (174s left) — 2026-06-03 02:59:04 ct=83.6°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=441s (159s left) — 2026-06-03 02:59:19 ct=83.7°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=456s (144s left) — 2026-06-03 02:59:35 ct=83.8°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=471s (128s left) — 2026-06-03 02:59:50 ct=83.9°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=487s (113s left) — 2026-06-03 03:00:06 ct=84.1°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=502s (97s left) — 2026-06-03 03:00:21 ct=84.3°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=517s (82s left) — 2026-06-03 03:00:36 ct=84.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=532s (67s left) — 2026-06-03 03:00:51 ct=84.5°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=547s (52s left) — 2026-06-03 03:01:06 ct=84.7°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=562s (37s left) — 2026-06-03 03:01:21 ct=84.9°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=578s (21s left) — 2026-06-03 03:01:37 ct=85.2°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+hold near_88: t=593s (6s left) — 2026-06-03 03:01:52 ct=85.3°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+near_88: hold done — ct mean=84.6 min=83.3 max=88.0 err=-2.6°C samples=1186
+near_88: prep done — 2026-06-03 03:01:59 ct=85.4°C tt=88.0°C Kp=2.34 Ki=0.045 Kd=1500
+near_88 ramp: set (2.3402831257161587, 0.04529848320000001, 1500.0), verifying on /api/status …
+near_88 ramp: verified (2.34, 0.045, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 03:01:59 ct=85.4°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=4s (475s left) — 2026-06-03 03:02:03 ct=85.5°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: started — 2026-06-03 03:02:03 ct=85.5°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=19s (460s left) — 2026-06-03 03:02:18 ct=85.7°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=35s (445s left) — 2026-06-03 03:02:34 ct=86.0°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=50s (430s left) — 2026-06-03 03:02:49 ct=86.4°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=65s (415s left) — 2026-06-03 03:03:04 ct=86.6°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=80s (400s left) — 2026-06-03 03:03:19 ct=87.0°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=95s (385s left) — 2026-06-03 03:03:34 ct=87.4°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=110s (370s left) — 2026-06-03 03:03:49 ct=87.8°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=125s (354s left) — 2026-06-03 03:04:04 ct=88.2°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=140s (339s left) — 2026-06-03 03:04:19 ct=88.6°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=155s (324s left) — 2026-06-03 03:04:34 ct=88.8°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=171s (309s left) — 2026-06-03 03:04:50 ct=89.3°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=186s (294s left) — 2026-06-03 03:05:05 ct=89.6°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=201s (279s left) — 2026-06-03 03:05:20 ct=90.1°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=216s (264s left) — 2026-06-03 03:05:35 ct=90.5°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=231s (248s left) — 2026-06-03 03:05:51 ct=90.9°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=246s (233s left) — 2026-06-03 03:06:06 ct=91.2°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=261s (218s left) — 2026-06-03 03:06:21 ct=91.7°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=277s (203s left) — 2026-06-03 03:06:36 ct=92.0°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=292s (188s left) — 2026-06-03 03:06:51 ct=92.4°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=307s (172s left) — 2026-06-03 03:07:07 ct=92.7°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=323s (157s left) — 2026-06-03 03:07:22 ct=93.1°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=338s (142s left) — 2026-06-03 03:07:37 ct=93.5°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=353s (126s left) — 2026-06-03 03:07:53 ct=93.9°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=368s (111s left) — 2026-06-03 03:08:08 ct=94.1°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=384s (96s left) — 2026-06-03 03:08:23 ct=94.5°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=399s (80s left) — 2026-06-03 03:08:38 ct=94.7°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=414s (65s left) — 2026-06-03 03:08:53 ct=95.0°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=429s (50s left) — 2026-06-03 03:09:08 ct=95.2°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=444s (35s left) — 2026-06-03 03:09:24 ct=95.5°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=459s (20s left) — 2026-06-03 03:09:39 ct=95.6°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+record near_88: t=474s (5s left) — 2026-06-03 03:09:54 ct=95.9°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500
+near_88: record done — 2026-06-03 03:10:03 ct=96.0°C tt=92.0°C Kp=2.34 Ki=0.045 Kd=1500 overshoot=4.00°C time_to_band=264.8249001502991 final_err=+3.98°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 264.8249001502991, 'max_overshoot_c': 3.998, 'max_undershoot_c': 6.536, 'final_error_c': 3.976, 'in_band_fraction': 0.028, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 479.8, 'sample_count': 950, 'frozen_samples': 0} accept=False
+near_88 iter 4: {'scenario': 'near_88', 'iteration': 4, 'metrics': {'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 264.8249001502991, 'max_overshoot_c': 3.998, 'max_undershoot_c': 6.536, 'final_error_c': 3.976, 'in_band_fraction': 0.028, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 479.8, 'sample_count': 950, 'frozen_samples': 0}, 'gains': (2.3402831257161587, 0.04529848320000001, 1500.0), 'accept': False}
+near_88: suggest (2.0, 0.03623878656000001, 1500.0) — severe-overshoot:↓↓Kp↑↑Kd; failed-60s-hold:↓Ki
+near_88 after suggest: set (2.0, 0.03623878656000001, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (2.0, 0.036, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 5/60 gains=(2.0, 0.03623878656000001, 1500.0) ===
+near_88: device before apply — 2026-06-03 03:10:08 ct=96.0°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88 before prep: set (2.0, 0.03623878656000001, 1500.0), verifying on /api/status …
+near_88 before prep: verified (2.0, 0.036, 1500.0) on device
+near_88: prep start — 2026-06-03 03:10:09 ct=95.9°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+cool: target tt=88°C, wait ct<=88.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 03:10:09 ct=95.9°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10799s left) — 2026-06-03 03:10:09 ct=95.9°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10769s left) — 2026-06-03 03:10:39 ct=95.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10739s left) — 2026-06-03 03:11:09 ct=95.1°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10708s left) — 2026-06-03 03:11:40 ct=94.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10678s left) — 2026-06-03 03:12:10 ct=93.6°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10648s left) — 2026-06-03 03:12:41 ct=92.7°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10617s left) — 2026-06-03 03:13:11 ct=91.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10587s left) — 2026-06-03 03:13:41 ct=91.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10556s left) — 2026-06-03 03:14:12 ct=90.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10526s left) — 2026-06-03 03:14:42 ct=89.7°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10496s left) — 2026-06-03 03:15:12 ct=89.0°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: waiting <= 88.0 (10465s left) — 2026-06-03 03:15:43 ct=88.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+thermal: reached <= 88.0 — 2026-06-03 03:15:57 ct=88.0°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+cool: prep complete — 2026-06-03 03:15:57 ct=88.0°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88: hold started at tt=88 — 2026-06-03 03:15:57 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=0s (599s left) — 2026-06-03 03:15:57 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: started — 2026-06-03 03:15:57 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=15s (584s left) — 2026-06-03 03:16:12 ct=87.5°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=30s (569s left) — 2026-06-03 03:16:27 ct=87.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=45s (554s left) — 2026-06-03 03:16:42 ct=86.8°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=61s (539s left) — 2026-06-03 03:16:57 ct=86.7°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=76s (524s left) — 2026-06-03 03:17:12 ct=86.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=91s (508s left) — 2026-06-03 03:17:28 ct=86.1°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=106s (493s left) — 2026-06-03 03:17:43 ct=85.7°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=122s (477s left) — 2026-06-03 03:17:59 ct=85.5°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=137s (462s left) — 2026-06-03 03:18:14 ct=85.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=152s (447s left) — 2026-06-03 03:18:29 ct=85.0°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=167s (432s left) — 2026-06-03 03:18:44 ct=84.7°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=182s (417s left) — 2026-06-03 03:18:59 ct=84.6°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=198s (402s left) — 2026-06-03 03:19:14 ct=84.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=213s (387s left) — 2026-06-03 03:19:29 ct=84.1°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=228s (372s left) — 2026-06-03 03:19:44 ct=83.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=243s (356s left) — 2026-06-03 03:20:00 ct=83.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=258s (341s left) — 2026-06-03 03:20:15 ct=83.7°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=273s (326s left) — 2026-06-03 03:20:30 ct=83.6°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=289s (311s left) — 2026-06-03 03:20:45 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=304s (296s left) — 2026-06-03 03:21:00 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=319s (281s left) — 2026-06-03 03:21:15 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=334s (266s left) — 2026-06-03 03:21:30 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=349s (251s left) — 2026-06-03 03:21:45 ct=83.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=367s (233s left) — 2026-06-03 03:22:03 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=382s (218s left) — 2026-06-03 03:22:19 ct=83.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=397s (202s left) — 2026-06-03 03:22:34 ct=83.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=412s (187s left) — 2026-06-03 03:22:49 ct=83.2°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=427s (172s left) — 2026-06-03 03:23:04 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=442s (157s left) — 2026-06-03 03:23:19 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=457s (142s left) — 2026-06-03 03:23:34 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=473s (127s left) — 2026-06-03 03:23:49 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=488s (112s left) — 2026-06-03 03:24:04 ct=83.5°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=503s (97s left) — 2026-06-03 03:24:19 ct=83.6°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=518s (82s left) — 2026-06-03 03:24:34 ct=83.8°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=533s (67s left) — 2026-06-03 03:24:50 ct=83.9°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=548s (51s left) — 2026-06-03 03:25:05 ct=84.0°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=563s (36s left) — 2026-06-03 03:25:20 ct=84.1°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=578s (21s left) — 2026-06-03 03:25:35 ct=84.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+hold near_88: t=593s (6s left) — 2026-06-03 03:25:50 ct=84.4°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88: hold done — ct mean=84.4 min=83.1 max=87.9 err=-3.5°C samples=1185
+near_88: prep done — 2026-06-03 03:25:57 ct=84.5°C tt=88.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88 ramp: set (2.0, 0.03623878656000001, 1500.0), verifying on /api/status …
+near_88 ramp: verified (2.0, 0.036, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 03:25:57 ct=84.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=1s (479s left) — 2026-06-03 03:25:58 ct=84.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: started — 2026-06-03 03:25:58 ct=84.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=16s (463s left) — 2026-06-03 03:26:13 ct=84.6°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=31s (448s left) — 2026-06-03 03:26:28 ct=85.0°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=47s (433s left) — 2026-06-03 03:26:44 ct=85.1°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=62s (418s left) — 2026-06-03 03:26:59 ct=85.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=77s (402s left) — 2026-06-03 03:27:14 ct=85.7°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=93s (387s left) — 2026-06-03 03:27:30 ct=86.0°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=108s (372s left) — 2026-06-03 03:27:45 ct=86.3°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=123s (356s left) — 2026-06-03 03:28:00 ct=86.8°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=138s (341s left) — 2026-06-03 03:28:16 ct=87.1°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=154s (326s left) — 2026-06-03 03:28:31 ct=87.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=169s (310s left) — 2026-06-03 03:28:47 ct=87.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=184s (295s left) — 2026-06-03 03:29:02 ct=88.2°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=199s (280s left) — 2026-06-03 03:29:17 ct=88.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=215s (265s left) — 2026-06-03 03:29:32 ct=89.0°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=230s (250s left) — 2026-06-03 03:29:47 ct=89.1°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=245s (234s left) — 2026-06-03 03:30:02 ct=89.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=260s (219s left) — 2026-06-03 03:30:17 ct=90.0°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=276s (204s left) — 2026-06-03 03:30:33 ct=90.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=291s (189s left) — 2026-06-03 03:30:48 ct=90.8°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=306s (174s left) — 2026-06-03 03:31:03 ct=91.1°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=321s (159s left) — 2026-06-03 03:31:18 ct=91.4°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=336s (143s left) — 2026-06-03 03:31:34 ct=92.0°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=351s (128s left) — 2026-06-03 03:31:49 ct=92.2°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=367s (113s left) — 2026-06-03 03:32:04 ct=92.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=382s (98s left) — 2026-06-03 03:32:19 ct=92.8°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=397s (82s left) — 2026-06-03 03:32:35 ct=93.3°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=412s (67s left) — 2026-06-03 03:32:50 ct=93.7°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=427s (52s left) — 2026-06-03 03:33:05 ct=94.1°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=443s (37s left) — 2026-06-03 03:33:20 ct=94.2°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=458s (22s left) — 2026-06-03 03:33:35 ct=94.5°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+record near_88: t=473s (6s left) — 2026-06-03 03:33:50 ct=94.6°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88: record done — 2026-06-03 03:33:58 ct=94.9°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500 overshoot=2.91°C time_to_band=328.71607398986816 final_err=+2.91°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 328.71607398986816, 'max_overshoot_c': 2.91, 'max_undershoot_c': 7.507, 'final_error_c': 2.91, 'in_band_fraction': 0.05, 'ct_variance_in_band': 0.0015, 'max_abs_i': 0.0, 'duration_s': 479.5, 'sample_count': 943, 'frozen_samples': 0} accept=False
+near_88 iter 5: {'scenario': 'near_88', 'iteration': 5, 'metrics': {'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 328.71607398986816, 'max_overshoot_c': 2.91, 'max_undershoot_c': 7.507, 'final_error_c': 2.91, 'in_band_fraction': 0.05, 'ct_variance_in_band': 0.0015, 'max_abs_i': 0.0, 'duration_s': 479.5, 'sample_count': 943, 'frozen_samples': 0}, 'gains': (2.0, 0.03623878656000001, 1500.0), 'accept': False}
+near_88: suggest (2.0, 0.028991029248000007, 1500.0) — severe-overshoot:↓↓Kp↑↑Kd; failed-60s-hold:↓Ki
+near_88 after suggest: set (2.0, 0.028991029248000007, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (2.0, 0.029, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 6/60 gains=(2.0, 0.028991029248000007, 1500.0) ===
+near_88: device before apply — 2026-06-03 03:34:03 ct=94.9°C tt=92.0°C Kp=2.00 Ki=0.036 Kd=1500
+near_88 before prep: set (2.0, 0.028991029248000007, 1500.0), verifying on /api/status …
+near_88 before prep: verified (2.0, 0.029, 1500.0) on device
+near_88: prep start — 2026-06-03 03:34:03 ct=94.9°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+cool: target tt=88°C, wait ct<=88.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 03:34:03 ct=95.0°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10799s left) — 2026-06-03 03:34:03 ct=95.0°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10769s left) — 2026-06-03 03:34:33 ct=95.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10739s left) — 2026-06-03 03:35:04 ct=94.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10708s left) — 2026-06-03 03:35:34 ct=93.6°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10678s left) — 2026-06-03 03:36:05 ct=93.1°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10647s left) — 2026-06-03 03:36:35 ct=92.3°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10617s left) — 2026-06-03 03:37:05 ct=91.7°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10587s left) — 2026-06-03 03:37:36 ct=90.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10556s left) — 2026-06-03 03:38:06 ct=90.2°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10526s left) — 2026-06-03 03:38:37 ct=89.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10495s left) — 2026-06-03 03:39:07 ct=88.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: waiting <= 88.0 (10465s left) — 2026-06-03 03:39:37 ct=88.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+thermal: reached <= 88.0 — 2026-06-03 03:39:51 ct=88.0°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+cool: prep complete — 2026-06-03 03:39:51 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+near_88: hold started at tt=88 — 2026-06-03 03:39:51 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=0s (599s left) — 2026-06-03 03:39:51 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: started — 2026-06-03 03:39:51 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=15s (584s left) — 2026-06-03 03:40:07 ct=87.6°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=30s (569s left) — 2026-06-03 03:40:22 ct=87.2°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=46s (554s left) — 2026-06-03 03:40:37 ct=87.1°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=61s (538s left) — 2026-06-03 03:40:52 ct=86.7°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=76s (523s left) — 2026-06-03 03:41:08 ct=86.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=91s (508s left) — 2026-06-03 03:41:23 ct=86.2°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=106s (493s left) — 2026-06-03 03:41:38 ct=86.0°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=122s (478s left) — 2026-06-03 03:41:53 ct=85.6°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=137s (463s left) — 2026-06-03 03:42:08 ct=85.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=152s (447s left) — 2026-06-03 03:42:23 ct=85.3°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=167s (432s left) — 2026-06-03 03:42:39 ct=85.1°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=182s (417s left) — 2026-06-03 03:42:54 ct=84.7°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=197s (402s left) — 2026-06-03 03:43:09 ct=84.7°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=213s (387s left) — 2026-06-03 03:43:24 ct=84.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=228s (372s left) — 2026-06-03 03:43:39 ct=84.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=243s (357s left) — 2026-06-03 03:43:54 ct=84.2°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=258s (342s left) — 2026-06-03 03:44:09 ct=84.0°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=273s (326s left) — 2026-06-03 03:44:25 ct=83.8°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=288s (311s left) — 2026-06-03 03:44:40 ct=83.8°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=303s (296s left) — 2026-06-03 03:44:55 ct=83.7°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=319s (281s left) — 2026-06-03 03:45:10 ct=83.7°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=334s (266s left) — 2026-06-03 03:45:25 ct=83.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=349s (251s left) — 2026-06-03 03:45:40 ct=83.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=364s (236s left) — 2026-06-03 03:45:55 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=379s (220s left) — 2026-06-03 03:46:11 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=394s (205s left) — 2026-06-03 03:46:26 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=409s (190s left) — 2026-06-03 03:46:41 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=424s (175s left) — 2026-06-03 03:46:56 ct=83.2°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=440s (160s left) — 2026-06-03 03:47:11 ct=83.2°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=455s (144s left) — 2026-06-03 03:47:27 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=470s (129s left) — 2026-06-03 03:47:42 ct=83.5°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=485s (114s left) — 2026-06-03 03:47:57 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=500s (99s left) — 2026-06-03 03:48:12 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=516s (84s left) — 2026-06-03 03:48:27 ct=83.3°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=531s (69s left) — 2026-06-03 03:48:42 ct=83.4°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=546s (54s left) — 2026-06-03 03:48:57 ct=83.6°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=561s (39s left) — 2026-06-03 03:49:12 ct=83.8°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=576s (23s left) — 2026-06-03 03:49:28 ct=83.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+hold near_88: t=591s (8s left) — 2026-06-03 03:49:43 ct=83.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+near_88: hold done — ct mean=84.5 min=83.2 max=88.0 err=-4.1°C samples=1180
+near_88: prep done — 2026-06-03 03:49:52 ct=83.9°C tt=88.0°C Kp=2.00 Ki=0.029 Kd=1500
+near_88 ramp: set (2.0, 0.028991029248000007, 1500.0), verifying on /api/status …
+near_88 ramp: verified (2.0, 0.029, 1500.0) on device
+near_88: tt=92°C → 2026-06-03 03:49:52 ct=83.8°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+near_88: recording ramp 480s — peak + integral tail
+record near_88: t=1s (479s left) — 2026-06-03 03:49:53 ct=83.9°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: started — 2026-06-03 03:49:53 ct=83.9°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=16s (464s left) — 2026-06-03 03:50:08 ct=84.1°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=31s (448s left) — 2026-06-03 03:50:23 ct=84.2°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=46s (433s left) — 2026-06-03 03:50:38 ct=84.5°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=61s (418s left) — 2026-06-03 03:50:54 ct=84.7°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=77s (403s left) — 2026-06-03 03:51:09 ct=85.0°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=92s (388s left) — 2026-06-03 03:51:24 ct=85.1°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=107s (373s left) — 2026-06-03 03:51:39 ct=85.5°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=122s (358s left) — 2026-06-03 03:51:54 ct=85.7°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=137s (342s left) — 2026-06-03 03:52:09 ct=86.1°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=152s (327s left) — 2026-06-03 03:52:24 ct=86.2°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=167s (312s left) — 2026-06-03 03:52:39 ct=86.5°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=183s (297s left) — 2026-06-03 03:52:55 ct=86.8°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=198s (281s left) — 2026-06-03 03:53:11 ct=87.4°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=213s (266s left) — 2026-06-03 03:53:26 ct=87.5°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=229s (251s left) — 2026-06-03 03:53:41 ct=87.7°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=244s (236s left) — 2026-06-03 03:53:56 ct=88.1°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=259s (221s left) — 2026-06-03 03:54:11 ct=88.7°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=274s (206s left) — 2026-06-03 03:54:26 ct=89.1°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=289s (191s left) — 2026-06-03 03:54:41 ct=89.3°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=304s (175s left) — 2026-06-03 03:54:56 ct=89.4°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=319s (160s left) — 2026-06-03 03:55:11 ct=89.8°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=334s (145s left) — 2026-06-03 03:55:26 ct=90.2°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=350s (130s left) — 2026-06-03 03:55:42 ct=90.7°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=365s (115s left) — 2026-06-03 03:55:57 ct=90.9°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=380s (100s left) — 2026-06-03 03:56:12 ct=91.4°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=395s (84s left) — 2026-06-03 03:56:28 ct=91.5°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=410s (69s left) — 2026-06-03 03:56:43 ct=91.8°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=426s (54s left) — 2026-06-03 03:56:58 ct=92.2°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=441s (38s left) — 2026-06-03 03:57:13 ct=92.6°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=456s (23s left) — 2026-06-03 03:57:28 ct=92.7°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+record near_88: t=471s (8s left) — 2026-06-03 03:57:43 ct=93.0°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500
+near_88: record done — 2026-06-03 03:57:53 ct=93.2°C tt=92.0°C Kp=2.00 Ki=0.029 Kd=1500 overshoot=1.25°C time_to_band=407.87448501586914 final_err=+1.25°C
+near_88: metrics={'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 407.87448501586914, 'max_overshoot_c': 1.25, 'max_undershoot_c': 8.152, 'final_error_c': 1.25, 'in_band_fraction': 0.036, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 479.6, 'sample_count': 944, 'frozen_samples': 0} accept=False
+near_88 iter 6: {'scenario': 'near_88', 'iteration': 6, 'metrics': {'target_temp': 92.0, 'band_c': 0.2, 'time_to_band_s': 407.87448501586914, 'max_overshoot_c': 1.25, 'max_undershoot_c': 8.152, 'final_error_c': 1.25, 'in_band_fraction': 0.036, 'ct_variance_in_band': None, 'max_abs_i': 0.0, 'duration_s': 479.6, 'sample_count': 944, 'frozen_samples': 0}, 'gains': (2.0, 0.028991029248000007, 1500.0), 'accept': False}
+near_88: suggest (2.0, 0.02319282339840001, 1500.0) — severe-overshoot:↓↓Kp↑↑Kd; failed-60s-hold:↓Ki
+near_88 after suggest: set (2.0, 0.02319282339840001, 1500.0), verifying on /api/status …
+near_88 after suggest: verified (2.0, 0.023, 1500.0) on device
+near_88: pause 5s before next iteration
+near_88: === iteration 7/60 gains=(2.0, 0.02319282339840001, 1500.0) ===
+near_88: device before apply — 2026-06-03 03:57:58 ct=93.3°C tt=92.0°C Kp=2.00 Ki=0.023 Kd=1500
+near_88 before prep: set (2.0, 0.02319282339840001, 1500.0), verifying on /api/status …
+near_88 before prep: verified (2.0, 0.023, 1500.0) on device
+near_88: prep start — 2026-06-03 03:57:58 ct=93.3°C tt=92.0°C Kp=2.00 Ki=0.023 Kd=1500
+cool: target tt=88°C, wait ct<=88.0 (timeout 180 min)
+cool: set tt=88°C — 2026-06-03 03:57:58 ct=93.3°C tt=92.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10799s left) — 2026-06-03 03:57:58 ct=93.3°C tt=92.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10769s left) — 2026-06-03 03:58:28 ct=93.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10739s left) — 2026-06-03 03:58:59 ct=92.9°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10708s left) — 2026-06-03 03:59:29 ct=92.1°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10678s left) — 2026-06-03 04:00:00 ct=91.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10648s left) — 2026-06-03 04:00:30 ct=91.0°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10617s left) — 2026-06-03 04:01:00 ct=90.5°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10587s left) — 2026-06-03 04:01:31 ct=89.9°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10556s left) — 2026-06-03 04:02:01 ct=89.3°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10526s left) — 2026-06-03 04:02:32 ct=88.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: waiting <= 88.0 (10496s left) — 2026-06-03 04:03:02 ct=88.2°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+thermal: reached <= 88.0 — 2026-06-03 04:03:13 ct=88.0°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+cool: prep complete — 2026-06-03 04:03:13 ct=88.0°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+near_88: hold started at tt=88 — 2026-06-03 04:03:13 ct=88.0°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=0s (599s left) — 2026-06-03 04:03:13 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: started — 2026-06-03 04:03:13 ct=87.9°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=15s (584s left) — 2026-06-03 04:03:28 ct=87.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=31s (569s left) — 2026-06-03 04:03:43 ct=87.4°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=46s (554s left) — 2026-06-03 04:03:58 ct=87.1°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=61s (538s left) — 2026-06-03 04:04:14 ct=86.9°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=76s (523s left) — 2026-06-03 04:04:29 ct=86.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=91s (508s left) — 2026-06-03 04:04:44 ct=86.6°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=106s (493s left) — 2026-06-03 04:04:59 ct=86.3°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=121s (478s left) — 2026-06-03 04:05:14 ct=86.0°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=136s (463s left) — 2026-06-03 04:05:29 ct=85.8°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=151s (448s left) — 2026-06-03 04:05:44 ct=85.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=166s (433s left) — 2026-06-03 04:05:59 ct=85.5°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=182s (418s left) — 2026-06-03 04:06:14 ct=85.4°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=197s (403s left) — 2026-06-03 04:06:29 ct=85.3°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=212s (388s left) — 2026-06-03 04:06:44 ct=85.0°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=227s (373s left) — 2026-06-03 04:06:59 ct=84.9°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=242s (357s left) — 2026-06-03 04:07:15 ct=84.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=257s (342s left) — 2026-06-03 04:07:30 ct=84.7°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=272s (327s left) — 2026-06-03 04:07:45 ct=84.5°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=287s (312s left) — 2026-06-03 04:08:00 ct=84.4°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=302s (297s left) — 2026-06-03 04:08:15 ct=84.3°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=317s (282s left) — 2026-06-03 04:08:30 ct=84.2°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500
+hold near_88: t=522s (77s left) — 2026-06-03 04:11:55 ct=84.1°C tt=88.0°C Kp=2.00 Ki=0.023 Kd=1500

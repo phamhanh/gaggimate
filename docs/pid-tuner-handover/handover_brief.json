@@ -1,0 +1,98 @@
+{
+  "investigation_date": "2026-06-03",
+  "questions_asked": [
+    "Does the tuner reliably detect no-overshoot + ends on target ±0.2°C for 60sec?",
+    "Does it tune Ki reliably?"
+  ],
+  "verdict": {
+    "Q1_no_overshoot_plus_0_2C_60s_hold": "NO — acceptance gate uses ±0.5°C band with no 60s tail-hold; the 0.2°C/60s logic exists only in suggest_gains and never gates acceptance",
+    "Q2_ki_tuning_reliable": "WEAK — accepted runs never receive Ki adjustment; the 60s-hold metric is total in-band fraction (not consecutive tail); Ki is frozen on high-variance runs"
+  },
+  "bugs": [
+    {
+      "id": "BUG-1",
+      "title": "acceptance_ok enforces ±0.5°C, not ±0.2°C; zero 60s-hold check",
+      "confidence": "High",
+      "score": 0.95,
+      "files": ["scripts/pid_tune/runner.py", "scripts/pid_tune/config.yaml"],
+      "evidence": [
+        "runner.py:135  abs(metrics.final_error_c) <= acc.max_final_error_c  — max_final_error_c=0.5",
+        "runner.py:123  metrics.max_overshoot_c > acc.max_overshoot_c  — max_overshoot_c=0.5",
+        "config.yaml:17  \"band_c\": 0.5, \"max_final_error_c\": 0.5",
+        "No line in acceptance_ok checks for 60 consecutive seconds in-band"
+      ],
+      "impact": "A run that ends at 91.5°C (0.5°C droop) is ACCEPTED. The ±0.2°C / 60s goal is never enforced at the acceptance gate.",
+      "fix": "In config.yaml, set max_final_error_c=0.2 and band_c=0.2. Add a min_tail_stable_s=60 field. In acceptance_ok, call wait_stable(samples, band_c=0.2, window=60) and verify the stable timestamp is within the last 60s of the recording. Pass raw samples into acceptance_ok (currently it only receives RunMetrics)."
+    },
+    {
+      "id": "BUG-2",
+      "title": "60s-hold in suggest_gains counts scattered in-band dwell, not consecutive tail",
+      "confidence": "High",
+      "score": 0.95,
+      "files": ["scripts/pid_tune/suggest_gains.py"],
+      "evidence": [
+        "suggest_gains.py:106  actual_stable_seconds = metrics.in_band_fraction * metrics.duration_s",
+        "If duration=300s and in_band_fraction=0.21, actual_stable_seconds=63 — PASSES the 60s gate",
+        "But those 63 seconds could be scattered rebound peaks anywhere in the recording",
+        "metrics.py:163-173  wait_stable / is_stable already exist with band_c and window params — NOT called from suggest_gains"
+      ],
+      "impact": "A system that bounces through ±0.5°C band 21% of the time over 300s is declared to have 'held target for 60s'. Ki is prematurely declared converged. The tail could still be drifting.",
+      "fix": "Add a tail_stable_s field to RunMetrics. In score_run (runner.py:165 call site), compute tail_stable_s = wait_stable(samples, band_c=0.2, window=60). In suggest_gains, replace the in_band_fraction multiply with: held_target_for_60s = (metrics.tail_stable_s is not None and metrics.tail_stable_s >= metrics.duration_s - 60)."
+    },
+    {
+      "id": "BUG-3",
+      "title": "Ki is never adjusted on accepted runs — acceptance fires before Ki converges to ±0.2°C",
+      "confidence": "High",
+      "score": 0.90,
+      "files": ["scripts/pid_tune/runner.py", "scripts/pid_tune/suggest_gains.py"],
+      "evidence": [
+        "runner.py:364-368  if accepted: state.mark_completed(); return gains  — suggest_gains never called",
+        "config.yaml acceptance.max_final_error_c=0.5 — 0.4°C droop is accepted without Ki adjustment",
+        "suggest_gains.py:122  Ki increase path only reached when run is REJECTED (final_error < -0.15)"
+      ],
+      "impact": "Dominant reason Ki under-tunes: ladder exits a scenario the moment Kp/Kd transient looks clean, even if steady-state offset is 0.4°C. Ki has had no chance to accumulate.",
+      "fix": "BUG-1 fix (tightening max_final_error_c to 0.2) is the cleanest cure — acceptance won't fire until Ki has done its job. Alternatively, after an accepted run, call suggest_gains once for Ki-only (skip Kp/Kd) and apply if Ki changed materially."
+    },
+    {
+      "id": "BUG-4",
+      "title": "ct_variance_in_band uses ±0.5°C window — is_welded_to_target check is too loose",
+      "confidence": "High",
+      "score": 0.88,
+      "files": ["scripts/pid_tune/suggest_gains.py", "scripts/pid_tune/runner.py", "scripts/pid_tune/metrics.py"],
+      "evidence": [
+        "runner.py:165  score_run(samples, target=target, band_c=config.acceptance.band_c)  — band_c=0.5",
+        "metrics.py:197  ct_variance_in_band=variance_in_band(samples, band_c=band_c, ...)  — inherits 0.5",
+        "suggest_gains.py:112  metrics.ct_variance_in_band < 0.05 used in is_welded_to_target",
+        "Variance < 0.05 is achievable over ±0.5°C window even when system is oscillating ±0.3°C"
+      ],
+      "impact": "is_welded_to_target passes too easily. Ki increase loop terminates before tight flatline is achieved.",
+      "fix": "Add a second variance field ct_variance_tight_c computed with band_c=0.2 in score_run. Use this in is_welded_to_target: ct_variance_in_band < 0.02 (tighter threshold for ±0.2°C window)."
+    },
+    {
+      "id": "BUG-5",
+      "title": "No unit tests for Ki tuning paths — all regressions are silent",
+      "confidence": "High",
+      "score": 1.0,
+      "files": ["scripts/pid_tune/test_ladder.py"],
+      "evidence": [
+        "test_ladder.py SuggestGainsTest: only 2 tests — test_overshoot_reduces_kp, test_severe_overshoot_does_not_compound",
+        "Zero coverage of: Ki droop increase, Ki float decrease, Ki kickstart from 0.001, TARGET MET path, scattered-in-band false-hold (BUG-2 regression)"
+      ],
+      "impact": "Any Ki fix can silently regress with no test failure.",
+      "fix": "Add 5 tests: (1) final_error=-0.2 droop after 150s → Ki increases; (2) final_error=+0.2 float → Ki decreases; (3) Ki=0.001 droop → kickstart to 0.015; (4) tail_stable_s covers final 60s → TARGET MET; (5) scattered in-band (in_band_fraction=0.21 over 300s, tail unstable) → Ki still adjusts (not prematurely locked)."
+    }
+  ],
+  "not_a_bug": [
+    "accept checks in_band_fraction >= 0.3 — correctly rejects grazing runs",
+    "accept checks frozen_samples <= 3 — correct transient tolerance",
+    "suggest_gains overshoot tiers are mutually exclusive (severe does not compound into high) — fixed and tested",
+    "Ki kickstart from near-zero (0.001 → 0.015) is correctly handled at suggest_gains.py:124"
+  ],
+  "context_snapshots": {
+    "acceptance_ok": "runner.py:121-135 — checks max_overshoot_c, time_to_band_s, in_band_fraction, frozen_samples, final_error_c (all from config.acceptance, which uses 0.5°C thresholds). No 60s-hold check.",
+    "suggest_gains_60s_check": "suggest_gains.py:105-148 — actual_stable_seconds = metrics.in_band_fraction * metrics.duration_s (BUG-2). is_welded_to_target checks final_error <=0.15 and ct_variance_in_band < 0.05 (BUG-4).",
+    "Ki_adjustment_path": "suggest_gains.py:120-141 — Ki increased only when final_error < -0.15 (droop), decreased when > +0.15 (float), held when variance issue.",
+    "score_run_band_c": "runner.py:165  score_run(samples, target=target, band_c=config.acceptance.band_c) — band_c=0.5 flows through to ct_variance_in_band."
+  },
+  "file_count": "9 / 30"
+}

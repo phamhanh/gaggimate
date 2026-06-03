@@ -1,0 +1,157 @@
+PID Tuner — Fix Checklist
+Execute top to bottom. Each step is self-contained.
+
+════════════════════════════════════════════════════════════════
+STEP 1 — Remove _clear_integral_before_apply (RC1)
+File: scripts/pid_tune/pid_apply.py
+════════════════════════════════════════════════════════════════
+
+Delete the entire _clear_integral_before_apply() function (lines 56-77).
+
+In apply_and_verify_pid() (line 89), remove the call:
+  BEFORE:  _clear_integral_before_apply(client, gains, log, label=label)
+  AFTER:   (delete that line)
+
+Result: apply_and_verify_pid sends ONE set_pid call. The firmware's
+setTunings already calls simplePid->reset() whenever gains differ —
+single apply is sufficient and realistic.
+
+VERIFY: No Ki=0 messages appear in ladder logs.
+
+════════════════════════════════════════════════════════════════
+STEP 2 — Fix overlapping overshoot branches (RC2)
+File: scripts/pid_tune/suggest_gains.py  lines 66–80
+════════════════════════════════════════════════════════════════
+
+Change line 71 from:
+  if metrics.max_overshoot_c > OVERSHOOT_HIGH_C:
+To:
+  elif metrics.max_overshoot_c > OVERSHOOT_HIGH_C:
+
+Full corrected block:
+  if metrics.max_overshoot_c > 1.0:
+      new_kp *= 0.75
+      new_kd *= 1.50
+      reason_parts.append("severe-overshoot:↓↓Kp↑↑Kd")
+  elif metrics.max_overshoot_c > OVERSHOOT_HIGH_C:
+      new_kp *= 0.90
+      new_kd *= 1.15
+      reason_parts.append(f"overshoot>{OVERSHOOT_HIGH_C}C:↓Kp↑Kd")
+  elif metrics.max_overshoot_c > OVERSHOOT_MED_C:
+      ...
+
+VERIFY: For overshoot=1.5°C, Kp shrinks by ×0.75 only (not ×0.675).
+
+════════════════════════════════════════════════════════════════
+STEP 3 — Fix dead acceptance OR clause (RC3)
+File: scripts/pid_tune/runner.py  lines 115–118
+════════════════════════════════════════════════════════════════
+
+Replace the entire return statement:
+  BEFORE:
+    return metrics.in_band_fraction >= 0.3 or (
+        metrics.time_to_band_s is not None
+        and metrics.time_to_band_s <= acc.time_to_band_s
+    )
+  AFTER:
+    return metrics.in_band_fraction >= 0.3
+
+The time_to_band check already happened above (line 111). The OR was
+always True. Now in_band_fraction is genuinely enforced.
+
+VERIFY: A run that just grazed the band (time_to_band=5s, in_band=0.01)
+now correctly fails acceptance.
+
+════════════════════════════════════════════════════════════════
+STEP 4 — Fix near_88 waypoint (RC4)
+File: scripts/pid_tune/scenarios.py  lines 96–97
+════════════════════════════════════════════════════════════════
+
+Replace:
+  if scenario.id in ("near_88", "near_85"):
+      return [85] if 85 in ladder and ct > 85 + ct_tolerance else []
+
+With:
+  if scenario.id == "near_88":
+      return [88] if 88 in ladder and ct > 88 + ct_tolerance else []
+  if scenario.id == "near_85":
+      return [85] if 85 in ladder and ct > 85 + ct_tolerance else []
+
+Also add 88 to COOL_WAYPOINTS in scenarios.py (line 7) and to
+cool_waypoints in config.yaml / LadderConfig defaults so the waypoint
+is reachable:
+  BEFORE: COOL_WAYPOINTS = [85, 60, 30]
+  AFTER:  COOL_WAYPOINTS = [88, 85, 60, 30]
+
+And update LadderConfig default in config.py:
+  cool_waypoints: list[int] = field(default_factory=lambda: [88, 85, 60, 30])
+
+VERIFY: near_88 scenario cools to ct≈88 (not 85) before ramp starts.
+
+════════════════════════════════════════════════════════════════
+STEP 5 — Wire cold_soak_duration_s config field (RC5)
+File: scripts/pid_tune/runner.py  line ~216
+════════════════════════════════════════════════════════════════
+
+In ensure_prep(), find the cold_equilibrate_at_zero call:
+  BEFORE:
+    cold_equilibrate_at_zero(
+        client,
+        plateau_s=config.cold_soak_plateau_s,
+        soak_s=scenario.pre_soak_duration_s,
+        ...
+    )
+  AFTER:
+    cold_equilibrate_at_zero(
+        client,
+        plateau_s=config.cold_soak_plateau_s,
+        soak_s=config.cold_soak_duration_s,
+        ...
+    )
+
+VERIFY: Changing cold_soak_duration_s in config.yaml changes the actual soak time.
+
+════════════════════════════════════════════════════════════════
+STEP 6 — Make frozen abort tolerant (RC6)
+File: scripts/pid_tune/runner.py  lines 62–86 (collect_samples)
+════════════════════════════════════════════════════════════════
+
+Add a consecutive-frozen counter at the top of collect_samples:
+  MAX_FROZEN_CONSECUTIVE = 3  # module constant
+
+In on_status(), replace:
+  if tick["frozen"]:
+      raise RuntimeError("abort: pidLive.frozen during idle tune")
+
+With:
+  if tick["frozen"]:
+      consecutive_frozen += 1
+      if consecutive_frozen >= MAX_FROZEN_CONSECUTIVE:
+          raise RuntimeError(
+              f"abort: pidLive.frozen for {MAX_FROZEN_CONSECUTIVE} consecutive ticks"
+          )
+  else:
+      consecutive_frozen = 0
+
+Add `consecutive_frozen = 0` as a nonlocal at the closure start.
+
+VERIFY: A single frozen tick is logged as a warning but does not abort the run.
+
+════════════════════════════════════════════════════════════════
+POST-FIX VERIFICATION
+════════════════════════════════════════════════════════════════
+
+1. python3 scripts/gaggimate_pid_tune.py --host $HOST --dry-run
+   → Should print plan without error, no Ki=0 lines.
+
+2. Run near_88 scenario alone: --only near_88
+   → Confirm cool stops at ct~88, ramp starts from ~88°C.
+
+3. Trigger a test with overshoot > 1.0°C (use high Kp).
+   → Confirm suggest log shows ONE reason (severe-overshoot) not two.
+
+4. Confirm acceptance_ok rejects a run with in_band_fraction=0.05
+   even if time_to_band is within limit.
+
+5. Simulate frozen tick: inject frozen=1 for 1–2 ticks.
+   → Confirm ladder continues; 3 consecutive → aborts.

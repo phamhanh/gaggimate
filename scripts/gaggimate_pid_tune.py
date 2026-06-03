@@ -11,7 +11,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gaggimate_ws import DEFAULT_HOST, parse_host
-from pid_tune.config import load_config
 from pid_tune.runner import run_full_ladder
 
 
@@ -31,12 +30,11 @@ def main() -> int:
     args = parser.parse_args()
 
     host, port = parse_host(args.host)
-    config = load_config()
 
     result = run_full_ladder(
         host,
         port,
-        config,
+        None,
         resume=args.resume,
         dry_run=args.dry_run,
         max_hours=args.max_hours,

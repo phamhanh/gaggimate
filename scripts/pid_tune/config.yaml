@@ -1,36 +1,43 @@
 {
   "final_tt": 92.0,
-  "ct_tolerance": 1.0,
-  "cool_waypoints": [85, 60, 30],
+  "ct_tolerance": 0.0,
+  "cool_waypoints": [88, 85, 60, 30],
   "max_safe_ct": 160.0,
-  "max_iter_per_scenario": 12,
+  "max_iter_per_scenario": 60,
   "iter_pause_s": 5.0,
-  "record_max_s_default": 240.0,
+  "record_max_s_default": 300.0,
   "scenario_record_max_s": {
-    "near_88": 120,
-    "near_85": 120,
-    "near_60": 240,
-    "near_30": 240,
-    "cold_soak": 240
+    "near_88": 480,
+    "near_85": 480,
+    "near_60": 600,
+    "near_30": 600,
+    "cold_soak": 600
   },
   "acceptance": {
     "max_overshoot_c": 0.5,
-    "time_to_band_s": 240.0,
-    "band_c": 0.5
+    "time_to_band_s": 300.0,
+    "band_c": 0.2,
+    "max_final_error_c": 0.2,
+    "min_in_band_fraction": 0.3,
+    "max_frozen_samples": 3
   },
   "cool_timeouts_s": {
-    "85": 1200,
-    "60": 2700,
-    "30": 5400,
-    "0": 7200
+    "88": 10800,
+    "85": 10800,
+    "60": 10800,
+    "30": 10800,
+    "0": 3600
   },
   "cold_soak_max_ct": 2.0,
   "cold_soak_duration_s": 3600,
+  "cold_soak_plateau_s": 600,
+  "prep_hold_s": 600,
+  "verification_laps": 1,
   "scenarios": [
-    {"id": "near_88", "name": "near_88", "start_ct_min": 87.0, "start_ct_max": 89.0},
-    {"id": "near_85", "name": "near_85", "start_ct_min": 84.0, "start_ct_max": 86.0},
-    {"id": "near_60", "name": "near_60", "start_ct_min": 58.0, "start_ct_max": 62.0},
-    {"id": "near_30", "name": "near_30", "start_ct_min": 28.0, "start_ct_max": 32.0},
+    {"id": "near_88", "name": "near_88", "start_ct_min": 0.0, "start_ct_max": 88.0},
+    {"id": "near_85", "name": "near_85", "start_ct_min": 0.0, "start_ct_max": 85.0},
+    {"id": "near_60", "name": "near_60", "start_ct_min": 0.0, "start_ct_max": 60.0},
+    {"id": "near_30", "name": "near_30", "start_ct_min": 0.0, "start_ct_max": 30.0},
     {"id": "cold_soak", "name": "cold_soak", "start_ct_min": 0.0, "start_ct_max": 2.0, "pre_soak_tt": 0.0, "pre_soak_duration_s": 3600.0}
   ]
 }

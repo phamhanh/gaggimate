@@ -270,9 +270,9 @@ class GaggimateWsClient:
         kd: float | None = None,
         *,
         kff: float | None = None,
-        persist: bool = False,
+        persist: bool = True,
     ) -> None:
-        """Apply PID via req:set-pid (see docs/pid-telemetry-api.md)."""
+        """Apply PID via req:set-pid (see docs/pid-telemetry-api.md). Always persist unless explicitly False."""
         body: dict[str, Any] = {"tp": "req:set-pid", "kp": kp, "persist": persist}
         if ki is not None:
             body["ki"] = ki
