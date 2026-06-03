@@ -109,7 +109,7 @@ class SimplePID {
     bool pidFrozen = false;
     float frozenPidSum = 0.0f; // Latched P+I+D; held until caller clears freeze
 
-    float feedback_integralState = 0.0f;   // Integral state
+    float feedback_integralState = 0.0f;   // Integral state (non-negative; heat-only actuator)
     float prevError = 0.0f;               // Previous error for derivative calculation
     float prevMeasurement = 0.0f;         // Previous measurement for derivative-on-measurement
     float filteredDerivative = 0.0f;      // Low-pass filtered derivative term

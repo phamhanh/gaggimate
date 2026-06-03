@@ -88,6 +88,8 @@ bool SimplePID::update() {
     float Pout = pdMuted ? 0.0f : gainKp * error * scale;
 
     feedback_integralState += error * deltaTime;
+    // Heat-only actuator (min output 0): integral is non-negative steady-state heating bias only.
+    feedback_integralState = fmaxf(0.0f, feedback_integralState);
     float Iout = activeKi * feedback_integralState;
 
     // Derivative-on-measurement: avoids derivative kick on setpoint changes.
@@ -110,6 +112,7 @@ bool SimplePID::update() {
         feedback_integralState -=
             error * deltaTime; // Forbide the integration to happen when the output is saturated and the error is in the same
                                // direction as the output (i.e. the system is not able to follow the setpoint)
+        feedback_integralState = fmaxf(0.0f, feedback_integralState);
         Iout = activeKi * feedback_integralState;          // Recompute the integral term with the new state
         sumPID = Pout + Iout + Dout + FFOut + DistFFOut; // Recompute the output with the new integral state
         sumPIDsat = constrain(sumPID, ctrlOutputLimits[0], ctrlOutputLimits[1]);
