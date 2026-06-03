@@ -50,7 +50,7 @@ struct PhaseTransition {
 
 // Version 6+ thermal snapshot (Kff tuning); written at brew start
 struct ShotThermalSnapshot {
-    uint8_t inletTempC;          // 5–40 °C
+    uint8_t inletTempC;          // 5–80 °C
     uint8_t kffEnabled;          // 0/1
     uint16_t pumpFlow1Bar_x1000; // ml/s at 1 bar, e.g. 10.205 → 10205
     uint16_t pumpFlow9Bar_x1000; // ml/s at 9 bar

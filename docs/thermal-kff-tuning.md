@@ -79,7 +79,7 @@ Kff compensates for `(setpoint − inlet) × flow`. **Exit temperature at the pu
 
 ### Incoming water temp — setting and limit
 
-You can set **Water inlet temperature** in web Settings or with **±** on the brew screen (`incomingWaterTempC`, default **23 °C**, clamp 5–40 °C).
+You can set **Water inlet temperature** in web Settings or with **±** on the brew screen (`incomingWaterTempC`, default **23 °C**, clamp 5–80 °C).
 
 **Problem:** On this machine, water **runs through the plumbing before the boiler inlet** and is **already warmer** than room or tap temp. A fixed value makes **Kff systematically wrong** (often over-heats if you assume colder inlet than reality).
 

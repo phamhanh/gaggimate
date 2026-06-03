@@ -308,7 +308,7 @@ void ShotHistoryPlugin::captureShotThermalSnapshot() {
 
     shotThermalSnapshot = {};
     shotThermalSnapshot.inletTempC =
-        static_cast<uint8_t>(constrain(settings.getIncomingWaterTempC(), 5, 40));
+        static_cast<uint8_t>(constrain(settings.getIncomingWaterTempC(), 5, 80));
     shotThermalSnapshot.kffEnabled = settings.isKffEnabled() ? 1 : 0;
     shotThermalSnapshot.pumpFlow1Bar_x1000 =
         static_cast<uint16_t>(lroundf(oneBar * 1000.0f));

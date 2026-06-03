@@ -279,7 +279,7 @@ export function Settings() {
       const graceSec = Number(formData.pidFreezeGraceSec ?? 60);
       formDataToSubmit.set('pidFreezeGraceMs', String(Math.max(0, Math.round(graceSec * 1000))));
       if (formData.incomingWaterTempC !== undefined) {
-        const inlet = Math.min(40, Math.max(5, Math.round(Number(formData.incomingWaterTempC))));
+        const inlet = Math.min(80, Math.max(5, Math.round(Number(formData.incomingWaterTempC))));
         formDataToSubmit.set('incomingWaterTempC', String(inlet));
       }
       const stableSec = Number(formData.stableDurationSec ?? 8);
@@ -837,7 +837,7 @@ export function Settings() {
                 type='number'
                 step='1'
                 min='5'
-                max='40'
+                max='80'
                 className='input input-bordered w-full'
                 value={formData.incomingWaterTempC ?? 23}
                 onChange={onChange('incomingWaterTempC')}

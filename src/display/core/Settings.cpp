@@ -479,7 +479,7 @@ void Settings::setKffEnabled(const bool enabled) {
 }
 
 void Settings::setIncomingWaterTempC(const int tempC) {
-    incomingWaterTempC = constrain(tempC, 5, 40);
+    incomingWaterTempC = constrain(tempC, 5, 80);
     save();
 }
 

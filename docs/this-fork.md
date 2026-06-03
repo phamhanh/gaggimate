@@ -75,7 +75,7 @@ Developed iteratively with AI:
 - **Stable before a shot** — settle **I** first, then **Kff** handles flow disturbance. Vent and “Ready to brew” wait for **stable** temp.
 - **During flow** — latch **I only**; **Kff adds** on measured flow. P/D **updates frozen** — they no longer overreact to a cold-looking probe mid-shot.
 - **After flow (grace)** — same **I-only** hold, **no Kff**. Grace stops **PID** from reacting to the lagging probe after flow stops. It does **not** excuse a big overshoot: that heat was already added by **Kff during the shot** if the spike appears.
-- **Inlet temp** — manual setting until a real inlet probe exists (see [thermal-kff-tuning.md](thermal-kff-tuning.md)); water **pre-heats in the machine plumbing**, so a room-temp guess is often wrong.
+- **Inlet temp** — manual setting until a real inlet probe exists (see [thermal-kff-tuning.md](thermal-kff-tuning.md)); water **pre-heats in the machine plumbing**, so a room-temp guess is often wrong. Clamp **5–80 °C** (raised from 40 °C) so pre-heated plumbing can be modeled.
 - **Grace period (60 s default)** — measured empirically: ran a test shot, then held the valve open with flow at 0.1 g/s and watched how long it took for temperature to stabilize. Kff was technically active at that trickle but not meaningfully contributing; PID stayed frozen at I. 60 s was where `ct` reliably settled.
 - **Kff enable toggle** in Settings — I leave it on.
 
