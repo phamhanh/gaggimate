@@ -72,8 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  ./scripts/update-device.sh\n"
             "  ./scripts/update-device.sh --version v1.9.5\n"
             "  ./scripts/update-device.sh --host 192.168.51.2\n"
-            "  ./scripts/update-device.sh --ota-display-only\n"
-            "  ./scripts/update-device.sh --ota-controller-only --dry-run"
+            "  ./scripts/update-device.sh --display-only\n"
+            "  ./scripts/update-device.sh --controller-only --dry-run"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -85,12 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ota_scope = parser.add_mutually_exclusive_group()
     ota_scope.add_argument(
-        "--ota-display-only",
+        "--display-only",
         action="store_true",
         help="OTA display only (skip controller flash)",
     )
     ota_scope.add_argument(
-        "--ota-controller-only",
+        "--controller-only",
         action="store_true",
         help="OTA controller only (skip display flash)",
     )
@@ -133,7 +133,7 @@ def main() -> int:
         return 2
 
     try:
-        ota_scope = resolve_ota_scope(args.ota_display_only, args.ota_controller_only)
+        ota_scope = resolve_ota_scope(args.display_only, args.controller_only)
     except ValueError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

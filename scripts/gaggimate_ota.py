@@ -55,13 +55,13 @@ def wait_for_github_latest(
     )
 
 
-def resolve_ota_scope(ota_display_only: bool, ota_controller_only: bool) -> str | None:
+def resolve_ota_scope(display_only: bool, controller_only: bool) -> str | None:
     """Return ``display``, ``controller``, or ``None``; raise if both scope flags set."""
-    if ota_display_only and ota_controller_only:
-        raise ValueError("--ota-display-only and --ota-controller-only are mutually exclusive")
-    if ota_display_only:
+    if display_only and controller_only:
+        raise ValueError("--display-only and --controller-only are mutually exclusive")
+    if display_only:
         return "display"
-    if ota_controller_only:
+    if controller_only:
         return "controller"
     return None
 

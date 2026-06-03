@@ -95,8 +95,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  ./scripts/deploy.sh --no-backup\n"
             "  ./scripts/deploy.sh --release-only\n"
             "  ./scripts/deploy.sh --update-only\n"
-            "  ./scripts/deploy.sh --update-only --ota-display-only\n"
-            "  ./scripts/deploy.sh --ota-controller-only -- --yes\n"
+            "  ./scripts/deploy.sh --update-only --display-only\n"
+            "  ./scripts/deploy.sh --controller-only -- --yes\n"
             "  ./scripts/deploy.sh --no-backup --release-only -- --build-only"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -125,12 +125,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ota_scope = parser.add_mutually_exclusive_group()
     ota_scope.add_argument(
-        "--ota-display-only",
+        "--display-only",
         action="store_true",
         help="OTA display only (skip controller); requires display bins in out/",
     )
     ota_scope.add_argument(
-        "--ota-controller-only",
+        "--controller-only",
         action="store_true",
         help="OTA controller only (skip display); requires board-firmware in out/",
     )
@@ -180,9 +180,9 @@ def main() -> int:
         plan_lines.append(f"{step}. Release ({' '.join(args.release_args) or 'default flags'})")
         step += 1
     if do_ota:
-        if args.ota_display_only:
+        if args.display_only:
             ota_step = "OTA display only from out/ + verify display version"
-        elif args.ota_controller_only:
+        elif args.controller_only:
             ota_step = "OTA controller only from out/ + verify controller version"
         else:
             ota_step = "OTA from out/ + verify versions on device"
@@ -257,7 +257,7 @@ def main() -> int:
         )
 
     try:
-        ota_scope = resolve_ota_scope(args.ota_display_only, args.ota_controller_only)
+        ota_scope = resolve_ota_scope(args.display_only, args.controller_only)
     except ValueError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
