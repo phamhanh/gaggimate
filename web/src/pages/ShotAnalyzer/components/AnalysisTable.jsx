@@ -1027,7 +1027,9 @@ function CellContent({ phase, col, results, isTotal = false }) {
 
   const isWeightCol = col.id === 'weight';
   const exitMatchesCol = isWeightCol
-    ? phase.exit?.type === 'weight' || phase.exit?.type === 'volumetric'
+    ? phase.exit?.type === 'weight' ||
+      phase.exit?.type === 'predicted_weight' ||
+      phase.exit?.type === 'volumetric'
     : phase.exit?.type === col.targetType;
   const isHit = exitMatchesCol;
 
@@ -1064,7 +1066,8 @@ function CellContent({ phase, col, results, isTotal = false }) {
 
   if (phase.profilePhase && phase.profilePhase.targets && col.targetType) {
     const target = phase.profilePhase.targets.find(t => {
-      if (col.id === 'weight') return t.type === 'weight' || t.type === 'volumetric';
+      if (col.id === 'weight')
+        return t.type === 'weight' || t.type === 'predicted_weight' || t.type === 'volumetric';
       return t.type === col.targetType;
     });
 
@@ -1101,7 +1104,9 @@ function CellContent({ phase, col, results, isTotal = false }) {
   if (col.targetType && phase.targetCalcValues) {
     const calcEntry =
       col.id === 'weight'
-        ? phase.targetCalcValues['volumetric'] || phase.targetCalcValues['weight']
+        ? phase.targetCalcValues['predicted_weight'] ||
+          phase.targetCalcValues['volumetric'] ||
+          phase.targetCalcValues['weight']
         : phase.targetCalcValues[col.targetType];
 
     if (calcEntry) {
