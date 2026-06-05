@@ -13,7 +13,7 @@ class NimBLEServerController : public NimBLEServerCallbacks, public NimBLECharac
 
     void sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow, float puckResistance,
                         float pumpPower, float heaterPower, float pidP = 0.0f, float pidI = 0.0f, float pidD = 0.0f,
-                        float kffOut = 0.0f, bool pidFrozen = false, bool pdMuted = false, float kiActive = 0.0f);
+                        float kffOut = 0.0f, bool pidFrozen = false, int pidZone = 0, float kiActive = 0.0f);
     void sendError(int errorCode);
     void sendBrewBtnState(bool brewButtonStatus);
     void sendSteamBtnState(bool steamButtonStatus);

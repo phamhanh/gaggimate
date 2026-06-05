@@ -127,8 +127,8 @@ void GaggiMateController::setup() {
     _ble.registerAltControlCallback([this](bool state) { this->alt->set(state); });
     _ble.registerPidSettingsCallback([this](float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
                                             bool kffEnabled, float incomingWaterTempC, bool pidFreezeEnabled,
-                                            bool pidGraceEnabled, float pidErrorAttenC, bool pidPdMuteEnabled,
-                                            float pidPdMuteAboveC, float pidKiAbove) {
+                                            bool pidGraceEnabled, float bandBelowC, float bandAboveC, float stabKp,
+                                            float stabKi, float stabKd, float coolKp, float coolKi, float coolKd) {
         this->heater->setTunings(Kp, Ki, Kd);
         this->heater->setFeedforwardScale(Kf);
         this->heater->setPidFreezeGraceMs(pidFreezeGraceMs);
@@ -136,10 +136,9 @@ void GaggiMateController::setup() {
         this->heater->setPidGraceEnabled(pidGraceEnabled);
         this->heater->setKffEnabled(kffEnabled);
         this->heater->setIncomingWaterTemp(incomingWaterTempC);
-        this->heater->setErrorAttenuationThreshold(pidErrorAttenC);
-        this->heater->setPdMuteEnabled(pidPdMuteEnabled);
-        this->heater->setPdMuteAboveC(pidPdMuteAboveC);
-        this->heater->setPidKiAbove(pidKiAbove);
+        this->heater->setZoneBands(bandBelowC, bandAboveC);
+        this->heater->setStabGains(stabKp, stabKi, stabKd);
+        this->heater->setCoolGains(coolKp, coolKi, coolKd);
     });
     _ble.registerPumpModelCoeffsCallback([this](float a, float b, float c, float d) {
         if (_config.capabilites.dimming) {
@@ -252,7 +251,7 @@ void GaggiMateController::sendSensorData() {
     const float pidD = this->heater->getPidD();
     const float kffOut = this->heater->getKffOutput();
     const bool pidFrozen = this->heater->isPidFrozenLatched();
-    const bool pdMuted = this->heater->isPdMuted();
+    const int pidZone = this->heater->getActiveZone();
     const float kiActive = this->heater->getActiveKi();
     float pumpPower = 0.0f;
     if (_config.capabilites.dimming) {
@@ -265,13 +264,13 @@ void GaggiMateController::sendSensorData() {
         auto dimmedPump = static_cast<DimmedPump *>(pump);
         _ble.sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
                             dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance(), pumpPower, heaterPower, pidP, pidI,
-                            pidD, kffOut, pidFrozen, pdMuted, kiActive);
+                            pidD, kffOut, pidFrozen, pidZone, kiActive);
         if (this->valve->getState()) {
             _ble.sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
         }
     } else {
         _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f, pumpPower, heaterPower, pidP, pidI, pidD,
-                            kffOut, pidFrozen, pdMuted, kiActive);
+                            kffOut, pidFrozen, pidZone, kiActive);
     }
 }
 

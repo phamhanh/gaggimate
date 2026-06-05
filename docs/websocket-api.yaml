@@ -120,6 +120,13 @@ components:
             frozen:
               type: integer
               enum: [0, 1]
+            zone:
+              type: integer
+              enum: [0, 1, 2]
+              description: Active gain zone (0=heating, 1=stabilizing, 2=cooling)
+            kiActive:
+              type: number
+              description: Ki of the active zone this tick
         m:
           type: integer
           description: Machine mode

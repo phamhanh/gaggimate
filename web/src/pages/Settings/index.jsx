@@ -115,10 +115,10 @@ export function Settings() {
       settingsWithToggle.incomingWaterTempC = fetchedSettings.incomingWaterTempC ?? 23;
       settingsWithToggle.tempProbeFilterEnabled = fetchedSettings.tempProbeFilterEnabled ?? true;
       settingsWithToggle.tempProbeFilterAlpha = fetchedSettings.tempProbeFilterAlpha ?? 0.05;
-      settingsWithToggle.pidErrorAttenC = fetchedSettings.pidErrorAttenC ?? 0;
-      settingsWithToggle.pidPdMuteEnabled = fetchedSettings.pidPdMuteEnabled ?? false;
-      settingsWithToggle.pidPdMuteAboveC = fetchedSettings.pidPdMuteAboveC ?? 0.5;
-      settingsWithToggle.pidKiAbove = fetchedSettings.pidKiAbove ?? settingsWithToggle.ki ?? 0.27;
+      settingsWithToggle.pidBandBelowC = fetchedSettings.pidBandBelowC ?? 0.3;
+      settingsWithToggle.pidBandAboveC = fetchedSettings.pidBandAboveC ?? 0.5;
+      settingsWithToggle.pidStab = fetchedSettings.pidStab ?? '';
+      settingsWithToggle.pidCool = fetchedSettings.pidCool ?? '';
       const stableMs = fetchedSettings.stableDurationMs ?? 8000;
       settingsWithToggle.stableDurationSec = Math.round(stableMs / 1000);
 
@@ -315,20 +315,19 @@ export function Settings() {
         const inlet = Math.min(80, Math.max(5, Math.round(Number(formData.incomingWaterTempC))));
         formDataToSubmit.set('incomingWaterTempC', String(inlet));
       }
-      if (formData.pidErrorAttenC !== undefined) {
-        const atten = Math.min(5, Math.max(0, Number(formData.pidErrorAttenC)));
-        formDataToSubmit.set('pidErrorAttenC', String(atten));
+      if (formData.pidBandBelowC !== undefined) {
+        const below = Math.min(20, Math.max(0, Number(formData.pidBandBelowC)));
+        formDataToSubmit.set('pidBandBelowC', String(below));
       }
-      if (formData.pidPdMuteEnabled) {
-        formDataToSubmit.set('pidPdMuteEnabled', '1');
+      if (formData.pidBandAboveC !== undefined) {
+        const above = Math.min(20, Math.max(0, Number(formData.pidBandAboveC)));
+        formDataToSubmit.set('pidBandAboveC', String(above));
       }
-      if (formData.pidPdMuteAboveC !== undefined) {
-        const above = Math.min(10, Math.max(0, Number(formData.pidPdMuteAboveC)));
-        formDataToSubmit.set('pidPdMuteAboveC', String(above));
+      if (formData.pidStab !== undefined) {
+        formDataToSubmit.set('pidStab', String(formData.pidStab));
       }
-      if (formData.pidKiAbove !== undefined) {
-        const kiAbove = Math.min(1000, Math.max(0, Number(formData.pidKiAbove)));
-        formDataToSubmit.set('pidKiAbove', String(kiAbove));
+      if (formData.pidCool !== undefined) {
+        formDataToSubmit.set('pidCool', String(formData.pidCool));
       }
       const stableSec = Number(formData.stableDurationSec ?? 8);
       formDataToSubmit.set('stableDurationMs', String(Math.max(0, Math.round(stableSec * 1000))));
@@ -804,81 +803,85 @@ export function Settings() {
                 </label>
               </div>
             </div>
-            <div className='divider'>Idle PID (preheat)</div>
-            <div className='form-control mb-4'>
-              <label htmlFor='pidErrorAttenC' className='mb-2 block text-sm font-medium'>
-                Near-target P/D softening (°C)
-              </label>
-              <input
-                id='pidErrorAttenC'
-                name='pidErrorAttenC'
-                type='number'
-                step='0.1'
-                min='0'
-                max='5'
-                className='input input-bordered w-full'
-                value={formData.pidErrorAttenC ?? 0}
-                onChange={onChange('pidErrorAttenC')}
-              />
-              <p className='mt-2 text-xs opacity-70'>
-                Scales down P and D when close to setpoint — less idle relay chatter; can soften the last part of a
-                ramp. <strong>0 = off</strong>. Start <strong>1.0–1.5</strong>; try up to <strong>~2.5</strong> only if
-                overshoot persists and ramps stay fast enough. Ki unchanged. Tune with PID Monitor.
-              </p>
+            <div className='divider'>3-zone idle PID</div>
+            <p className='mb-4 text-xs opacity-70'>
+              The main K<sub>p</sub>, K<sub>i</sub>, K<sub>d</sub> above are the <strong>heating</strong> gains (used
+              below target). Near and above the setpoint the controller switches to the stabilizing and cooling gains
+              below, sharing one integrator with bumpless transitions. Tune with the PID Monitor (
+              <code>zone</code> = 0 heating / 1 stabilizing / 2 cooling).
+            </p>
+            <div className='grid grid-cols-2 gap-4'>
+              <div className='form-control mb-4'>
+                <label htmlFor='pidBandBelowC' className='mb-2 block text-sm font-medium'>
+                  Band below target (°C)
+                </label>
+                <input
+                  id='pidBandBelowC'
+                  name='pidBandBelowC'
+                  type='number'
+                  step='0.1'
+                  min='0'
+                  max='20'
+                  className='input input-bordered w-full'
+                  value={formData.pidBandBelowC ?? 0.3}
+                  onChange={onChange('pidBandBelowC')}
+                />
+                <p className='mt-1 text-xs opacity-70'>Heating below TT − this.</p>
+              </div>
+              <div className='form-control mb-4'>
+                <label htmlFor='pidBandAboveC' className='mb-2 block text-sm font-medium'>
+                  Band above target (°C)
+                </label>
+                <input
+                  id='pidBandAboveC'
+                  name='pidBandAboveC'
+                  type='number'
+                  step='0.1'
+                  min='0'
+                  max='20'
+                  className='input input-bordered w-full'
+                  value={formData.pidBandAboveC ?? 0.5}
+                  onChange={onChange('pidBandAboveC')}
+                />
+                <p className='mt-1 text-xs opacity-70'>Cooling above TT + this.</p>
+              </div>
             </div>
             <div className='form-control mb-4'>
-              <label className='label cursor-pointer'>
-                <span className='label-text'>Mute P/D when above target</span>
+              <label htmlFor='pidStab' className='input w-full'>
                 <input
-                  id='pidPdMuteEnabled'
-                  name='pidPdMuteEnabled'
-                  type='checkbox'
-                  className='toggle toggle-primary'
-                  checked={formData.pidPdMuteEnabled === true}
-                  onChange={onChange('pidPdMuteEnabled')}
+                  id='pidStab'
+                  name='pidStab'
+                  type='text'
+                  className='grow'
+                  placeholder='1.0, 0.1, 0.003'
+                  value={formData.pidStab ?? ''}
+                  onChange={onChange('pidStab')}
                 />
+                <span>
+                  Stab K<sub>p</sub>, K<sub>i</sub>, K<sub>d</sub>
+                </span>
               </label>
               <p className='mt-1 text-xs opacity-70'>
-                When current temp is more than the threshold below target, P and D go to zero and only I trims heat
-                using <strong>Ki above</strong> — for passive cool-down after overshoot.
+                Stabilizing-zone gains used near the setpoint (less relay chatter at idle).
               </p>
             </div>
             <div className='form-control mb-4'>
-              <label htmlFor='pidPdMuteAboveC' className='mb-2 block text-sm font-medium'>
-                °C above target to mute P/D
+              <label htmlFor='pidCool' className='input w-full'>
+                <input
+                  id='pidCool'
+                  name='pidCool'
+                  type='text'
+                  className='grow'
+                  placeholder='0.6, 0.05, 0'
+                  value={formData.pidCool ?? ''}
+                  onChange={onChange('pidCool')}
+                />
+                <span>
+                  Cool K<sub>p</sub>, K<sub>i</sub>, K<sub>d</sub>
+                </span>
               </label>
-              <input
-                id='pidPdMuteAboveC'
-                name='pidPdMuteAboveC'
-                type='number'
-                step='0.1'
-                min='0'
-                max='10'
-                className='input input-bordered w-full'
-                disabled={formData.pidPdMuteEnabled !== true}
-                value={formData.pidPdMuteAboveC ?? 0.5}
-                onChange={onChange('pidPdMuteAboveC')}
-              />
-            </div>
-            <div className='form-control mb-4'>
-              <label htmlFor='pidKiAbove' className='mb-2 block text-sm font-medium'>
-                Ki when above target
-              </label>
-              <input
-                id='pidKiAbove'
-                name='pidKiAbove'
-                type='number'
-                step='0.01'
-                min='0'
-                className='input input-bordered w-full'
-                disabled={formData.pidPdMuteEnabled !== true}
-                value={formData.pidKiAbove ?? formData.ki ?? 0.27}
-                onChange={onChange('pidKiAbove')}
-              />
-              <p className='mt-2 text-xs opacity-70'>
-                Separate from main Ki — used for I only while muted. Lower = slower bleed-down; higher = faster
-                correction (may undershoot when normal PID resumes). Tune with PID Monitor (<code>pdMuted</code>,{' '}
-                <code>kiActive</code>).
+              <p className='mt-1 text-xs opacity-70'>
+                Cooling-zone gains used above the setpoint; the integral is allowed to unwind so overshoot bleeds off.
               </p>
             </div>
             <div className='form-control mb-4'>

@@ -47,11 +47,11 @@ class Heater {
     void setPidGraceEnabled(bool enabled);
     void setKffEnabled(bool enabled);
     void setIncomingWaterTemp(float tempC);
-    void setErrorAttenuationThreshold(float thresholdC);
-    void setPdMuteEnabled(bool enabled);
-    void setPdMuteAboveC(float aboveC);
-    void setPidKiAbove(float ki);
-    bool isPdMuted() const;
+    // 3-zone idle PID configuration (heating gains come via setTunings).
+    void setZoneBands(float belowC, float aboveC);
+    void setStabGains(float Kp, float Ki, float Kd);
+    void setCoolGains(float Kp, float Ki, float Kd);
+    int getActiveZone() const;
     float getActiveKi() const;
 
   private:

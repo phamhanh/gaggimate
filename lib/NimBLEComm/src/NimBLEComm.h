@@ -40,10 +40,14 @@ constexpr size_t ERROR_CODE_AUTOTUNE_TIMEOUT = 6;
 
 using pin_control_callback_t = std::function<void(bool isActive)>;
 using pid_control_callback_t = std::function<void(float Kp, float Ki, float Kd, float Kf)>;
+// 3-zone idle PID: tokens 9-16 carry band thresholds and the stabilizing/cooling
+// gain triplets. Heating gains are Kp,Ki,Kd (tokens 0-2). Missing trailing tokens
+// from older display firmware are defaulted by the parser.
 using pid_settings_callback_t = std::function<void(float Kp, float Ki, float Kd, float Kf, uint32_t pidFreezeGraceMs,
                                                    bool kffEnabled, float incomingWaterTempC, bool pidFreezeEnabled,
-                                                   bool pidGraceEnabled, float pidErrorAttenC, bool pidPdMuteEnabled,
-                                                   float pidPdMuteAboveC, float pidKiAbove)>;
+                                                   bool pidGraceEnabled, float bandBelowC, float bandAboveC,
+                                                   float stabKp, float stabKi, float stabKd, float coolKp, float coolKi,
+                                                   float coolKd)>;
 using pump_model_coeffs_callback_t = std::function<void(float a, float b, float c, float d)>;
 using ping_callback_t = std::function<void()>;
 using remote_err_callback_t = std::function<void(int errorCode)>;
@@ -64,7 +68,7 @@ using advanced_output_callback_t =
     std::function<void(bool valve, float boilerSetpoint, bool pressureTarget, float pumpPressure, float pumpFlow)>;
 using sensor_read_callback_t = std::function<void(float temperature, float pressure, float puckFlow, float pumpFlow,
                                                 float puckResistance, float pumpPower, float heaterPower, float pidP,
-                                                float pidI, float pidD, float kffOut, bool pidFrozen, bool pdMuted,
+                                                float pidI, float pidD, float kffOut, bool pidFrozen, int pidZone,
                                                 float kiActive)>;
 using led_control_callback_t = std::function<void(uint8_t channel, uint8_t brightness)>;
 

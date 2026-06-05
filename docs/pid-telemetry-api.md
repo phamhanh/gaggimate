@@ -42,8 +42,8 @@ Controller `SimplePID` (1 Hz) → `Heater` getters → BLE sensor notify (~4 Hz)
 | `kff` | float | **Live** disturbance feedforward output (not stored gain) |
 | `out` | float | Total heater command 0–1000 |
 | `frozen` | 0/1 | PID freeze latched (I-only + Kff during shot) |
-| `pdMuted` | 0/1 | P/D mute active (`CT > TT + pidPdMuteAboveC` with feature enabled) |
-| `kiActive` | float | Ki multiplier used for I this tick (`pidKiAbove` when muted, else stored `ki`) |
+| `zone` | 0/1/2 | Active gain zone: **0** heating, **1** stabilizing, **2** cooling |
+| `kiActive` | float | Ki of the active zone this tick (bumpless transitions; shared integrator) |
 
 **Naming rule:** top-level `kffGain` / `kff` = stored setting; `pidLive.kff` = live FF output.
 
@@ -53,10 +53,10 @@ Controller `SimplePID` (1 Hz) → `Heater` getters → BLE sensor notify (~4 Hz)
 
 ```
 temp, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower,
-pidP, pidI, pidD, kffOut, frozen, pdMuted, kiActive
+pidP, pidI, pidD, kffOut, frozen, pidZone, kiActive
 ```
 
-Display firmware accepts ≥5 fields (legacy) or ≥7 (power telemetry) or 12 (full PID) or 14 (+ P/D mute telemetry).
+Display firmware accepts ≥5 fields (legacy) or ≥7 (power telemetry) or 12 (full PID) or 14 (+ zone telemetry).
 
 ## WebSocket commands
 
@@ -79,16 +79,16 @@ Apply PID gains to the controller. Optionally persist to NVS.
 - `persist` defaults to `true`. When `false`, gains are sent over BLE only (not saved).
 - Routed via `Settings::buildPidBlePayloadFromGains()` → `PID_CONTROL_CHAR_UUID`.
 
-### Settings / BLE PID payload (fields 10–12)
+### Settings / BLE PID payload (17 tokens; fields 9–16 = 3-zone idle PID)
 
-| Field | Type | Meaning |
-|-------|------|---------|
-| `pidErrorAttenC` | float | Near-target P/D softening threshold (°C). Scales P and D by `min(1, \|error\|/threshold)` in `SimplePID`; **0 = off**. Persisted NVS `pid_atten_c`; BLE token **9**. Web Settings → **Idle PID (preheat)**. |
-| `pidPdMuteEnabled` | 0/1 | Master toggle for overshoot P/D mute. NVS `pid_pd_mute_en`; BLE token **10**. Default **off**. |
-| `pidPdMuteAboveC` | float | **X** (°C): mute when `CT > TT + X`. NVS `pid_pd_mute_c`; BLE token **11**. Default **0.5**. |
-| `pidKiAbove` | float | Ki for **I only** while muted (same units as stored `Ki`). NVS `pid_ki_above`; BLE token **12**. Defaults to stored Ki (fallback **0.27**). |
+| Token | Field | Type | Meaning |
+|-------|-------|------|---------|
+| 9 | `pidBandBelowC` | float | Heating zone when `CT < TT − band` (°C). NVS `pid_band_below`. Default **0.3**. |
+| 10 | `pidBandAboveC` | float | Cooling zone when `CT > TT + band` (°C). NVS `pid_band_above`. Default **0.5**. |
+| 11–13 | `pidStab` | float×3 | Stabilizing-zone Kp, Ki, Kd (near setpoint). NVS `pid_stab`. |
+| 14–16 | `pidCool` | float×3 | Cooling-zone Kp, Ki, Kd (above setpoint). NVS `pid_cool`. |
 
-Bumpless Ki transition on mute enter/exit; integral not reset on toggle or Ki_above edits. Hysteresis **0.3 °C** on exit (firmware constant).
+Main `pid` string (tokens 0–2) = **heating** gains (full aggressive set). One shared integrator across zones; bumpless Ki rescale on zone cross. Zone hysteresis **0.3 °C** (firmware constant). Missing tokens 9+ → defaults derived from heating gains.
 
 ### `req:set-target-temp`
 

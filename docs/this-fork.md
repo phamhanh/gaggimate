@@ -162,8 +162,7 @@ The cup sits high on the panel (`LV_ALIGN_CENTER`, y = −104), and the `control
 - **Web Settings pump flow** at 1 / 9 bar gated on **pressure capability**, not dimming.
 - **Profile editor** — insert a phase **after the current one** (pre-infusion splits).
 - **PID telemetry API** — live `pidLive` (P/I/D/Kff/out/frozen) on `evt:status` and `GET /api/status`; WebSocket `req:set-pid` and `req:set-target-temp` for Plan 2 tuning agents. Contract: [pid-telemetry-api.md](pid-telemetry-api.md).
-- **Near-target P/D attenuator** — optional `pidErrorAttenC` (°C) scales P and D by `min(1, |error|/threshold)` near setpoint to cut idle relay chatter from thermocouple steps + high Kd; I and shot freeze/Kff unchanged. Default 0 (stock behavior). Web Settings + NVS + BLE PID field 9.
-- **Overshoot P/D mute** — optional `pidPdMuteEnabled`: when `CT > TT + pidPdMuteAboveC`, force P and D to zero and run I with separate `pidKiAbove` (bumpless Ki transition, 0.3 °C exit hysteresis). For passive cool-down when the boiler cannot shed heat fast enough; default off. Web Settings + NVS + BLE PID fields 10–12; `pidLive.pdMuted` / `kiActive` on status.
+- **3-zone idle PID** — replaces near-target P/D softening and overshoot P/D mute with explicit **heating / stabilizing / cooling** gain zones (three full Kp,Ki,Kd triplets + band thresholds). One shared integrator with bumpless Ki transitions; integral can unwind in cooling so overshoot bleeds off. Web Settings → **3-zone idle PID**; NVS + BLE PID tokens 9–16; `pidLive.zone` / `kiActive` on status. See [pid-telemetry-api.md](pid-telemetry-api.md).
 
 ## Two dead heater elements
 

@@ -26,7 +26,6 @@ void Heater::setupPid() {
     // Derivative low-pass: alpha=0.1 means 10% new / 90% old each 1 s sample.
     // Strongly attenuates thermocouple sample-to-sample noise before Kd amplifies it.
     simplePid->setDerivativeFilterAlpha(0.1f);
-    simplePid->setErrorAttenuationThreshold(0.0f);
     simplePid->reset();
 }
 
@@ -100,31 +99,25 @@ void Heater::setKffEnabled(bool enabled) { kffEnabled = enabled; }
 
 void Heater::setIncomingWaterTemp(float tempC) { incomingWaterTemp = tempC; }
 
-void Heater::setErrorAttenuationThreshold(float thresholdC) {
+void Heater::setZoneBands(const float belowC, const float aboveC) {
     if (simplePid) {
-        simplePid->setErrorAttenuationThreshold(thresholdC);
+        simplePid->setZoneBands(belowC, aboveC);
     }
 }
 
-void Heater::setPdMuteEnabled(const bool enabled) {
+void Heater::setStabGains(const float Kp, const float Ki, const float Kd) {
     if (simplePid) {
-        simplePid->setPdMuteEnabled(enabled);
+        simplePid->setStabGains(Kp, Ki, Kd);
     }
 }
 
-void Heater::setPdMuteAboveC(const float aboveC) {
+void Heater::setCoolGains(const float Kp, const float Ki, const float Kd) {
     if (simplePid) {
-        simplePid->setPdMuteAboveC(aboveC);
+        simplePid->setCoolGains(Kp, Ki, Kd);
     }
 }
 
-void Heater::setPidKiAbove(const float ki) {
-    if (simplePid) {
-        simplePid->setPidKiAbove(ki);
-    }
-}
-
-bool Heater::isPdMuted() const { return simplePid ? simplePid->isPdMuted() : false; }
+int Heater::getActiveZone() const { return simplePid ? simplePid->getActiveZone() : 0; }
 
 float Heater::getActiveKi() const { return simplePid ? simplePid->getActiveKi() : 0.0f; }
 

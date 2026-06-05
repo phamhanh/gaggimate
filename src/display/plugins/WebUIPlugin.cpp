@@ -62,7 +62,7 @@ static void appendPidTelemetryFields(JsonDocument &doc, Controller *controller, 
     pidLive["kff"] = controller->getPidLiveKff();
     pidLive["out"] = heaterPower;
     pidLive["frozen"] = controller->isPidLiveFrozen() ? 1 : 0;
-    pidLive["pdMuted"] = controller->isPidLivePdMuted() ? 1 : 0;
+    pidLive["zone"] = controller->getPidLiveZone();
     pidLive["kiActive"] = controller->getPidLiveKiActive();
 }
 
@@ -603,13 +603,14 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
             settings->setKffEnabled(request->hasArg("kffEnabled"));
             if (request->hasArg("incomingWaterTempC"))
                 settings->setIncomingWaterTempC(request->arg("incomingWaterTempC").toInt());
-            if (request->hasArg("pidErrorAttenC"))
-                settings->setPidErrorAttenC(request->arg("pidErrorAttenC").toFloat());
-            settings->setPidPdMuteEnabled(request->hasArg("pidPdMuteEnabled"));
-            if (request->hasArg("pidPdMuteAboveC"))
-                settings->setPidPdMuteAboveC(request->arg("pidPdMuteAboveC").toFloat());
-            if (request->hasArg("pidKiAbove"))
-                settings->setPidKiAbove(request->arg("pidKiAbove").toFloat());
+            if (request->hasArg("pidBandBelowC"))
+                settings->setPidBandBelowC(request->arg("pidBandBelowC").toFloat());
+            if (request->hasArg("pidBandAboveC"))
+                settings->setPidBandAboveC(request->arg("pidBandAboveC").toFloat());
+            if (request->hasArg("pidStab"))
+                settings->setPidStab(request->arg("pidStab"));
+            if (request->hasArg("pidCool"))
+                settings->setPidCool(request->arg("pidCool"));
             if (request->hasArg("pumpModelCoeffs"))
                 settings->setPumpModelCoeffs(request->arg("pumpModelCoeffs"));
             if (request->hasArg("wifiSsid"))
@@ -743,10 +744,10 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["pidGraceEnabled"] = settings.isPidGraceEnabled();
     doc["kffEnabled"] = settings.isKffEnabled();
     doc["incomingWaterTempC"] = settings.getIncomingWaterTempC();
-    doc["pidErrorAttenC"] = settings.getPidErrorAttenC();
-    doc["pidPdMuteEnabled"] = settings.isPidPdMuteEnabled();
-    doc["pidPdMuteAboveC"] = settings.getPidPdMuteAboveC();
-    doc["pidKiAbove"] = settings.getPidKiAbove();
+    doc["pidBandBelowC"] = settings.getPidBandBelowC();
+    doc["pidBandAboveC"] = settings.getPidBandAboveC();
+    doc["pidStab"] = settings.getPidStab();
+    doc["pidCool"] = settings.getPidCool();
     doc["pumpModelCoeffs"] = settings.getPumpModelCoeffs();
     doc["wifiSsid"] = settings.getWifiSsid();
     doc["wifiPassword"] = apMode ? "---unchanged---" : settings.getWifiPassword();

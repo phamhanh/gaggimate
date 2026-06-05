@@ -133,7 +133,7 @@ During flow, **`pidFreezeEnabled`** (default on) controls whether P/D latch at a
 
 **Display UI:** Brew screen **±** for inlet temp; dials to **0.1 °C**; stabilizing **↑ / ↓**; **Ready to brew**; **Venting...**; **Freeze grace**.
 
-**BLE PID payload (13 fields):** `Kp,Ki,Kd,Kff,graceMs,kffEnabled,inletWaterTempC,pidFreezeEnabled,pidGraceEnabled,pidErrorAttenC,pidPdMuteEnabled,pidPdMuteAboveC,pidKiAbove` — older display firmware may send fewer fields; controller defaults missing tokens (attenuation 0 = off, P/D mute off). See [`Settings.cpp`](../src/display/core/Settings.cpp) `buildPidBlePayload()`.
+**BLE PID payload (17 fields):** `Kp,Ki,Kd,Kff,graceMs,kffEnabled,inletWaterTempC,pidFreezeEnabled,pidGraceEnabled,pidBandBelowC,pidBandAboveC,stabKp,stabKi,stabKd,coolKp,coolKi,coolKd` — older display firmware may send fewer fields; controller defaults missing zone tokens from heating gains. See [`Settings.cpp`](../src/display/core/Settings.cpp) `buildPidBlePayload()`.
 
 ## What we explored but did not ship
 

@@ -64,56 +64,74 @@ bool SimplePID::update() {
 
     float error = setpointFiltered - *sensorOutput;
 
-    if (!pdMuted) {
-        if (pdMuteEnabled && *sensorOutput > *setpointTarget + pdMuteAboveC) {
-            pdMuted = true;
-            if (pidKiAbove > 0.0f && gainKi > 0.0f) {
-                feedback_integralState *= gainKi / pidKiAbove;
-            }
-        }
-    } else if (!pdMuteEnabled || *sensorOutput <= *setpointTarget + pdMuteAboveC - PD_MUTE_HYSTERESIS_C) {
-        pdMuted = false;
-        if (pidKiAbove > 0.0f && gainKi > 0.0f) {
-            feedback_integralState *= pidKiAbove / gainKi;
-        }
+    // --- 3-zone gain scheduling ---------------------------------------------
+    // Pick the zone from the actual measurement vs the (unfiltered) target and
+    // the configured bands, with hysteresis so we don't chatter at the edges.
+    activeZone = selectZone(*sensorOutput, *setpointTarget, activeZone);
+
+    float kp = gainKp;
+    float ki = gainKi;
+    float kd = gainKd;
+    switch (activeZone) {
+    case PidZone::stabilizing:
+        kp = gainKpStab;
+        ki = gainKiStab;
+        kd = gainKdStab;
+        break;
+    case PidZone::cooling:
+        kp = gainKpCool;
+        ki = gainKiCool;
+        kd = gainKdCool;
+        break;
+    case PidZone::heating:
+    default:
+        break;
     }
 
-    const float activeKi = pdMuted ? pidKiAbove : gainKi;
+    // Bumpless Ki transition: rescale the shared integrator so I = ki * state is
+    // continuous across a zone cross or gain edit. Never reset the integrator.
+    if (ki != lastActiveKi && lastActiveKi > 0.0f && ki > 0.0f) {
+        feedback_integralState *= lastActiveKi / ki;
+    }
+    lastActiveKi = ki;
 
-    const float scale = pdMuted ? 0.0f
-                                : ((errorAttenuationThresholdC <= 0.0f)
-                                       ? 1.0f
-                                       : fminf(1.0f, fabsf(error) / errorAttenuationThresholdC));
+    const bool coolingZone = (activeZone == PidZone::cooling);
 
-    float Pout = pdMuted ? 0.0f : gainKp * error * scale;
+    float Pout = kp * error;
 
     feedback_integralState += error * deltaTime;
-    // Heat-only actuator (min output 0): integral is non-negative steady-state heating bias only.
-    feedback_integralState = fmaxf(0.0f, feedback_integralState);
-    float Iout = activeKi * feedback_integralState;
+    // Heat-only actuator (min output 0): in heating/stabilizing the integral is a
+    // non-negative steady-state heating bias. In cooling we let it unwind (go
+    // negative) so stored-heat overshoot can bleed off — clamp is zone-aware.
+    if (!coolingZone) {
+        feedback_integralState = fmaxf(0.0f, feedback_integralState);
+    }
+    float Iout = ki * feedback_integralState;
 
     // Derivative-on-measurement: avoids derivative kick on setpoint changes.
     // Low-pass filter applied via EMA to attenuate sensor noise before Kd amplifies it.
     float rawDerivative = -(*sensorOutput - prevMeasurement) / deltaTime;
     filteredDerivative = derivFilterAlpha * rawDerivative + (1.0f - derivFilterAlpha) * filteredDerivative;
-    float Dout = pdMuted ? 0.0f : gainKd * filteredDerivative * scale;
+    float Dout = kd * filteredDerivative;
 
     // Calculate the output before antiwindup clamping
     float sumPID = Pout + Iout + Dout + FFOut + DistFFOut;
     float sumPIDsat = constrain(sumPID, ctrlOutputLimits[0], ctrlOutputLimits[1]);
 
-    // Antiwindup clamping
+    // Antiwindup clamping (runs in all zones)
     bool isSaturated = (sumPID < ctrlOutputLimits[0] || sumPID > ctrlOutputLimits[1]); // Check if the output is saturated
     bool isSameSign =
         ((error > 0 && sumPID > 0) || (error < 0 && sumPID < 0)); // Check if the error and output have the same sign
     // Serial.printf("OutputPID: %.2f, Integ out: %.2f\n", sumPIDsat, Iout);
-    if (!pdMuted && isSaturated && isSameSign) {
+    if (isSaturated && isSameSign) {
         // Serial.printf("Antiwindup clamping: %.2f\n", feedback_integralState);
         feedback_integralState -=
             error * deltaTime; // Forbide the integration to happen when the output is saturated and the error is in the same
                                // direction as the output (i.e. the system is not able to follow the setpoint)
-        feedback_integralState = fmaxf(0.0f, feedback_integralState);
-        Iout = activeKi * feedback_integralState;          // Recompute the integral term with the new state
+        if (!coolingZone) {
+            feedback_integralState = fmaxf(0.0f, feedback_integralState);
+        }
+        Iout = ki * feedback_integralState;              // Recompute the integral term with the new state
         sumPID = Pout + Iout + Dout + FFOut + DistFFOut; // Recompute the output with the new integral state
         sumPIDsat = constrain(sumPID, ctrlOutputLimits[0], ctrlOutputLimits[1]);
     }
@@ -168,7 +186,9 @@ void SimplePID::captureFrozenFeedback() {
     // Freeze only the I term: it represents true steady-state power at this setpoint/environment.
     // P and D are transient corrections that depend on the exact moment flow starts — locking them
     // in produces arbitrary shot-to-shot variation. Kff handles the dynamic flow disturbance.
-    frozenPidSum = gainKi * feedback_integralState;
+    // Use the active zone's Ki (latched on the last tick); fall back to heating Ki if never run.
+    const float kiForFreeze = lastActiveKi > 0.0f ? lastActiveKi : gainKi;
+    frozenPidSum = kiForFreeze * feedback_integralState;
 }
 
 void SimplePID::resetFeedbackController() {
@@ -179,6 +199,39 @@ void SimplePID::resetFeedbackController() {
     prevOutput = 0.0f;             // Reset the previous output for derivative calculation
     pidFrozen = false;
     frozenPidSum = 0.0f;
+    activeZone = PidZone::heating; // Re-arm zone scheduler
+    lastActiveKi = 0.0f;           // No prior Ki ⇒ first tick won't rescale integrator
+}
+
+// Zone selection with symmetric hysteresis on both band edges so we don't
+// chatter when CT sits right at a boundary. Bands are relative to the (unfiltered)
+// target TT: heating below TT-bandBelow, cooling above TT+bandAbove, stabilizing
+// in between.
+SimplePID::PidZone SimplePID::selectZone(float ct, float tt, PidZone current) const {
+    const float lowEdge = tt - bandBelowC;
+    const float highEdge = tt + bandAboveC;
+    const float H = ZONE_HYSTERESIS_C;
+    switch (current) {
+    case PidZone::heating:
+        if (ct >= lowEdge + H) {
+            return (ct > highEdge + H) ? PidZone::cooling : PidZone::stabilizing;
+        }
+        return PidZone::heating;
+    case PidZone::cooling:
+        if (ct <= highEdge - H) {
+            return (ct < lowEdge - H) ? PidZone::heating : PidZone::stabilizing;
+        }
+        return PidZone::cooling;
+    case PidZone::stabilizing:
+    default:
+        if (ct < lowEdge - H) {
+            return PidZone::heating;
+        }
+        if (ct > highEdge + H) {
+            return PidZone::cooling;
+        }
+        return PidZone::stabilizing;
+    }
 }
 
 void SimplePID::reset() {
@@ -205,6 +258,23 @@ void SimplePID::setControllerPIDGains(float Kp, float Ki, float Kd, float FF) {
     this->gainKi = Ki;
     this->gainFF = FF;
     this->gainKd = Kd;
+}
+
+void SimplePID::setZoneBands(float belowC, float aboveC) {
+    this->bandBelowC = belowC;
+    this->bandAboveC = aboveC;
+}
+
+void SimplePID::setStabGains(float Kp, float Ki, float Kd) {
+    this->gainKpStab = Kp;
+    this->gainKiStab = Ki;
+    this->gainKdStab = Kd;
+}
+
+void SimplePID::setCoolGains(float Kp, float Ki, float Kd) {
+    this->gainKpCool = Kp;
+    this->gainKiCool = Ki;
+    this->gainKdCool = Kd;
 }
 
 void SimplePID::setSamplingFrequency(float freq) { ctrl_freq_sampling = freq; }

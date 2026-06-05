@@ -52,11 +52,24 @@ function StatGroup({ title, children }) {
   );
 }
 
+function zoneLabel(zone) {
+  switch (zone) {
+    case 0:
+      return 'Heating';
+    case 1:
+      return 'Stabilizing';
+    case 2:
+      return 'Cooling';
+    default:
+      return 'Heating';
+  }
+}
+
 export function PidStatusPanel() {
   const status = machine.value.status;
   const pid = status.pidLive || {};
   const frozen = pid.frozen === 1;
-  const pdMuted = pid.pdMuted === 1;
+  const zone = pid.zone ?? 0;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -78,10 +91,7 @@ export function PidStatusPanel() {
       </StatGroup>
 
       <StatGroup title='Live PID'>
-        <StatRow
-          label='State'
-          badge={frozen ? 'Frozen' : pdMuted ? 'P/D muted' : 'Active'}
-        />
+        <StatRow label='State' badge={frozen ? 'Frozen' : zoneLabel(zone)} />
         <StatRow label='Ki active' value={fmt(pid.kiActive, 3)} />
         <StatRow label='P' value={fmt(pid.p, 2)} />
         <StatRow label='I' value={fmt(pid.i, 2)} />

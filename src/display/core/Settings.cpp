@@ -208,11 +208,25 @@ Settings::Settings() {
     pidGraceEnabled = preferences.getBool("pid_grace_en", true);
     kffEnabled = preferences.getBool("kff_en", true);
     incomingWaterTempC = preferences.getInt("inlet_tw", 23);
-    pidErrorAttenC = preferences.getFloat("pid_atten_c", 0.0f);
-    pidPdMuteEnabled = preferences.getBool("pid_pd_mute_en", false);
-    pidPdMuteAboveC = preferences.getFloat("pid_pd_mute_c", 0.5f);
-    const float kiFromPid = get_token(pid, 1, ',').toFloat();
-    pidKiAbove = preferences.getFloat("pid_ki_above", kiFromPid > 0.0f ? kiFromPid : 0.27f);
+    pidBandBelowC = preferences.getFloat("pid_band_below", 0.3f);
+    pidBandAboveC = preferences.getFloat("pid_band_above", 0.5f);
+    pidStab = preferences.getString("pid_stab", "");
+    pidCool = preferences.getString("pid_cool", "");
+    // First boot / migration: derive stab + cool gain triplets from the stored
+    // heating gains when NVS has none yet (see docs/this-fork.md 3-zone PID).
+    const float heatKp = get_token(pid, 0, ',').toFloat();
+    const float heatKi = get_token(pid, 1, ',').toFloat();
+    const float heatKd = get_token(pid, 2, ',').toFloat();
+    if (pidStab.length() == 0) {
+        char buf[48];
+        snprintf(buf, sizeof(buf), "%.4f,%.4f,%.4f", 0.5f * heatKp, heatKi, 0.3f * heatKd);
+        pidStab = String(buf);
+    }
+    if (pidCool.length() == 0) {
+        char buf[48];
+        snprintf(buf, sizeof(buf), "%.4f,%.4f,%.4f", 0.3f * heatKp, heatKi < 0.27f ? heatKi : 0.27f, 0.0f);
+        pidCool = String(buf);
+    }
 
     preferences.end();
 
@@ -591,23 +605,23 @@ void Settings::setIncomingWaterTempC(const int tempC) {
     save();
 }
 
-void Settings::setPidErrorAttenC(const float attenC) {
-    pidErrorAttenC = constrain(attenC, 0.0f, 5.0f);
+void Settings::setPidBandBelowC(const float belowC) {
+    pidBandBelowC = constrain(belowC, 0.0f, 20.0f);
     save();
 }
 
-void Settings::setPidPdMuteEnabled(const bool enabled) {
-    pidPdMuteEnabled = enabled;
+void Settings::setPidBandAboveC(const float aboveC) {
+    pidBandAboveC = constrain(aboveC, 0.0f, 20.0f);
     save();
 }
 
-void Settings::setPidPdMuteAboveC(const float aboveC) {
-    pidPdMuteAboveC = constrain(aboveC, 0.0f, 10.0f);
+void Settings::setPidStab(const String &stab) {
+    pidStab = stab;
     save();
 }
 
-void Settings::setPidKiAbove(const float ki) {
-    pidKiAbove = constrain(ki, 0.0f, 1000.0f);
+void Settings::setPidCool(const String &cool) {
+    pidCool = cool;
     save();
 }
 
@@ -632,24 +646,24 @@ String Settings::buildPidBlePayload() const {
     if (kfToken.length() > 0) {
         Kff = kfToken.toFloat();
     }
-    if (!kffEnabled) {
-        Kff = 0.0f;
-    }
-    char buffer[160];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f,%d,%.1f,%.3f", Kp, Ki, Kd, Kff,
-             pidFreezeGraceMs, kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0,
-             pidErrorAttenC, pidPdMuteEnabled ? 1 : 0, pidPdMuteAboveC, pidKiAbove);
-    return String(buffer);
+    return buildPidBlePayloadFromGains(Kp, Ki, Kd, Kff);
 }
 
 String Settings::buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float Kff) const {
     if (!kffEnabled) {
         Kff = 0.0f;
     }
-    char buffer[160];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.1f,%d,%.1f,%.3f", Kp, Ki, Kd, Kff,
+    const float stabKp = get_token(pidStab, 0, ',').toFloat();
+    const float stabKi = get_token(pidStab, 1, ',').toFloat();
+    const float stabKd = get_token(pidStab, 2, ',').toFloat();
+    const float coolKp = get_token(pidCool, 0, ',').toFloat();
+    const float coolKi = get_token(pidCool, 1, ',').toFloat();
+    const float coolKd = get_token(pidCool, 2, ',').toFloat();
+    char buffer[224];
+    snprintf(buffer, sizeof(buffer),
+             "%.3f,%.3f,%.3f,%.3f,%lu,%d,%d,%d,%d,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f", Kp, Ki, Kd, Kff,
              pidFreezeGraceMs, kffEnabled ? 1 : 0, incomingWaterTempC, pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0,
-             pidErrorAttenC, pidPdMuteEnabled ? 1 : 0, pidPdMuteAboveC, pidKiAbove);
+             pidBandBelowC, pidBandAboveC, stabKp, stabKi, stabKd, coolKp, coolKi, coolKd);
     return String(buffer);
 }
 
@@ -740,10 +754,10 @@ void Settings::doSave() {
     preferences.putBool("pid_grace_en", pidGraceEnabled);
     preferences.putBool("kff_en", kffEnabled);
     preferences.putInt("inlet_tw", incomingWaterTempC);
-    preferences.putFloat("pid_atten_c", pidErrorAttenC);
-    preferences.putBool("pid_pd_mute_en", pidPdMuteEnabled);
-    preferences.putFloat("pid_pd_mute_c", pidPdMuteAboveC);
-    preferences.putFloat("pid_ki_above", pidKiAbove);
+    preferences.putFloat("pid_band_below", pidBandBelowC);
+    preferences.putFloat("pid_band_above", pidBandAboveC);
+    preferences.putString("pid_stab", pidStab);
+    preferences.putString("pid_cool", pidCool);
 
     preferences.end();
 }

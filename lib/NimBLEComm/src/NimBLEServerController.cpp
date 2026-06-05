@@ -93,13 +93,13 @@ void NimBLEServerController::loop() {
 
 void NimBLEServerController::sendSensorData(float temperature, float pressure, float puckFlow, float pumpFlow,
                                             float puckResistance, float pumpPower, float heaterPower, float pidP,
-                                            float pidI, float pidD, float kffOut, bool pidFrozen, bool pdMuted,
+                                            float pidI, float pidD, float kffOut, bool pidFrozen, int pidZone,
                                             float kiActive) {
     if (deviceConnected && sensorChar != nullptr) {
         snprintf(sensorDataBuffer, sizeof(sensorDataBuffer),
                  "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%.3f", temperature, pressure, puckFlow,
                  pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI, pidD, kffOut, pidFrozen ? 1 : 0,
-                 pdMuted ? 1 : 0, kiActive);
+                 pidZone, kiActive);
         sensorChar->setValue(sensorDataBuffer);
         sensorChar->notify();
     }
@@ -295,40 +295,67 @@ void NimBLEServerController::onWrite(NimBLECharacteristic *pCharacteristic) {
             pidGraceEnabled = pidGraceEnabledToken.toInt() != 0;
         }
 
-        float pidErrorAttenC = 0.0f;
-        String pidErrorAttenToken = get_token(pid, 9, ',');
-        if (pidErrorAttenToken.length() > 0) {
-            pidErrorAttenC = pidErrorAttenToken.toFloat();
+        // 3-zone idle PID tokens (9-16). Older display firmware omits these; in
+        // that case derive sensible defaults from the heating gains so the
+        // scheduler still has usable stab/cool triplets.
+        float bandBelowC = 0.3f;
+        String bandBelowToken = get_token(pid, 9, ',');
+        if (bandBelowToken.length() > 0) {
+            bandBelowC = bandBelowToken.toFloat();
         }
 
-        bool pidPdMuteEnabled = false;
-        String pidPdMuteEnabledToken = get_token(pid, 10, ',');
-        if (pidPdMuteEnabledToken.length() > 0) {
-            pidPdMuteEnabled = pidPdMuteEnabledToken.toInt() != 0;
+        float bandAboveC = 0.5f;
+        String bandAboveToken = get_token(pid, 10, ',');
+        if (bandAboveToken.length() > 0) {
+            bandAboveC = bandAboveToken.toFloat();
         }
 
-        float pidPdMuteAboveC = 0.5f;
-        String pidPdMuteAboveToken = get_token(pid, 11, ',');
-        if (pidPdMuteAboveToken.length() > 0) {
-            pidPdMuteAboveC = pidPdMuteAboveToken.toFloat();
+        float stabKp = 0.5f * Kp;
+        String stabKpToken = get_token(pid, 11, ',');
+        if (stabKpToken.length() > 0) {
+            stabKp = stabKpToken.toFloat();
         }
 
-        float pidKiAbove = Ki > 0.0f ? Ki : 0.27f;
-        String pidKiAboveToken = get_token(pid, 12, ',');
-        if (pidKiAboveToken.length() > 0) {
-            pidKiAbove = pidKiAboveToken.toFloat();
+        float stabKi = Ki;
+        String stabKiToken = get_token(pid, 12, ',');
+        if (stabKiToken.length() > 0) {
+            stabKi = stabKiToken.toFloat();
+        }
+
+        float stabKd = 0.3f * Kd;
+        String stabKdToken = get_token(pid, 13, ',');
+        if (stabKdToken.length() > 0) {
+            stabKd = stabKdToken.toFloat();
+        }
+
+        float coolKp = 0.3f * Kp;
+        String coolKpToken = get_token(pid, 14, ',');
+        if (coolKpToken.length() > 0) {
+            coolKp = coolKpToken.toFloat();
+        }
+
+        float coolKi = Ki < 0.27f ? Ki : 0.27f;
+        String coolKiToken = get_token(pid, 15, ',');
+        if (coolKiToken.length() > 0) {
+            coolKi = coolKiToken.toFloat();
+        }
+
+        float coolKd = 0.0f;
+        String coolKdToken = get_token(pid, 16, ',');
+        if (coolKdToken.length() > 0) {
+            coolKd = coolKdToken.toFloat();
         }
 
         ESP_LOGI(LOG_TAG, "BLE received PID string: '%s'", pid.c_str());
         ESP_LOGI(LOG_TAG,
                  "Parsed PID: Kp=%.2f, Ki=%.2f, Kd=%.2f, Kf=%.3f grace=%lu kffEn=%d inlet=%.0f frzEn=%d graceEn=%d "
-                 "atten=%.1f pdMuteEn=%d pdMuteAbove=%.1f kiAbove=%.3f",
+                 "bandBelow=%.2f bandAbove=%.2f stab=(%.2f,%.2f,%.2f) cool=(%.2f,%.2f,%.2f)",
                  Kp, Ki, Kd, Kf, static_cast<unsigned long>(pidFreezeGraceMs), kffEnabled ? 1 : 0, incomingWaterTempC,
-                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, pidErrorAttenC, pidPdMuteEnabled ? 1 : 0,
-                 pidPdMuteAboveC, pidKiAbove);
+                 pidFreezeEnabled ? 1 : 0, pidGraceEnabled ? 1 : 0, bandBelowC, bandAboveC, stabKp, stabKi, stabKd,
+                 coolKp, coolKi, coolKd);
         if (pidSettingsCallback != nullptr) {
             pidSettingsCallback(Kp, Ki, Kd, Kf, pidFreezeGraceMs, kffEnabled, incomingWaterTempC, pidFreezeEnabled,
-                                pidGraceEnabled, pidErrorAttenC, pidPdMuteEnabled, pidPdMuteAboveC, pidKiAbove);
+                                pidGraceEnabled, bandBelowC, bandAboveC, stabKp, stabKi, stabKd, coolKp, coolKi, coolKd);
         }
     } else if (pCharacteristic->getUUID().equals(NimBLEUUID(PUMP_MODEL_COEFFS_CHAR_UUID))) {
         auto pumpModelCoeffs = String(pCharacteristic->getValue().c_str());

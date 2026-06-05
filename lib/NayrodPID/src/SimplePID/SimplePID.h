@@ -7,9 +7,21 @@
 
 class SimplePID {
   public:
+    // 3-zone gain scheduler. Zone is chosen from CT relative to TT and the
+    // configurable bands; one shared integrator is carried across zones with a
+    // bumpless Ki transition (see update()).
+    enum class PidZone : uint8_t { heating = 0, stabilizing = 1, cooling = 2 };
+
     SimplePID(float *controlerOutput = nullptr, float *sensorOutput = nullptr, float *setpointTargetPtr = nullptr);
     bool update();
+    /** Heating-zone PID gains (full aggressive set) + feedforward gain. */
     void setControllerPIDGains(float Kp, float Ki, float Kd, float FF);
+    /** Zone band thresholds (°C). Heating below TT-below, cooling above TT+above. */
+    void setZoneBands(float belowC, float aboveC);
+    /** Stabilizing-zone PID gains (near setpoint). */
+    void setStabGains(float Kp, float Ki, float Kd);
+    /** Cooling-zone PID gains (above setpoint; integral allowed to unwind). */
+    void setCoolGains(float Kp, float Ki, float Kd);
     void resetFeedbackController();
     void setSamplingFrequency(float freq);
     void setCtrlOutputLimits(float minOutput, float maxOutput);
@@ -54,10 +66,6 @@ class SimplePID {
      *  Lower values = more smoothing, e.g. 0.1 strongly attenuates sample-to-sample noise. */
     void setDerivativeFilterAlpha(float alpha) { derivFilterAlpha = alpha; }
 
-    /** Near-target P/D softening (°C). Scales P and D by min(1, |error|/threshold); 0 = off. */
-    void setErrorAttenuationThreshold(float c) { errorAttenuationThresholdC = c; }
-    float getErrorAttenuationThreshold() const { return errorAttenuationThresholdC; }
-
     /** Snapshot P+I+D at latch time; caller enables freeze via setPidFrozen(). */
     void captureFrozenFeedback();
     void setPidFrozen(bool frozen) { pidFrozen = frozen; }
@@ -71,15 +79,14 @@ class SimplePID {
     /** Disturbance feedforward output from the last PID tick. */
     float getLastKffOut() const { return lastDistFFOut; }
 
-    /** When CT > TT + X, zero P/D and use pidKiAbove for I (optional). */
-    void setPdMuteEnabled(bool enabled) { pdMuteEnabled = enabled; }
-    void setPdMuteAboveC(float c) { pdMuteAboveC = c; }
-    void setPidKiAbove(float ki) { pidKiAbove = ki; }
-    bool isPdMuted() const { return pdMuted; }
-    float getActiveKi() const { return pdMuted ? pidKiAbove : gainKi; }
+    /** Active zone selected on the last tick (0=heating, 1=stabilizing, 2=cooling). */
+    int getActiveZone() const { return static_cast<int>(activeZone); }
+    /** Ki of the active zone on the last tick (telemetry / freeze latch). */
+    float getActiveKi() const { return lastActiveKi; }
 
   private:
-    static constexpr float PD_MUTE_HYSTERESIS_C = 0.3f;
+    static constexpr float ZONE_HYSTERESIS_C = 0.3f;
+    PidZone selectZone(float ct, float tt, PidZone current) const;
     // setpoint filtering
     void setpointFiltering(float freq);
     bool isfilterSetpointActive = false;          // Flag to activate/deactivate the setpoint filter
@@ -97,10 +104,26 @@ class SimplePID {
     float ctrlOutputLimits[2] = {-INFINITY, INFINITY}; // Control output limits {lower, upper}
     float ctrl_freq_sampling = 1.0f;                   // Control frequency (Hz)
     bool isInitialized = false;                        // Flag to check if the controller is initialized
+    // Heating-zone gains (full aggressive set; also the autotune target).
     float gainKp = 0.0f;                               // Proportional gain
     float gainKi = 0.0f; // Integral gain (multiplies by Kp if Kp,Ki,Kd are strictly parallèle (no factoring by Kp))
     float gainKd = 0.0f; // Derivative gain (by default no derivative term)
     float gainFF = 0.5 * 1000.0f / 2.5f; // Feedforward gain
+
+    // Stabilizing-zone gains (near setpoint).
+    float gainKpStab = 0.0f;
+    float gainKiStab = 0.0f;
+    float gainKdStab = 0.0f;
+    // Cooling-zone gains (above setpoint).
+    float gainKpCool = 0.0f;
+    float gainKiCool = 0.0f;
+    float gainKdCool = 0.0f;
+
+    // Zone scheduling state.
+    float bandBelowC = 0.3f;                  // Heating when CT < TT - bandBelowC
+    float bandAboveC = 0.5f;                  // Cooling when CT > TT + bandAboveC
+    PidZone activeZone = PidZone::heating;    // Zone selected on the last tick
+    float lastActiveKi = 0.0f;                // Ki applied on the last tick (bumpless transitions)
 
     // Disturbance feedforward variables
     float gainDistFF = 0.0f;                     // Disturbance feedforward gain
@@ -114,11 +137,6 @@ class SimplePID {
     float prevMeasurement = 0.0f;         // Previous measurement for derivative-on-measurement
     float filteredDerivative = 0.0f;      // Low-pass filtered derivative term
     float derivFilterAlpha = 1.0f;        // EMA alpha for derivative filter: 1.0 = no filter, lower = smoother
-    float errorAttenuationThresholdC = 0.0f; // Near-target P/D scale; 0 = disabled
-    bool pdMuteEnabled = false;
-    float pdMuteAboveC = 0.5f;
-    float pidKiAbove = 0.27f;
-    bool pdMuted = false;
     float prevOutput = 0.0f;             // Previous output for derivative calculation
     float lastPout = 0.0f;
     float lastIout = 0.0f;

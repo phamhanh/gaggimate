@@ -195,10 +195,10 @@ class Settings {
     bool isPidGraceEnabled() const { return pidGraceEnabled; }
     bool isKffEnabled() const { return kffEnabled; }
     int getIncomingWaterTempC() const { return incomingWaterTempC; }
-    float getPidErrorAttenC() const { return pidErrorAttenC; }
-    bool isPidPdMuteEnabled() const { return pidPdMuteEnabled; }
-    float getPidPdMuteAboveC() const { return pidPdMuteAboveC; }
-    float getPidKiAbove() const { return pidKiAbove; }
+    float getPidBandBelowC() const { return pidBandBelowC; }
+    float getPidBandAboveC() const { return pidBandAboveC; }
+    String getPidStab() const { return pidStab; }
+    String getPidCool() const { return pidCool; }
     void setVentEnabled(bool enabled);
     void setVentPressureBar(float bar);
     void setVentPressureLowBar(float bar);
@@ -209,11 +209,12 @@ class Settings {
     void setPidGraceEnabled(bool enabled);
     void setKffEnabled(bool enabled);
     void setIncomingWaterTempC(int tempC);
-    void setPidErrorAttenC(float attenC);
-    void setPidPdMuteEnabled(bool enabled);
-    void setPidPdMuteAboveC(float aboveC);
-    void setPidKiAbove(float ki);
-    /** BLE PID payload (Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletC,pidFreezeEn,pidGraceEn,pidErrorAttenC,pdMuteEn,pdMuteAbove,kiAbove). */
+    void setPidBandBelowC(float belowC);
+    void setPidBandAboveC(float aboveC);
+    void setPidStab(const String &stab);
+    void setPidCool(const String &cool);
+    /** BLE PID payload: Kp,Ki,Kd,Kff,grace ms,kffEnabled,inletC,pidFreezeEn,pidGraceEn,
+     *  bandBelowC,bandAboveC,stabKp,stabKi,stabKd,coolKp,coolKi,coolKd (17 tokens). */
     String buildPidBlePayload() const;
     String buildPidBlePayloadFromGains(float Kp, float Ki, float Kd, float Kff) const;
     /** BLE pump model payload: flow@1bar, flow@9bar (dimmed pump). */
@@ -297,10 +298,11 @@ class Settings {
     bool pidGraceEnabled = true;
     bool kffEnabled = true;
     int incomingWaterTempC = 23;
-    float pidErrorAttenC = 0.0f;
-    bool pidPdMuteEnabled = false;
-    float pidPdMuteAboveC = 0.5f;
-    float pidKiAbove = 0.27f;
+    // 3-zone idle PID. Heating gains live in `pid`; stab/cool are "Kp,Ki,Kd" strings.
+    float pidBandBelowC = 0.3f;
+    float pidBandAboveC = 0.5f;
+    String pidStab = "";
+    String pidCool = "";
 
     void doSave();
     xTaskHandle taskHandle;

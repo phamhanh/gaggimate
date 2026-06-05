@@ -204,7 +204,7 @@ export default class ApiService {
       pidKff: pid.kff ?? 0,
       pidOut: pid.out ?? message.heaterPower ?? message.out ?? 0,
       pidFrozen: pid.frozen ?? 0,
-      pidPdMuted: pid.pdMuted ?? 0,
+      pidZone: pid.zone ?? 0,
       pidKiActive: pid.kiActive ?? 0,
     };
     delete historyEntry.process;
