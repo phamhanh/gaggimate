@@ -7,9 +7,11 @@ alwaysApply: true
 
 ## Hardware
 
+- **Machine:** Iberital Express (~25 years old; predecessor of the Lelit Anna), Gaggimate-controlled.
+- **Basket:** 57 mm **stock** single-wall basket (same family as Lelit Anna stock; not an 18 g aftermarket basket).
 - **Grinder logic:** Base-5 scale (e.g. 5.3 → 5.4 → … → 6.0).
 - **Grinder resolution:** 8 µm per tick.
-- **Dose limit:** 16 g absolute maximum (18 g contacts the group head).
+- **Dose limit:** Stock ~14 g nominal basket; **16 g is over-dosing** (puck sticking to shower screen, uneven extraction). Prefer **14–15 g** in; adjust yield to keep ~2:1 unless chasing body at lower ratio.
 
 ## Thermal Dynamics & Sensor Bias
 
