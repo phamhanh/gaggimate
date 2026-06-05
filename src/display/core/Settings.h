@@ -11,7 +11,8 @@
 #define PREFERENCES_KEY "controller"
 
 struct AutoWakeupSchedule {
-    String time;    // HH:MM format
+    String time;    // HH:MM start (legacy: point-wakeup time when endTime empty)
+    String endTime; // HH:MM end; empty = legacy point-wakeup only
     bool days[7]{}; // [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
 
     AutoWakeupSchedule() : time("07:00") {
@@ -41,6 +42,16 @@ struct AutoWakeupSchedule {
             days[dayOfWeek - 1] = enabled;
         }
     }
+
+    [[nodiscard]] bool hasWindow() const { return endTime.length() > 0; }
+
+    [[nodiscard]] bool isInWindow(int dayOfWeek, int minutesSinceMidnight) const;
+
+    static int parseTimeToMinutes(const String &hhmm);
+    static bool isDaysString(const String &s);
+    static bool parseScheduleString(const String &scheduleStr, AutoWakeupSchedule &out);
+
+    [[nodiscard]] String serialize() const;
 };
 
 class Settings;
@@ -112,6 +123,7 @@ class Settings {
     int getAltRelayFunction() const { return altRelayFunction; }
     bool isAutoWakeupEnabled() const { return autowakeupEnabled; }
     std::vector<AutoWakeupSchedule> getAutoWakeupSchedules() const { return autowakeupSchedules; }
+    bool isCurrentlyInReadyWindow() const;
     void setTargetSteamTemp(int target_steam_temp);
     void setTargetWaterTemp(int target_water_temp);
     void setTemperatureOffset(int temperature_offset);

@@ -45,6 +45,7 @@ Firmware changes vs upstream:
 - Debounce runtime disconnects before falling back to AP
 - Restart mDNS when Wi‑Fi reconnects
 - Wi‑Fi status on **Settings** and in `evt:status` so I can see what the display thinks is happening
+- **Ready time windows** — upstream auto-wakeup only fires a point-in-time switch to brew mode when already in standby. I need the machine **continuously heated** through daily service windows (e.g. 07:30–10:30 and 12:30–13:30) without mid-window sleep/reheat gaps. Schedules now support `start|end|days`; inside a window the idle standby timeout is suppressed, the machine stays in brew mode, and it returns to standby at window end. Legacy `start|days` entries still do one-shot point wakeups only.
 
 ## Temperature during shots (the big firmware change)
 

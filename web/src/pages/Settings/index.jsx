@@ -78,7 +78,7 @@ export function Settings() {
   const [currentTheme, setCurrentTheme] = useState('light');
   const [showWifiPassword, setShowWifiPassword] = useState(false);
   const [autowakeupSchedules, setAutoWakeupSchedules] = useState([
-    { time: '07:00', days: [true, true, true, true, true, true, true] }, // Default: all days enabled
+    { time: '07:00', endTime: '08:00', days: [true, true, true, true, true, true, true] },
   ]);
   const { isLoading, data: fetchedSettings } = useQuery(`settings/${gen}`, async () => {
     const response = await fetch(`/api/settings`);
@@ -125,9 +125,7 @@ export function Settings() {
       const pumpSplit = splitPumpModelCoeffs(fetchedSettings.pumpModelCoeffs);
       settingsWithToggle.pumpFlow1Bar = pumpSplit.pumpFlow1Bar;
       settingsWithToggle.pumpFlow9Bar = pumpSplit.pumpFlow9Bar;
-      // Initialize auto-wakeup schedules
       if (fetchedSettings.autowakeupSchedules) {
-        // Parse new schedule format: "time1|days1;time2|days2"
         const schedules = [];
         if (
           typeof fetchedSettings.autowakeupSchedules === 'string' &&
@@ -135,27 +133,41 @@ export function Settings() {
         ) {
           const scheduleStrings = fetchedSettings.autowakeupSchedules.split(';');
           for (const scheduleStr of scheduleStrings) {
-            const [time, daysStr] = scheduleStr.split('|');
-            if (time && daysStr && daysStr.length === 7) {
-              const days = daysStr.split('').map(d => d === '1');
-              schedules.push({ time, days });
+            const parts = scheduleStr.split('|');
+            if (parts.length === 3 && parts[2].length === 7) {
+              schedules.push({
+                time: parts[0],
+                endTime: parts[1],
+                days: parts[2].split('').map(d => d === '1'),
+              });
+            } else if (parts.length === 2 && parts[1].length === 7) {
+              schedules.push({
+                time: parts[0],
+                days: parts[1].split('').map(d => d === '1'),
+              });
             }
           }
         }
         if (schedules.length === 0) {
-          schedules.push({ time: '07:00', days: [true, true, true, true, true, true, true] });
+          schedules.push({
+            time: '07:00',
+            endTime: '08:00',
+            days: [true, true, true, true, true, true, true],
+          });
         }
         setAutoWakeupSchedules(schedules);
       } else {
         setAutoWakeupSchedules([
-          { time: '07:00', days: [true, true, true, true, true, true, true] },
+          { time: '07:00', endTime: '08:00', days: [true, true, true, true, true, true, true] },
         ]);
       }
 
       setFormData(settingsWithToggle);
     } else {
       setFormData({});
-      setAutoWakeupSchedules([{ time: '07:00', days: [true, true, true, true, true, true, true] }]);
+      setAutoWakeupSchedules([
+        { time: '07:00', endTime: '08:00', days: [true, true, true, true, true, true, true] },
+      ]);
     }
   }, [fetchedSettings]);
 
@@ -237,6 +249,7 @@ export function Settings() {
       ...autowakeupSchedules,
       {
         time: '07:00',
+        endTime: '08:00',
         days: [true, true, true, true, true, true, true],
       },
     ]);
@@ -252,6 +265,12 @@ export function Settings() {
   const updateAutoWakeupTime = (index, value) => {
     const newSchedules = [...autowakeupSchedules];
     newSchedules[index].time = value;
+    setAutoWakeupSchedules(newSchedules);
+  };
+
+  const updateAutoWakeupEndTime = (index, value) => {
+    const newSchedules = [...autowakeupSchedules];
+    newSchedules[index].endTime = value;
     setAutoWakeupSchedules(newSchedules);
   };
 
@@ -279,9 +298,14 @@ export function Settings() {
         formDataToSubmit.set('pid', combinedPid);
       }
 
-      // Add auto-wakeup schedules
       const schedulesStr = autowakeupSchedules
-        .map(schedule => `${schedule.time}|${schedule.days.map(d => (d ? '1' : '0')).join('')}`)
+        .map(schedule => {
+          const days = schedule.days.map(d => (d ? '1' : '0')).join('');
+          if (schedule.endTime) {
+            return `${schedule.time}|${schedule.endTime}|${days}`;
+          }
+          return `${schedule.time}|${days}`;
+        })
         .join(';');
       formDataToSubmit.set('autowakeupSchedules', schedulesStr);
 
@@ -1552,6 +1576,7 @@ export function Settings() {
               addAutoWakeupSchedule={addAutoWakeupSchedule}
               removeAutoWakeupSchedule={removeAutoWakeupSchedule}
               updateAutoWakeupTime={updateAutoWakeupTime}
+              updateAutoWakeupEndTime={updateAutoWakeupEndTime}
               updateAutoWakeupDay={updateAutoWakeupDay}
             />
           </Card>

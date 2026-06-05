@@ -9,13 +9,14 @@ export function PluginCard({
   addAutoWakeupSchedule,
   removeAutoWakeupSchedule,
   updateAutoWakeupTime,
+  updateAutoWakeupEndTime,
   updateAutoWakeupDay,
 }) {
   return (
     <div className='space-y-4'>
       <div className='bg-base-200 rounded-lg p-4'>
         <div className='flex items-center justify-between'>
-          <span className='text-xl font-medium'>Automatic Wakeup Schedule</span>
+          <span className='text-xl font-medium'>Ready Time Windows</span>
           <input
             id='autowakeupEnabled'
             name='autowakeupEnabled'
@@ -30,20 +31,30 @@ export function PluginCard({
         {formData.autowakeupEnabled && (
           <div className='border-base-300 mt-4 space-y-4 border-t pt-4'>
             <p className='text-sm opacity-70'>
-              Automatically switch to brew mode at specified time(s) of day.
+              Machine stays ready between start and end; standby timeout is ignored during each
+              window.
             </p>
             <div className='form-control'>
-              <label className='mb-2 block text-sm font-medium'>Auto Wakeup Schedule</label>
+              <label className='mb-2 block text-sm font-medium'>Ready windows</label>
               <div className='space-y-2'>
                 {autowakeupSchedules?.map((schedule, scheduleIndex) => (
                   <div key={scheduleIndex} className='flex flex-wrap items-center gap-1'>
-                    {/* Time input */}
                     <input
                       type='time'
                       className='input input-bordered input-sm w-auto min-w-0 pr-6'
                       value={schedule.time}
                       onChange={e => updateAutoWakeupTime(scheduleIndex, e.target.value)}
                       disabled={!formData.autowakeupEnabled}
+                      aria-label='Window start time'
+                    />
+                    <span className='text-sm opacity-60'>to</span>
+                    <input
+                      type='time'
+                      className='input input-bordered input-sm w-auto min-w-0 pr-6'
+                      value={schedule.endTime || ''}
+                      onChange={e => updateAutoWakeupEndTime(scheduleIndex, e.target.value)}
+                      disabled={!formData.autowakeupEnabled}
+                      aria-label='Window end time'
                     />
 
                     {/* Days toggle buttons */}

@@ -529,7 +529,8 @@ void Controller::loop() {
 
     if (grindActiveUntil != 0 && now > grindActiveUntil)
         deactivateGrind();
-    if (mode != MODE_STANDBY && settings.getStandbyTimeout() > 0 && now > lastAction + settings.getStandbyTimeout())
+    if (mode != MODE_STANDBY && settings.getStandbyTimeout() > 0 && !settings.isCurrentlyInReadyWindow() &&
+        now > lastAction + settings.getStandbyTimeout())
         activateStandby();
 
     if (isApConnection && !staRetryExhausted && settings.getWifiSsid() != "" && settings.getWifiPassword() != "") {

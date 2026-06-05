@@ -2,7 +2,111 @@
 
 #include <NimBLEComm.h>
 #include <algorithm>
+#include <ctime>
 #include <utility>
+
+int AutoWakeupSchedule::parseTimeToMinutes(const String &hhmm) {
+    if (hhmm.length() != 5 || hhmm.charAt(2) != ':')
+        return -1;
+    const int hours = hhmm.substring(0, 2).toInt();
+    const int minutes = hhmm.substring(3, 5).toInt();
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59)
+        return -1;
+    return hours * 60 + minutes;
+}
+
+bool AutoWakeupSchedule::isDaysString(const String &s) {
+    if (s.length() != 7)
+        return false;
+    for (unsigned i = 0; i < 7; i++) {
+        const char c = s.charAt(i);
+        if (c != '0' && c != '1')
+            return false;
+    }
+    return true;
+}
+
+bool AutoWakeupSchedule::parseScheduleString(const String &scheduleStr, AutoWakeupSchedule &out) {
+    const int firstPipe = scheduleStr.indexOf('|');
+    if (firstPipe == -1)
+        return false;
+
+    const String startStr = scheduleStr.substring(0, firstPipe);
+    if (parseTimeToMinutes(startStr) < 0)
+        return false;
+
+    const String remainder = scheduleStr.substring(firstPipe + 1);
+    const int secondPipe = remainder.indexOf('|');
+
+    AutoWakeupSchedule schedule;
+    schedule.time = startStr;
+
+    if (secondPipe == -1) {
+        if (!isDaysString(remainder))
+            return false;
+        for (int i = 0; i < 7; i++)
+            schedule.days[i] = (remainder.charAt(i) == '1');
+    } else {
+        const String endStr = remainder.substring(0, secondPipe);
+        const String daysStr = remainder.substring(secondPipe + 1);
+        if (!isDaysString(daysStr))
+            return false;
+        const int startMin = parseTimeToMinutes(startStr);
+        const int endMin = parseTimeToMinutes(endStr);
+        if (endMin <= startMin)
+            return false;
+        schedule.endTime = endStr;
+        for (int i = 0; i < 7; i++)
+            schedule.days[i] = (daysStr.charAt(i) == '1');
+    }
+
+    out = schedule;
+    return true;
+}
+
+String AutoWakeupSchedule::serialize() const {
+    String result = time;
+    if (hasWindow())
+        result += "|" + endTime;
+    result += "|";
+    for (int i = 0; i < 7; i++)
+        result += days[i] ? "1" : "0";
+    return result;
+}
+
+bool AutoWakeupSchedule::isInWindow(const int dayOfWeek, const int minutesSinceMidnight) const {
+    if (!hasWindow() || !isDayEnabled(dayOfWeek))
+        return false;
+    const int start = parseTimeToMinutes(time);
+    const int end = parseTimeToMinutes(endTime);
+    if (start < 0 || end < 0 || end <= start)
+        return false;
+    return minutesSinceMidnight >= start && minutesSinceMidnight < end;
+}
+
+bool Settings::isCurrentlyInReadyWindow() const {
+    if (!autowakeupEnabled)
+        return false;
+
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    if (timeinfo.tm_year <= (2020 - 1900))
+        return false;
+
+    int dayOfWeek = timeinfo.tm_wday;
+    if (dayOfWeek == 0)
+        dayOfWeek = 7;
+
+    const int minutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+
+    for (const AutoWakeupSchedule &schedule : autowakeupSchedules) {
+        if (schedule.isInWindow(dayOfWeek, minutes))
+            return true;
+    }
+    return false;
+}
 
 Settings::Settings() {
     preferences.begin(PREFERENCES_KEY, true);
@@ -52,7 +156,7 @@ Settings::Settings() {
     historyIndex = preferences.getInt("hi", 0);
     autowakeupEnabled = preferences.getBool("ab_en", false);
 
-    // Load schedule format: "time1|days1;time2|days2" where days is 7-bit string (e.g., "1111100" for weekdays only)
+    // Load schedule format: "start|days" (legacy) or "start|end|days"; semicolon-separated
     String schedulesStr = preferences.getString("ab_schedules", "");
     autowakeupSchedules.clear();
 
@@ -61,24 +165,11 @@ Settings::Settings() {
         int end = schedulesStr.indexOf(';');
 
         while (end != -1 || start < schedulesStr.length()) {
-            String scheduleStr = (end != -1) ? schedulesStr.substring(start, end) : schedulesStr.substring(start);
+            const String scheduleStr = (end != -1) ? schedulesStr.substring(start, end) : schedulesStr.substring(start);
 
-            int pipePos = scheduleStr.indexOf('|');
-            if (pipePos != -1) {
-                String timeStr = scheduleStr.substring(0, pipePos);
-                String daysStr = scheduleStr.substring(pipePos + 1);
-
-                AutoWakeupSchedule schedule;
-                schedule.time = timeStr;
-
-                if (daysStr.length() == 7) {
-                    for (int i = 0; i < 7; i++) {
-                        schedule.days[i] = (daysStr.charAt(i) == '1');
-                    }
-                }
-
+            AutoWakeupSchedule schedule;
+            if (AutoWakeupSchedule::parseScheduleString(scheduleStr, schedule))
                 autowakeupSchedules.push_back(schedule);
-            }
 
             if (end == -1)
                 break;
@@ -615,17 +706,11 @@ void Settings::doSave() {
     preferences.putInt("hi", historyIndex);
     preferences.putBool("ab_en", autowakeupEnabled);
 
-    // Save schedule format
     String schedulesForSave = "";
     for (size_t i = 0; i < autowakeupSchedules.size(); i++) {
         if (i > 0)
             schedulesForSave += ";";
-        schedulesForSave += autowakeupSchedules[i].time + "|";
-
-        // Convert days array to 7-bit string
-        for (int j = 0; j < 7; j++) {
-            schedulesForSave += autowakeupSchedules[i].days[j] ? "1" : "0";
-        }
+        schedulesForSave += autowakeupSchedules[i].serialize();
     }
     preferences.putString("ab_schedules", schedulesForSave);
 

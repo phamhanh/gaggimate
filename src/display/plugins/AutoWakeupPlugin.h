@@ -20,9 +20,11 @@ class AutoWakeupPlugin : public Plugin {
 
     unsigned long lastAutoWakeupCheck = 0;
     String lastCheckedTime = "";
-    static const unsigned long AUTO_WAKEUP_CHECK_INTERVAL = 30000; // 1 minute
+    bool wasInReadyWindow = false;
+    static const unsigned long AUTO_WAKEUP_CHECK_INTERVAL = 30000; // 30 seconds
 
-    void checkAutoWakeup();
+    void checkReadyWindows();
+    void checkLegacyPointWakeup();
     bool isTimeValid();
     String getCurrentTimeString();
     int getCurrentDayOfWeek();
