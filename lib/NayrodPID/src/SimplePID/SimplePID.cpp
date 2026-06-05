@@ -111,12 +111,18 @@ bool SimplePID::update() {
 
     float Pout = kp * error;
 
-    feedback_integralState += error * deltaTime;
-    // Heat-only actuator (min output 0): in heating/stabilizing the integral is a
-    // non-negative steady-state heating bias. In cooling we let it unwind (go
-    // negative) so stored-heat overshoot can bleed off — clamp is zone-aware.
-    if (!coolingZone) {
-        feedback_integralState = fmaxf(0.0f, feedback_integralState);
+    // Only accumulate when Ki is active. If Ki=0 (e.g. heating zone with pure P+D),
+    // the state must not drift — otherwise a zone transition to a non-zero Ki would
+    // retroactively price in all the error accumulated while Ki had no effect,
+    // producing a phantom I-bump (e.g. frozen I=48 jumping to 58 on stab entry).
+    if (ki > 0.0f) {
+        feedback_integralState += error * deltaTime;
+        // Heat-only actuator (min output 0): in heating/stabilizing the integral is a
+        // non-negative steady-state heating bias. In cooling we let it unwind (go
+        // negative) so stored-heat overshoot can bleed off — clamp is zone-aware.
+        if (!coolingZone) {
+            feedback_integralState = fmaxf(0.0f, feedback_integralState);
+        }
     }
     float Iout = ki * feedback_integralState;
 
@@ -130,12 +136,12 @@ bool SimplePID::update() {
     float sumPID = Pout + Iout + Dout + FFOut + DistFFOut;
     float sumPIDsat = constrain(sumPID, ctrlOutputLimits[0], ctrlOutputLimits[1]);
 
-    // Antiwindup clamping (runs in all zones)
+    // Antiwindup clamping (runs only when Ki is active — no-op otherwise)
     bool isSaturated = (sumPID < ctrlOutputLimits[0] || sumPID > ctrlOutputLimits[1]); // Check if the output is saturated
     bool isSameSign =
         ((error > 0 && sumPID > 0) || (error < 0 && sumPID < 0)); // Check if the error and output have the same sign
     // Serial.printf("OutputPID: %.2f, Integ out: %.2f\n", sumPIDsat, Iout);
-    if (isSaturated && isSameSign) {
+    if (ki > 0.0f && isSaturated && isSameSign) {
         // Serial.printf("Antiwindup clamping: %.2f\n", feedback_integralState);
         feedback_integralState -=
             error * deltaTime; // Forbide the integration to happen when the output is saturated and the error is in the same
