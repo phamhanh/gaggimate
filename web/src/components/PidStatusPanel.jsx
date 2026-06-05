@@ -1,4 +1,5 @@
 import { machine } from '../services/ApiService.js';
+import { getActiveZonePidGains } from '../utils/pidGains.js';
 
 function fmt(value, digits = 2) {
   if (value == null || Number.isNaN(Number(value))) {
@@ -65,11 +66,12 @@ function zoneLabel(zone) {
   }
 }
 
-export function PidStatusPanel() {
+export function PidStatusPanel({ pidSettings = null }) {
   const status = machine.value.status;
   const pid = status.pidLive || {};
   const frozen = pid.frozen === 1;
   const zone = pid.zone ?? 0;
+  const activeGains = getActiveZonePidGains(pidSettings, zone);
 
   return (
     <div className='flex flex-col gap-4'>
@@ -79,9 +81,10 @@ export function PidStatusPanel() {
       </StatGroup>
 
       <StatGroup title='Stored PID'>
-        <StatRow label='Kp' value={fmt(status.kp, 3)} />
-        <StatRow label='Ki' value={fmt(status.ki, 3)} />
-        <StatRow label='Kd' value={fmt(status.kd, 3)} />
+        <StatRow label='Zone' badge={zoneLabel(zone)} />
+        <StatRow label='Kp' value={fmt(activeGains?.kp ?? status.kp, 3)} />
+        <StatRow label='Ki' value={fmt(activeGains?.ki ?? status.ki, 3)} />
+        <StatRow label='Kd' value={fmt(activeGains?.kd ?? status.kd, 3)} />
         <StatRow label='Kff gain' value={fmt(status.kffGain, 3)} />
       </StatGroup>
 
@@ -92,7 +95,6 @@ export function PidStatusPanel() {
 
       <StatGroup title='Live PID'>
         <StatRow label='State' badge={frozen ? 'Frozen' : zoneLabel(zone)} />
-        <StatRow label='Ki active' value={fmt(pid.kiActive, 3)} />
         <StatRow label='P' value={fmt(pid.p, 2)} />
         <StatRow label='I' value={fmt(pid.i, 2)} />
         <StatRow label='D' value={fmt(pid.d, 2)} />

@@ -1,13 +1,12 @@
 import { machine } from '../services/ApiService.js';
+import { getPidMonitorWindowMs, pidMonitorWindowMinutes } from '../utils/pidMonitorManager.js';
 import { Chart } from 'chart.js';
 import { ChartComponent } from './Chart.jsx';
 
-const TIME_WINDOW_MS = 180000;
-
-export function getPidChartData(data) {
+export function getPidChartData(data, windowMs = getPidMonitorWindowMs()) {
   const end = new Date();
   end.setMilliseconds(0);
-  const start = new Date(end.getTime() - TIME_WINDOW_MS);
+  const start = new Date(end.getTime() - windowMs);
   start.setMilliseconds(0);
 
   const filteredData = data.filter(item => item.timestamp >= start && item.timestamp <= end);
@@ -110,7 +109,7 @@ export function getPidChartData(data) {
         },
         title: {
           display: true,
-          text: 'PID Live — 3 min window',
+          text: `PID Live — ${Math.round(windowMs / 60000)} min window`,
           font: {
             size: window.innerWidth < 640 ? 14 : 16,
           },
@@ -158,6 +157,9 @@ export function getPidChartData(data) {
             autoSkip: true,
             callback: value => {
               const diff = Math.ceil((end.getTime() - value) / 1000);
+              if (diff >= 60) {
+                return `-${Math.round(diff / 60)}m`;
+              }
               return `-${diff}s`;
             },
             font: {
@@ -172,7 +174,8 @@ export function getPidChartData(data) {
 }
 
 export function PidLiveChart() {
-  const chartData = getPidChartData(machine.value.history);
+  const windowMinutes = pidMonitorWindowMinutes.value;
+  const chartData = getPidChartData(machine.value.history, windowMinutes * 60 * 1000);
 
   return (
     <ChartComponent

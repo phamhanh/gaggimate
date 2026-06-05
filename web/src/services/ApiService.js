@@ -1,5 +1,6 @@
 import { createContext } from 'preact';
 import { signal } from '@preact/signals';
+import { PID_MONITOR_MAX_HISTORY_POINTS } from '../utils/pidMonitorManager.js';
 import uuidv4 from '../utils/uuid.js';
 
 function randomId() {
@@ -223,7 +224,7 @@ export default class ApiService {
       },
       history: [...machine.value.history, historyEntry],
     };
-    newValue.history = newValue.history.slice(-1200);
+    newValue.history = newValue.history.slice(-PID_MONITOR_MAX_HISTORY_POINTS);
     machine.value = newValue;
   }
 }
