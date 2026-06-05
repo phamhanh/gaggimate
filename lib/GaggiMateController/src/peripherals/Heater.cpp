@@ -126,6 +126,20 @@ void Heater::autotune(int testTimeSec, int windowSize, int heaterWattage) {
     autotuning = true;
 }
 
+void Heater::releasePidFreeze(const char *reason) {
+    // Bumpless handoff: push the latched I sum back into the live integrator
+    // BEFORE clearing the freeze flag, so the first unfrozen PID tick reports the
+    // same I (instead of dropping to 0) and P/D resume without a derivative kick.
+    const float frozenPid = simplePid->getFrozenPidSum();
+    simplePid->restoreIntegralFromFrozenSum();
+    simplePid->setPidFrozen(false);
+    freezeLatched = false;
+    pidFreezeGraceUntil = 0;
+    freezeBlocked = false;
+    ESP_LOGI(LOG_TAG, "PID freeze released (%s): T=%.2f output=%.2f restoredFrozenPid=%.2f activeKi=%.3f",
+             reason, temperature, output, frozenPid, simplePid->getActiveKi());
+}
+
 void Heater::loopPid() {
     softPwm(TUNER_OUTPUT_SPAN);
     temperature = sensor->read();
@@ -138,12 +152,11 @@ void Heater::loopPid() {
 
     if (!pidFreezeEnabled) {
         if (freezeLatched || pidFreezeGraceUntil != 0) {
-            freezeLatched = false;
-            pidFreezeGraceUntil = 0;
-            freezeBlocked = false;
+            releasePidFreeze("feature disabled");
+        } else {
+            simplePid->setPidFrozen(false);
         }
         wasValveOpen = waterFlowing;
-        simplePid->setPidFrozen(false);
     } else {
         if (waterFlowing && !freezeLatched && !freezeBlocked) {
             simplePid->captureFrozenFeedback();
@@ -160,21 +173,13 @@ void Heater::loopPid() {
                          static_cast<unsigned long>(pidFreezeGraceMs), temperature, output,
                          simplePid->getFrozenPidSum());
             } else {
-                freezeLatched = false;
-                simplePid->setPidFrozen(false);
-                pidFreezeGraceUntil = 0;
-                freezeBlocked = false;
-                ESP_LOGI(LOG_TAG, "PID freeze ended (no grace): T=%.2f output=%.2f", temperature, output);
+                releasePidFreeze("no grace");
             }
         }
         wasValveOpen = waterFlowing;
 
         if (freezeLatched && pidFreezeGraceUntil != 0 && millis() >= pidFreezeGraceUntil) {
-            freezeLatched = false;
-            simplePid->setPidFrozen(false);
-            pidFreezeGraceUntil = 0;
-            freezeBlocked = false;
-            ESP_LOGI(LOG_TAG, "PID freeze grace ended (timer): T=%.2f output=%.2f", temperature, output);
+            releasePidFreeze("grace timer");
         }
 
         simplePid->setPidFrozen(freezeLatched);

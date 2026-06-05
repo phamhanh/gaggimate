@@ -60,6 +60,9 @@ class Heater {
     /** PID + thermal FF; latched P+I+D from first valve open until post-shot grace ends. */
     void loopPid();
     void loopAutotune();
+    /** Centralised freeze-exit: restore the latched I into the live integrator
+     *  (bumpless) then clear the freeze flags. Use from every unfreeze path. */
+    void releasePidFreeze(const char *reason);
     float softPwm(uint32_t windowSize);
     void plot(float optimumOutput, float outputScale, uint8_t everyNth);
     float calculateDisturbanceFeedforwardGain();

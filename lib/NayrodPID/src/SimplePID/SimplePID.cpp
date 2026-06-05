@@ -25,7 +25,19 @@ bool SimplePID::update() {
 
     if (!isInitialized) {
         initSetPointFilter(*this->sensorOutput);
+        // Preserve an active freeze latch across a re-init: resetFeedbackController()
+        // zeros both the accumulator and the latched I sum, which would silently
+        // discard the steady-state bias we are meant to hold through flow/grace.
+        const bool keepFrozen = pidFrozen && frozenPidSum > 0.0f;
+        const float savedFrozenPidSum = frozenPidSum;
+        const float savedActiveKi = lastActiveKi;
         resetFeedbackController();
+        if (keepFrozen) {
+            frozenPidSum = savedFrozenPidSum;
+            lastActiveKi = savedActiveKi;
+            pidFrozen = true;
+            restoreIntegralFromFrozenSum();
+        }
         prevMeasurement = *sensorOutput; // Seed with current value to avoid derivative kick on first update
         if (gainFF != 0.0f)
             isFeedForwardActive = true; // Activate the feedforward control if gainFF is not zero
@@ -189,6 +201,29 @@ void SimplePID::captureFrozenFeedback() {
     // Use the active zone's Ki (latched on the last tick); fall back to heating Ki if never run.
     const float kiForFreeze = lastActiveKi > 0.0f ? lastActiveKi : gainKi;
     frozenPidSum = kiForFreeze * feedback_integralState;
+}
+
+void SimplePID::restoreIntegralFromFrozenSum() {
+    // Bumpless handoff out of freeze: the latch (frozenPidSum) held the I output
+    // during flow/grace while feedback_integralState was not advanced (and may
+    // have been zeroed by a re-init). Re-seed the accumulator so the first
+    // unfrozen tick reports the same I instead of dropping to 0.
+    //
+    // Mirror the Ki rule used by captureFrozenFeedback() so state * ki == the
+    // latched sum: prefer the last active zone's Ki, fall back to heating Ki.
+    const float kiForRestore = lastActiveKi > 0.0f ? lastActiveKi : gainKi;
+    if (frozenPidSum > 0.0f && kiForRestore > 0.0f) {
+        feedback_integralState = frozenPidSum / kiForRestore;
+        // Pin lastActiveKi so the bumpless-transition rescale in update() does
+        // not immediately re-scale the accumulator we just restored.
+        lastActiveKi = kiForRestore;
+    }
+    // Refresh derivative state against the current measurement so the long
+    // freeze gap doesn't produce a one-tick derivative spike on resume.
+    if (sensorOutput != nullptr) {
+        prevMeasurement = *sensorOutput;
+    }
+    filteredDerivative = 0.0f;
 }
 
 void SimplePID::resetFeedbackController() {

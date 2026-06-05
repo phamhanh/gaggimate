@@ -68,6 +68,10 @@ class SimplePID {
 
     /** Snapshot P+I+D at latch time; caller enables freeze via setPidFrozen(). */
     void captureFrozenFeedback();
+    /** Bumpless unfreeze: re-seed the live integrator from the latched I sum so
+     *  pidLive.i stays continuous when freeze ends, and refresh prevMeasurement
+     *  to suppress the stale-derivative kick on the first unfrozen tick. */
+    void restoreIntegralFromFrozenSum();
     void setPidFrozen(bool frozen) { pidFrozen = frozen; }
     bool isPidFrozen() const { return pidFrozen; }
     float getFrozenPidSum() const { return frozenPidSum; }
