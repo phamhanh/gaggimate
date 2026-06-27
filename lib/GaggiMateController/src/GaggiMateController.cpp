@@ -253,6 +253,7 @@ void GaggiMateController::sendSensorData() {
     const bool pidFrozen = this->heater->isPidFrozenLatched();
     const int pidZone = this->heater->getActiveZone();
     const float kiActive = this->heater->getActiveKi();
+    const float pidInteg = this->heater->getPidIntegralState();
     float pumpPower = 0.0f;
     if (_config.capabilites.dimming) {
         pumpPower = static_cast<DimmedPump *>(pump)->getPowerTarget();
@@ -264,13 +265,13 @@ void GaggiMateController::sendSensorData() {
         auto dimmedPump = static_cast<DimmedPump *>(pump);
         _ble.sendSensorData(this->thermocouple->read(), this->pressureSensor->getPressure(), dimmedPump->getPuckFlow(),
                             dimmedPump->getPumpFlow(), dimmedPump->getPuckResistance(), pumpPower, heaterPower, pidP, pidI,
-                            pidD, kffOut, pidFrozen, pidZone, kiActive);
+                            pidD, kffOut, pidFrozen, pidZone, kiActive, pidInteg);
         if (this->valve->getState()) {
             _ble.sendVolumetricMeasurement(dimmedPump->getCoffeeVolume());
         }
     } else {
         _ble.sendSensorData(this->thermocouple->read(), 0.0f, 0.0f, 0.0f, 0.0f, pumpPower, heaterPower, pidP, pidI, pidD,
-                            kffOut, pidFrozen, pidZone, kiActive);
+                            kffOut, pidFrozen, pidZone, kiActive, pidInteg);
     }
 }
 

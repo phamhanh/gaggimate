@@ -331,10 +331,11 @@ void NimBLEClientController::notifyCallback(NimBLERemoteCharacteristic *pRemoteC
         int pidFrozen = 0;
         int pidZone = 0;
         float kiActive = 0.0f;
+        float pidInteg = 0.0f;
 
-        int parsed = sscanf(rawData, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%f", &temperature, &pressure, &puckFlow,
+        int parsed = sscanf(rawData, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%d,%f,%f", &temperature, &pressure, &puckFlow,
                             &pumpFlow, &puckResistance, &pumpPower, &heaterPower, &pidP, &pidI, &pidD, &kffOut, &pidFrozen,
-                            &pidZone, &kiActive);
+                            &pidZone, &kiActive, &pidInteg);
         if (parsed < 5) {
             ESP_LOGW(LOG_TAG, "Malformed sensor data payload: %s", rawData);
             return;
@@ -354,6 +355,9 @@ void NimBLEClientController::notifyCallback(NimBLERemoteCharacteristic *pRemoteC
             pidZone = 0;
             kiActive = 0.0f;
         }
+        if (parsed < 15) {
+            pidInteg = 0.0f;
+        }
 
         ESP_LOGV(LOG_TAG,
                  "Received sensor data: temperature=%.1f, pressure=%.1f, puck_flow=%.1f, pump_flow=%.1f, "
@@ -363,7 +367,7 @@ void NimBLEClientController::notifyCallback(NimBLERemoteCharacteristic *pRemoteC
                  kffOut, pidFrozen, pidZone, kiActive);
         if (sensorCallback != nullptr) {
             sensorCallback(temperature, pressure, puckFlow, pumpFlow, puckResistance, pumpPower, heaterPower, pidP, pidI,
-                           pidD, kffOut, pidFrozen != 0, pidZone, kiActive);
+                           pidD, kffOut, pidFrozen != 0, pidZone, kiActive, pidInteg);
         }
     }
     if (pRemoteCharacteristic->getUUID().equals(NimBLEUUID(AUTOTUNE_RESULT_UUID))) {

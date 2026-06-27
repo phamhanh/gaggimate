@@ -11,6 +11,11 @@ enum class PIDLibrary { Legacy, Nimrod };
 
 constexpr float MAX_AUTOTUNE_TEMP = 125.0f;
 constexpr float TUNER_OUTPUT_SPAN = 1000.0f;
+// Setpoint at/above which the boiler is making steam. Brew and hot-water
+// setpoints never exceed ~100°C, while steam runs ~130–160°C, so this cleanly
+// separates the two regimes. Used to inhibit the brew-oriented PID freeze
+// during steaming (see Heater::loopPid).
+constexpr float STEAM_FREEZE_INHIBIT_TEMP = 110.0f;
 
 using heater_error_callback_t = std::function<void()>;
 using heater_autotune_fail_callback_t = std::function<void()>;
@@ -34,6 +39,8 @@ class Heater {
     float getPidP() const { return simplePid ? simplePid->getLastP() : 0.0f; }
     float getPidI() const { return simplePid ? simplePid->getLastI() : 0.0f; }
     float getPidD() const { return simplePid ? simplePid->getLastD() : 0.0f; }
+    /** Raw integrator state (NOT Ki*state); stays informative while Ki=0. */
+    float getPidIntegralState() const { return simplePid ? simplePid->getIntegralState() : 0.0f; }
     float getKffOutput() const { return lastKffOutput; }
     bool isPidFrozenLatched() const { return freezeLatched; }
     void setTunings(float Kp, float Ki, float Kd);

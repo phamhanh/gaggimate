@@ -69,7 +69,7 @@ using advanced_output_callback_t =
 using sensor_read_callback_t = std::function<void(float temperature, float pressure, float puckFlow, float pumpFlow,
                                                 float puckResistance, float pumpPower, float heaterPower, float pidP,
                                                 float pidI, float pidD, float kffOut, bool pidFrozen, int pidZone,
-                                                float kiActive)>;
+                                                float kiActive, float pidInteg)>;
 using led_control_callback_t = std::function<void(uint8_t channel, uint8_t brightness)>;
 
 struct SystemCapabilities {

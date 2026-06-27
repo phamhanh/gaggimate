@@ -151,7 +151,7 @@ void Controller::setupBluetooth() {
                                                  const float pumpFlow, const float puckResistance, const float pumpPower,
                                                  const float heaterPower, const float pidP, const float pidI,
                                                  const float pidD, const float kffOut, const bool pidFrozen,
-                                                 const int pidZone, const float kiActive) {
+                                                 const int pidZone, const float kiActive, const float pidInteg) {
         onTempRead(temp);
         this->pressure = pressure;
         this->currentPuckFlow = puckFlow;
@@ -165,6 +165,7 @@ void Controller::setupBluetooth() {
         this->pidLiveFrozen = pidFrozen;
         this->pidLiveZone = pidZone;
         this->pidLiveKiActive = kiActive;
+        this->pidLiveInteg = pidInteg;
         pluginManager->trigger("boiler:pressure:change", "value", pressure);
         pluginManager->trigger("pump:puck-flow:change", "value", puckFlow);
         pluginManager->trigger("pump:flow:change", "value", pumpFlow);

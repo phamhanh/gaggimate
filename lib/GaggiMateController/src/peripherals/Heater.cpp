@@ -150,9 +150,18 @@ void Heater::loopPid() {
 
     const bool kffWouldApply = kffEnabled && combinedKff > 0.0f && waterFlowing && pumpRunning;
 
-    if (!pidFreezeEnabled) {
+    // The PID freeze exists to stop integral windup while cold water flows
+    // through the boiler during a brew. Steam runs the pump for boiler top-up at
+    // a far higher setpoint, where freezing the heater lets steam temperature
+    // collapse — the "frozen during steam" fault. A steam-range setpoint
+    // (>= STEAM_FREEZE_INHIBIT_TEMP; brew/hot-water never exceed ~100°C) therefore
+    // inhibits the freeze entirely and releases any latch carried over from a
+    // preceding brew, reusing the same exit path as the feature-disabled case.
+    const bool steamActive = setpoint >= STEAM_FREEZE_INHIBIT_TEMP;
+
+    if (!pidFreezeEnabled || steamActive) {
         if (freezeLatched || pidFreezeGraceUntil != 0) {
-            releasePidFreeze("feature disabled");
+            releasePidFreeze(steamActive ? "steam mode" : "feature disabled");
         } else {
             simplePid->setPidFrozen(false);
         }

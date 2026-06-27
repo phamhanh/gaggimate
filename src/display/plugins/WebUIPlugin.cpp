@@ -64,6 +64,7 @@ static void appendPidTelemetryFields(JsonDocument &doc, Controller *controller, 
     pidLive["frozen"] = controller->isPidLiveFrozen() ? 1 : 0;
     pidLive["zone"] = controller->getPidLiveZone();
     pidLive["kiActive"] = controller->getPidLiveKiActive();
+    pidLive["integ"] = controller->getPidLiveInteg();
 }
 
 /** Shared fields for GET /api/status (and polling scripts). */

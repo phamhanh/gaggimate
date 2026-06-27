@@ -83,6 +83,12 @@ class SimplePID {
     /** Disturbance feedforward output from the last PID tick. */
     float getLastKffOut() const { return lastDistFFOut; }
 
+    /** Raw integrator state (NOT multiplied by Ki). Lets telemetry watch the
+     *  accumulator across freeze -> heating(Ki=0) -> stabilizing, where getLastI()
+     *  reads 0 while Ki=0 and hides whether the state holds, jumps, or ramps.
+     *  Actual I output = getIntegralState() * getActiveKi(). */
+    float getIntegralState() const { return feedback_integralState; }
+
     /** Active zone selected on the last tick (0=heating, 1=stabilizing, 2=cooling). */
     int getActiveZone() const { return static_cast<int>(activeZone); }
     /** Ki of the active zone on the last tick (telemetry / freeze latch). */

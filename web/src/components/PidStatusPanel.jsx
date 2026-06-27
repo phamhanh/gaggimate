@@ -97,6 +97,7 @@ export function PidStatusPanel({ pidSettings = null }) {
         <StatRow label='State' badge={frozen ? 'Frozen' : zoneLabel(zone)} />
         <StatRow label='P' value={fmt(pid.p, 2)} />
         <StatRow label='I' value={fmt(pid.i, 2)} />
+        <StatRow label='I state' value={fmt(pid.integ, 1)} />
         <StatRow label='D' value={fmt(pid.d, 2)} />
         <StatRow label='Kff out' value={fmt(pid.kff, 2)} />
         <StatRow label='Out' value={fmt(pid.out ?? status.heaterPower, 1)} />

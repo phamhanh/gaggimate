@@ -8,6 +8,7 @@
  *
  */
 #include "LV_Helper.h"
+#include <esp_heap_caps.h>
 
 #if LV_VERSION_CHECK(9, 0, 0)
 #error "Currently not supported 9.x"
@@ -110,16 +111,33 @@ void beginLvglHelper(Display &board, bool debug) {
     }
 #endif
 
-    size_t lv_buffer_size = board.width() * board.height() * sizeof(lv_color_t);
-    buf = (lv_color_t *)ps_malloc(lv_buffer_size);
-    assert(buf);
+    size_t buf_pixels;
+    size_t lv_buffer_size;
 
-    if (!board.supportsDirectMode()) {
-        buf1 = (lv_color_t *)ps_malloc(lv_buffer_size);
-        assert(buf1);
+    if (board.supportsDirectMode()) {
+        // Direct-mode panels: full-screen draw buffer in PSRAM (panel owns the FB).
+        buf_pixels = static_cast<size_t>(board.width()) * board.height();
+        lv_buffer_size = buf_pixels * sizeof(lv_color_t);
+        buf = static_cast<lv_color_t *>(ps_malloc(lv_buffer_size));
+        assert(buf);
+        buf1 = nullptr;
+    } else {
+        // RGB panels (LilyGo T-RGB): the LCD controller continuously scans the
+        // framebuffer out of PSRAM. Full-screen LVGL draw buffers in PSRAM
+        // contend with that scan-out during recolour/animation redraws and show
+        // as whole-screen flicker. A partial buffer in internal SRAM keeps
+        // compositing off the PSRAM bus (IDF 4.4 has no RGB bounce-buffer API).
+        // Single buffer only — NimBLE needs internal SRAM too (double 60-line
+        // buffers caused BLE_INIT malloc failure and a boot loop).
+        constexpr size_t kDrawBufLines = 60;
+        buf_pixels = static_cast<size_t>(board.width()) * kDrawBufLines;
+        lv_buffer_size = buf_pixels * sizeof(lv_color_t);
+        buf = static_cast<lv_color_t *>(heap_caps_malloc(lv_buffer_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        assert(buf);
+        buf1 = nullptr;
     }
 
-    lv_disp_draw_buf_init(&draw_buf, buf, buf1, board.width() * board.height());
+    lv_disp_draw_buf_init(&draw_buf, buf, buf1, buf_pixels);
 
     /*Initialize the display*/
     lv_disp_drv_init(&disp_drv);
