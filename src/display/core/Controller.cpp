@@ -35,6 +35,10 @@ const String LOG_TAG = F("Controller");
 void Controller::setup() {
     BootDiag::begin();
 
+    // 160 MHz is plenty for the UI (PID runs on the controller board) and cuts
+    // sustained current on the machine's marginal 5V supply. WiFi/BLE need >=80.
+    setCpuFrequencyMhz(160);
+
     mode = settings.getStartupMode();
 
     if (!SPIFFS.begin(true)) {

@@ -78,7 +78,10 @@
  *====================*/
 
 /*Default display refresh period. LVG will redraw changed areas with this period time*/
-#define LV_DISP_DEF_REFR_PERIOD 10      /*[ms]*/
+/*40 ms (25 fps): the brew-screen cup animation otherwise redraws at 100 fps for
+ *hours, and the sustained CPU+DMA draw browns out the machine's marginal 5V
+ *supply (panel is the larger T-RGB, kit power budget was sized for the 2.1").*/
+#define LV_DISP_DEF_REFR_PERIOD 40      /*[ms]*/
 
 /*Input device read period in milliseconds*/
 #define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/

@@ -47,11 +47,15 @@ Firmware changes vs upstream:
 - Wi‑Fi status on **Settings** and in `evt:status` so I can see what the display thinks is happening
 - **Ready time windows** — upstream auto-wakeup only fires a point-in-time switch to brew mode when already in standby. I need the machine **continuously heated** through daily service windows (e.g. 07:30–10:30 and 12:30–13:30) without mid-window sleep/reheat gaps. Schedules now support `start|end|days`; inside a window the idle standby timeout is suppressed, the machine stays in brew mode, and it returns to standby at window end. Legacy `start|days` entries still do one-shot point wakeups only.
 
-## Display boot power staging
+## Display power management (bigger panel on a small 5V budget)
 
-My display sometimes fails to boot on the machine's internal 5V from the GaggiMate PCB while booting fine on USB — a power-delivery (brownout) signature, worst at power-on when the controller and display boot from the same small supply at once. Upstream brings everything up together: full backlight from the first frame, WiFi at max TX power (19.5 dBm), and BLE scanning immediately after. This fork stages that load: backlight boots capped (6/16 steps) and jumps to the configured brightness only once radios are up, WiFi connects at reduced TX power (15 dBm) and returns to full power after an IP is acquired, and BLE starts 1.5 s after WiFi settles.
+My display is the larger LilyGo T-RGB (2.7/2.8″ class), but the GaggiMate kit's internal 5V budget was sized for the 2.1″ panel — bigger backlight, same small supply shared with the controller ESP32. On the machine's internal 5V the display brownout-resets; on USB it is rock solid. `BootDiag` (below) measured **87 brownout resets** across two attempts on machine power, with boots dying right at the screen-init/radio peak. Firmware can narrow the gap but not close it — the durable fix is a **separate 5V USB supply for the display** (do *not* feed it from the controller's USB-C: that's the same rail through an extra diode drop).
 
-Because the failing state has no serial access, every boot also records the reset reason and how far the previous boot got (NVS, `BootDiag`), surfaced as `boot` in `GET /api/status` — so after a failed spell on machine power, plugging into USB shows whether brownouts actually happened. If the counter climbs despite the staging, the fix is hardware: the 5V feed (supply, cable, or connector), not firmware.
+What the fork changes vs upstream:
+
+- **Boot staging** — upstream brings everything up at once (full backlight from the first frame, WiFi at 19.5 dBm, BLE immediately after). Here the backlight boots capped (6/16) and jumps to the configured brightness once radios are up, WiFi connects at 15 dBm and restores full power after an IP is acquired, and BLE starts 1.5 s after WiFi settles.
+- **Steady-state draw** — the animated brew-screen cup made the display *continuously* render for hours (ready windows keep brew mode active), and upstream's `lv_conf.h` refreshes at 100 fps. That sustained CPU+DMA load is what turned "mostly reliable" into "browns out mid-session" after the animation landed. Now: LVGL refresh 100 → 25 fps and CPU 240 → 160 MHz (the display runs no control loop — PID lives on the controller board). Backlight brightness in Settings remains the biggest manual power dial (16 steps).
+- **Boot diagnostics** — the failing state has no serial access, so every boot records the reset reason and how far the previous boot got (NVS, `BootDiag`), surfaced as `boot` in `GET /api/status`. After a failed spell on machine power, plugging into USB shows whether brownouts actually happened. If the counter climbs despite all this, it's the 5V feed, not firmware.
 
 ## Temperature during shots (the big firmware change)
 
