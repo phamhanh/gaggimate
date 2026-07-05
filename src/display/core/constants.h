@@ -41,4 +41,13 @@
 #define WIFI_STA_DISCONNECT_THRESHOLD 3
 #define DEFAULT_WIFI_AP_TIMEOUT_MS 600000
 
+// Boot power staging: the PLC's internal 5V supply browns out if backlight,
+// WiFi connect bursts and BLE scanning all peak together during boot.
+// Backlight is capped (0-16 steps) and BLE start is staggered after WiFi
+// until "controller:boot:complete"; WiFi TX is reduced during the initial
+// connect and restored to full power once an IP is acquired.
+#define BOOT_BRIGHTNESS_CAP 6
+#define BOOT_BLE_STAGGER_MS 1500
+#define WIFI_BOOT_TX_POWER WIFI_POWER_15dBm
+
 #endif // CONSTANTS_H

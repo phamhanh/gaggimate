@@ -47,6 +47,12 @@ Firmware changes vs upstream:
 - Wi‑Fi status on **Settings** and in `evt:status` so I can see what the display thinks is happening
 - **Ready time windows** — upstream auto-wakeup only fires a point-in-time switch to brew mode when already in standby. I need the machine **continuously heated** through daily service windows (e.g. 07:30–10:30 and 12:30–13:30) without mid-window sleep/reheat gaps. Schedules now support `start|end|days`; inside a window the idle standby timeout is suppressed, the machine stays in brew mode, and it returns to standby at window end. Legacy `start|days` entries still do one-shot point wakeups only.
 
+## Display boot power staging
+
+My display sometimes fails to boot on the machine's internal 5V from the GaggiMate PCB while booting fine on USB — a power-delivery (brownout) signature, worst at power-on when the controller and display boot from the same small supply at once. Upstream brings everything up together: full backlight from the first frame, WiFi at max TX power (19.5 dBm), and BLE scanning immediately after. This fork stages that load: backlight boots capped (6/16 steps) and jumps to the configured brightness only once radios are up, WiFi connects at reduced TX power (15 dBm) and returns to full power after an IP is acquired, and BLE starts 1.5 s after WiFi settles.
+
+Because the failing state has no serial access, every boot also records the reset reason and how far the previous boot got (NVS, `BootDiag`), surfaced as `boot` in `GET /api/status` — so after a failed spell on machine power, plugging into USB shows whether brownouts actually happened. If the counter climbs despite the staging, the fix is hardware: the 5V feed (supply, cable, or connector), not firmware.
+
 ## Temperature during shots (the big firmware change)
 
 ### Why the probe placement matters on this machine

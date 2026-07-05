@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <display/core/Controller.h>
+#include <display/core/constants.h>
 #include <display/core/process/BrewProcess.h>
 #include <display/core/process/Process.h>
 #include <display/core/zones.h>
@@ -13,6 +14,7 @@
 #include <display/ui/default/lvgl/ui_theme_manager.h>
 #include <display/ui/default/lvgl/ui_themes.h>
 #include <display/ui/utils/effects.h>
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -535,6 +537,9 @@ DefaultUI::DefaultUI(Controller *controller, Driver *driver, PluginManager *plug
 void DefaultUI::init() {
     profileManager = controller->getProfileManager();
     auto triggerRender = [this](Event const &) { rerender = true; };
+    pluginManager->on("controller:boot:complete", [this](Event const &) {
+        setBrightness(controller->getSettings().getMainBrightness());
+    });
     pluginManager->on("boiler:currentTemperature:change", [=](Event const &event) {
         const float newTemp = event.getFloat("value");
         if (roundf(newTemp * 10.0f) != roundf(currentTemp * 10.0f)) {
@@ -796,9 +801,10 @@ void DefaultUI::setupPanel() {
     lv_task_handler();
 
     delay(100);
-    // Set initial brightness based on settings
+    // Boot with capped backlight: full brightness plus the WiFi/BLE bring-up
+    // can brown out the PLC 5V supply. Restored on controller:boot:complete.
     const Settings &settings = controller->getSettings();
-    setBrightness(settings.getMainBrightness());
+    setBrightness(std::min(settings.getMainBrightness(), BOOT_BRIGHTNESS_CAP));
 }
 
 void DefaultUI::setupState() {

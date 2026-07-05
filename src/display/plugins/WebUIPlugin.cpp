@@ -2,6 +2,7 @@
 #include <DNSServer.h>
 #include <NimBLEComm.h>
 #include <SPIFFS.h>
+#include <display/core/BootDiag.h>
 #include <display/core/Controller.h>
 #include <display/core/constants.h>
 #include <display/core/ProfileManager.h>
@@ -88,6 +89,12 @@ static void appendApiStatusFields(JsonDocument &doc, Controller *controller, flo
         }
     }
     doc["weight"] = weight;
+
+    JsonObject boot = doc["boot"].to<JsonObject>();
+    boot["resetReason"] = BootDiag::lastResetReasonName();
+    boot["prevStage"] = BootDiag::previousBootStage();
+    boot["brownouts"] = BootDiag::brownoutCount();
+    boot["crashes"] = BootDiag::crashCount();
 
     appendPidTelemetryFields(doc, controller, settings);
 }

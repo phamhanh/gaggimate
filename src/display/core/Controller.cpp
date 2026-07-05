@@ -6,6 +6,7 @@
 #include <cmath>
 #include <ctime>
 #include <display/config.h>
+#include <display/core/BootDiag.h>
 #include <display/core/constants.h>
 #include <display/core/process/BrewProcess.h>
 #include <display/core/process/GrindProcess.h>
@@ -32,6 +33,8 @@
 const String LOG_TAG = F("Controller");
 
 void Controller::setup() {
+    BootDiag::begin();
+
     mode = settings.getStartupMode();
 
     if (!SPIFFS.begin(true)) {
@@ -89,6 +92,7 @@ void Controller::setup() {
 #ifndef GAGGIMATE_HEADLESS
     ui->init();
 #endif
+    BootDiag::markStage(BootDiag::STAGE_SCREEN);
     this->onScreenReady();
 
     updateLastAction();
@@ -109,12 +113,17 @@ void Controller::connect() {
     pluginManager->trigger("controller:startup");
 
     setupWifi();
+    // Let the WiFi connect burst and webserver/mDNS bring-up settle before
+    // BLE scanning adds its own radio load on the shared 5V rail.
+    delay(BOOT_BLE_STAGGER_MS);
     setupBluetooth();
     pluginManager->on("ota:update:start", [this](Event const &) { this->updating = true; });
     pluginManager->on("ota:update:end", [this](Event const &) { this->updating = false; });
 
     updateLastAction();
     initialized = true;
+    BootDiag::markStage(BootDiag::STAGE_RADIOS);
+    pluginManager->trigger("controller:boot:complete");
 }
 
 #ifndef GAGGIMATE_HEADLESS
@@ -287,6 +296,7 @@ void Controller::startApFallback() {
 }
 
 void Controller::onWifiGotIp() {
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
     staDisconnectCount = 0;
     staDisconnectWindowStartMs = 0;
 
@@ -404,7 +414,9 @@ void Controller::setupWifi() {
         WiFi.setAutoReconnect(true);
         WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
         WiFi.begin(settings.getWifiSsid(), settings.getWifiPassword());
-        WiFi.setTxPower(WIFI_POWER_19_5dBm);
+        // Reduced TX power during the boot connect window (brownout margin on
+        // the PLC 5V rail); onWifiGotIp() restores full power for range.
+        WiFi.setTxPower(WIFI_BOOT_TX_POWER);
 
         if (waitForWifiConnect(WIFI_CONNECT_TIMEOUT_MS)) {
             configureNtp();
