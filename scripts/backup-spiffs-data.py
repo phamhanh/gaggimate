@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,6 +29,25 @@ SNAPSHOT_ROOT = ROOT / "device-data" / "snapshots"
 
 def pad_shot_id(shot_id: str) -> str:
     return str(shot_id).zfill(6)
+
+
+# Every download is a SPIFFS name lookup on the device (a 404 is a full-flash
+# negative scan). Back-to-back requests once task-watchdogged async_tcp mid
+# backup, so pace between files and ride out a transient stall with one retry.
+SHOT_PACING_SECONDS = 0.15
+
+
+def http_get_bytes_retry(url: str, timeout: float, *, retries: int = 1, backoff: float = 5.0) -> bytes | None:
+    attempt = 0
+    while True:
+        try:
+            return http_get_bytes(url, timeout)
+        except Exception:
+            if attempt >= retries:
+                raise
+            attempt += 1
+            print(f"  WARN: request stalled, retrying in {backoff:.0f}s ({url})", file=sys.stderr, flush=True)
+            time.sleep(backoff)
 
 
 def note_url_candidates(history_url: str, shot_id: str) -> list[str]:
@@ -52,7 +72,7 @@ def download_shot_notes(
     from device_http import http_get_bytes
 
     for notes_url in note_url_candidates(history_url, shot_id):
-        notes_bytes = http_get_bytes(notes_url, http_timeout)
+        notes_bytes = http_get_bytes_retry(notes_url, http_timeout)
         if notes_bytes is not None:
             (dest / f"{pad_shot_id(shot_id)}.json").write_bytes(notes_bytes)
             return True
@@ -161,7 +181,8 @@ def backup_shot_history(
         shot_id = str(shot.id)
         padded = pad_shot_id(shot_id)
         print(f"  downloading {padded}.slog ({index}/{len(shots)})...", flush=True)
-        slog_bytes = http_get_bytes(f"{history_url.rstrip('/')}/{padded}.slog", http_timeout)
+        time.sleep(SHOT_PACING_SECONDS)
+        slog_bytes = http_get_bytes_retry(f"{history_url.rstrip('/')}/{padded}.slog", http_timeout)
         if slog_bytes is None:
             print(f"  WARN: missing {padded}.slog", file=sys.stderr)
         else:

@@ -1,6 +1,7 @@
 #include "Controller.h"
 #include "ArduinoJson.h"
 #include "esp_sntp.h"
+#include <esp_task_wdt.h>
 #include <SD_MMC.h>
 #include <SPIFFS.h>
 #include <cmath>
@@ -38,6 +39,12 @@ void Controller::setup() {
     // 160 MHz is plenty for the UI (PID runs on the controller board) and cuts
     // sustained current on the machine's marginal 5V supply. WiFi/BLE need >=80.
     setCpuFrequencyMhz(160);
+
+    // SPIFFS name lookups scan flash with caches disabled; a backup's rapid
+    // sequential downloads can hold async_tcp in scans past the default 5 s
+    // task watchdog (measured: task_wdt panic at shot 88/123 of a backup).
+    // 15 s still catches genuine hangs.
+    esp_task_wdt_init(15, true);
 
     mode = settings.getStartupMode();
 
