@@ -127,9 +127,12 @@ void beginLvglHelper(Display &board, bool debug) {
         // contend with that scan-out during recolour/animation redraws and show
         // as whole-screen flicker. A partial buffer in internal SRAM keeps
         // compositing off the PSRAM bus (IDF 4.4 has no RGB bounce-buffer API).
-        // Single buffer only — NimBLE needs internal SRAM too (double 60-line
-        // buffers caused BLE_INIT malloc failure and a boot loop).
-        constexpr size_t kDrawBufLines = 60;
+        // Single buffer only, and small: internal SRAM is shared with NimBLE
+        // and the WiFi/TLS runtime buffers. 60 lines (57.6 KB) left ~33 KB free
+        // with a ~22 KB largest block — the OTA HTTPS check (mbedTLS needs two
+        // ~16.7 KB contiguous record buffers) then wedged WiFi minutes after
+        // boot. 20 lines keeps compositing in SRAM while leaving TLS headroom.
+        constexpr size_t kDrawBufLines = 20;
         buf_pixels = static_cast<size_t>(board.width()) * kDrawBufLines;
         lv_buffer_size = buf_pixels * sizeof(lv_color_t);
         buf = static_cast<lv_color_t *>(heap_caps_malloc(lv_buffer_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));

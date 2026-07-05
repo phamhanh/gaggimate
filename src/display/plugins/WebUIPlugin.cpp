@@ -11,6 +11,7 @@
 #include <display/models/profile.h>
 #include <esp_core_dump.h>
 #include <esp_err.h>
+#include <esp_heap_caps.h>
 #include <esp_partition.h>
 #include <esp_system.h>
 
@@ -25,6 +26,22 @@
 
 static std::unordered_map<uint32_t, std::string> rxBuffers;
 static WebUIPlugin *g_webUIPlugin = nullptr;
+
+// mbedTLS needs two ~17 KB contiguous record buffers plus handshake state for
+// the GitHub HTTPS check; attempting it without that headroom doesn't just
+// fail the check — the allocation pressure can wedge the WiFi stack entirely.
+static bool otaTlsHeadroomOk() {
+    constexpr size_t kMinFree = 55 * 1024;
+    constexpr size_t kMinBlock = 20 * 1024;
+    const size_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    const size_t maxBlock = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (freeInternal >= kMinFree && maxBlock >= kMinBlock) {
+        return true;
+    }
+    ESP_LOGW("WebUIPlugin", "Skipping OTA update check: internal heap too low for TLS (free=%u, maxBlock=%u)",
+             static_cast<unsigned>(freeInternal), static_cast<unsigned>(maxBlock));
+    return false;
+}
 
 static void appendWifiStatus(JsonDocument &doc, Controller *controller, Settings const &settings) {
     doc["wifiConnected"] = controller->isWifiConnected();
@@ -96,6 +113,13 @@ static void appendApiStatusFields(JsonDocument &doc, Controller *controller, flo
     boot["brownouts"] = BootDiag::brownoutCount();
     boot["crashes"] = BootDiag::crashCount();
 
+    // Internal (non-PSRAM) heap — WiFi/BLE runtime buffers live here; if this
+    // pool runs dry the radios wedge with no serial trace.
+    JsonObject heap = doc["heap"].to<JsonObject>();
+    heap["free"] = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    heap["min"] = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    heap["maxBlock"] = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+
     appendPidTelemetryFields(doc, controller, settings);
 }
 
@@ -159,10 +183,12 @@ void WebUIPlugin::loop() {
     }
     const long now = millis();
     if ((lastUpdateCheck == 0 || now > lastUpdateCheck + UPDATE_CHECK_INTERVAL)) {
-        ota->checkForUpdates();
-        pluginManager->trigger("ota:update:status", "value", ota->isUpdateAvailable());
+        if (otaTlsHeadroomOk()) {
+            ota->checkForUpdates();
+            pluginManager->trigger("ota:update:status", "value", ota->isUpdateAvailable());
+            updateOTAStatus(ota->getCurrentVersion());
+        }
         lastUpdateCheck = now;
-        updateOTAStatus(ota->getCurrentVersion());
     }
     if (now > lastStatus + STATUS_PERIOD && !ws.getClients().empty()) {
         lastStatus = now;
@@ -482,7 +508,9 @@ void WebUIPlugin::handleOTASettings(uint32_t clientId, JsonDocument &request) {
             controller->getSettings().setOTAChannel(request["channel"].as<String>() == "latest" ? "latest" : "nightly");
             ota->setReleaseUrl(RELEASE_URL + (controller->getSettings().getOTAChannel() == "latest" ? "latest" : "tag/nightly"));
         }
-        ota->checkForUpdates();
+        if (otaTlsHeadroomOk()) {
+            ota->checkForUpdates();
+        }
         lastUpdateCheck = millis();
         pluginManager->trigger("ota:update:status", "value", ota->isUpdateAvailable());
     }
