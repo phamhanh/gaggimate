@@ -183,12 +183,18 @@ void WebUIPlugin::loop() {
     }
     const long now = millis();
     if ((lastUpdateCheck == 0 || now > lastUpdateCheck + UPDATE_CHECK_INTERVAL)) {
-        if (otaTlsHeadroomOk()) {
-            ota->checkForUpdates();
-            pluginManager->trigger("ota:update:status", "value", ota->isUpdateAvailable());
-            updateOTAStatus(ota->getCurrentVersion());
+        const unsigned long lastBulk = lastBulkHttpMs;
+        if (lastBulk != 0 && (millis() - lastBulk) < HTTP_QUIET_BEFORE_TLS_MS) {
+            // Bulk file serving in progress (e.g. shot-history backup) — defer;
+            // re-evaluated every loop until the server has been quiet.
+        } else {
+            if (otaTlsHeadroomOk()) {
+                ota->checkForUpdates();
+                pluginManager->trigger("ota:update:status", "value", ota->isUpdateAvailable());
+                updateOTAStatus(ota->getCurrentVersion());
+            }
+            lastUpdateCheck = now;
         }
-        lastUpdateCheck = now;
     }
     if (now > lastStatus + STATUS_PERIOD && !ws.getClients().empty()) {
         lastStatus = now;
@@ -319,7 +325,10 @@ void WebUIPlugin::setupServer() {
     if (controller->isSDCard()) {
         fs = &SD_MMC;
     }
-    server.serveStatic("/api/history/", *fs, "/h/").setCacheControl("no-store");
+    server.serveStatic("/api/history/", *fs, "/h/").setCacheControl("no-store").setFilter([this](AsyncWebServerRequest *) {
+        lastBulkHttpMs = millis();
+        return true;
+    });
     server.on("/api/history/index.bin", HTTP_GET, [this, fs](AsyncWebServerRequest *request) {
         // Serve the binary index file directly
         if (fs->exists("/h/index.bin")) {

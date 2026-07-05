@@ -14,6 +14,10 @@ constexpr size_t UPDATE_CHECK_INTERVAL = 5 * 60 * 1000;
 constexpr size_t CLEANUP_PERIOD = 5 * 1000;
 constexpr size_t STATUS_PERIOD = 500;
 constexpr size_t DNS_PERIOD = 10;
+// Defer the background GitHub TLS check until bulk file serving has been quiet
+// this long — its ~45 KB transient heap spike on top of active SPIFFS
+// streaming starves the WiFi stack (wedged twice mid shot-history backup).
+constexpr size_t HTTP_QUIET_BEFORE_TLS_MS = 10 * 1000;
 
 const String LOCAL_URL = "http://4.4.4.1/";
 const String RELEASE_URL = "https://github.com/phamhanh/gaggimate/releases/";
@@ -67,6 +71,8 @@ class WebUIPlugin : public Plugin {
     long lastStatus = 0;
     long lastCleanup = 0;
     long lastDns = 0;
+    // Written from the async_tcp task (history route filter), read from loop().
+    volatile unsigned long lastBulkHttpMs = 0;
     bool updating = false;
     bool apMode = false;
     bool serverRunning = false;
