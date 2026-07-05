@@ -1,6 +1,8 @@
 #include "Controller.h"
 #include "ArduinoJson.h"
 #include "esp_sntp.h"
+#include "soc/rtc_cntl_reg.h"
+#include "soc/soc.h"
 #include <esp_task_wdt.h>
 #include <SD_MMC.h>
 #include <SPIFFS.h>
@@ -33,12 +35,36 @@
 
 const String LOG_TAG = F("Controller");
 
+// The PLC's marginal 5V rail dips during boot; the ESP32-S3 brownout detector
+// turns those transient dips into a reset loop (BootDiag: resetReason=brownout,
+// died between STAGE_SCREEN and STAGE_RADIOS). Detection is disabled for the
+// boot window so the chip rides through the dips, then re-armed once the
+// supply has proven itself at full load — flash writes (settings, shot
+// history) happen post-boot, when protection is back.
+static uint32_t s_savedBrownoutReg = 0;
+
+static void brownoutDetectorDisable() {
+    s_savedBrownoutReg = READ_PERI_REG(RTC_CNTL_BROWN_OUT_REG);
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+}
+
+static void brownoutDetectorRearm() {
+    if (s_savedBrownoutReg != 0) {
+        WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, s_savedBrownoutReg);
+        s_savedBrownoutReg = 0;
+    }
+}
+
 void Controller::setup() {
+    brownoutDetectorDisable();
+
     BootDiag::begin();
 
-    // 160 MHz is plenty for the UI (PID runs on the controller board) and cuts
-    // sustained current on the machine's marginal 5V supply. WiFi/BLE need >=80.
-    setCpuFrequencyMhz(160);
+    // 80 MHz through boot lowers the inrush that stacks with panel init and
+    // the WiFi connect burst; connect() raises to RUN_CPU_FREQ_MHZ (160 —
+    // plenty for the UI, PID runs on the controller board) once radios are
+    // up. WiFi/BLE need >=80.
+    setCpuFrequencyMhz(BOOT_CPU_FREQ_MHZ);
 
     // SPIFFS name lookups scan flash with caches disabled; a backup's rapid
     // sequential downloads can hold async_tcp in scans past the default 5 s
@@ -123,6 +149,9 @@ void Controller::connect() {
     connectStartTime = millis();
     pluginManager->trigger("controller:startup");
 
+    // Let the supply caps recover from the panel/LVGL init peak before the
+    // WiFi connect burst hits the rail.
+    delay(BOOT_RAIL_SETTLE_MS);
     setupWifi();
     // Let the WiFi connect burst and webserver/mDNS bring-up settle before
     // BLE scanning adds its own radio load on the shared 5V rail.
@@ -134,6 +163,10 @@ void Controller::connect() {
     updateLastAction();
     initialized = true;
     BootDiag::markStage(BootDiag::STAGE_RADIOS);
+    setCpuFrequencyMhz(RUN_CPU_FREQ_MHZ);
+    // boot:complete restores the backlight (the largest single load); give the
+    // rail a grace window at full load before re-arming brownout detection.
+    brownoutRearmAtMs = millis() + BOOT_BOD_REARM_DELAY_MS;
     pluginManager->trigger("controller:boot:complete");
 }
 
@@ -455,6 +488,12 @@ void Controller::loop() {
     }
 
     unsigned long now = millis();
+
+    if (brownoutRearmAtMs != 0 && now > brownoutRearmAtMs) {
+        brownoutRearmAtMs = 0;
+        brownoutDetectorRearm();
+        ESP_LOGI(LOG_TAG, "Brownout detector re-armed after boot grace window");
+    }
 
     // If BLE scanning has been running for a while without finding the controller,
     // notify the UI so it can update the startup label accordingly.

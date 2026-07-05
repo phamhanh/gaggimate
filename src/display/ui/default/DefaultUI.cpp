@@ -801,8 +801,10 @@ void DefaultUI::setupPanel() {
     lv_task_handler();
 
     delay(100);
-    // Boot with capped backlight: full brightness plus the WiFi/BLE bring-up
-    // can brown out the PLC 5V supply. Restored on controller:boot:complete.
+    // Dark boot: the backlight is the largest single load on the PLC 5V rail
+    // and BootDiag showed boots dying exactly where backlight and the WiFi
+    // connect burst overlap. Keep it at BOOT_BRIGHTNESS_CAP (0 = fully off)
+    // until controller:boot:complete restores the configured brightness.
     const Settings &settings = controller->getSettings();
     setBrightness(std::min(settings.getMainBrightness(), BOOT_BRIGHTNESS_CAP));
 }

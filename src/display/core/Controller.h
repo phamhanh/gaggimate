@@ -222,6 +222,7 @@ class Controller {
     bool screenReady = false;
     bool waitingForController = false;
     unsigned long connectStartTime = 0;
+    unsigned long brownoutRearmAtMs = 0; // when to re-arm the brownout detector post-boot; 0 = done/not pending
     unsigned long bleDisconnectTime = 0; // millis() when BLE last dropped; 0 = connected
     int modeBeforeDisconnect = -1;       // mode to restore grace check against; -1 = none pending
     bool volumetricOverride = false;

@@ -43,11 +43,20 @@
 
 // Boot power staging: the PLC's internal 5V supply browns out if backlight,
 // WiFi connect bursts and BLE scanning all peak together during boot.
-// Backlight is capped (0-16 steps) and BLE start is staggered after WiFi
-// until "controller:boot:complete"; WiFi TX is reduced during the initial
-// connect and restored to full power once an IP is acquired.
-#define BOOT_BRIGHTNESS_CAP 6
-#define BOOT_BLE_STAGGER_MS 1500
-#define WIFI_BOOT_TX_POWER WIFI_POWER_15dBm
+// Measured (BootDiag): boots die between STAGE_SCREEN and STAGE_RADIOS, i.e.
+// backlight + WiFi connect burst together exceed the rail. So the display
+// boots dark (backlight fully off until "controller:boot:complete"), the CPU
+// runs at 80 MHz until radios are up, WiFi connects at reduced TX power
+// (restored on got-IP), BLE start is staggered after WiFi, and the rail gets
+// a settle pause between the screen-init peak and the WiFi burst. The
+// brownout detector itself is disabled for the boot window and re-armed
+// shortly after boot completes (see Controller.cpp).
+#define BOOT_BRIGHTNESS_CAP 0
+#define BOOT_BLE_STAGGER_MS 2500
+#define WIFI_BOOT_TX_POWER WIFI_POWER_8_5dBm
+#define BOOT_CPU_FREQ_MHZ 80
+#define RUN_CPU_FREQ_MHZ 160
+#define BOOT_RAIL_SETTLE_MS 500
+#define BOOT_BOD_REARM_DELAY_MS 5000
 
 #endif // CONSTANTS_H
