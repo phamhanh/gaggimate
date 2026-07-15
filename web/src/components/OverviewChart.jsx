@@ -244,6 +244,17 @@ function getChartData(data) {
       data: data.map(i => ({ x: i.timestamp.toISOString(), y: i.currentFlow })),
     },
   ];
+  // Cup flow is meaningful whenever a scale streams weight — independent of
+  // volumetric brew-target mode.
+  if (latestData && latestData.bluetoothConnected) {
+    datasets.push({
+      label: 'Cup Flow',
+      borderColor: '#0E7490',
+      pointStyle: false,
+      yAxisID: 'y1',
+      data: data.map(i => ({ x: i.timestamp.toISOString(), y: i.cupFlow || 0 })),
+    });
+  }
   if (showWeights) {
     datasets.push({
       label: 'Current Weight',

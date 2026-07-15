@@ -171,6 +171,7 @@ export default class ApiService {
       targetWeight: message.tw || 0,
       activeTargetWeight: (message?.process?.a && message.tw) || 0,
       currentFlow: message.fl,
+      cupFlow: message.sfl || 0, // scale-derived cup flow (g/s)
       mode: message.m,
       selectedProfile: message.p,
       selectedProfileId: message.puid,

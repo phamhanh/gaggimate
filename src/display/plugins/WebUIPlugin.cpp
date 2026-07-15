@@ -94,6 +94,8 @@ static void appendApiStatusFields(JsonDocument &doc, Controller *controller, flo
     doc["pr"] = controller->getCurrentPressure();
     doc["pt"] = controller->getTargetPressure();
     doc["fl"] = controller->getCurrentPumpFlow();
+    doc["pf"] = controller->getCurrentPuckFlow();
+    doc["sfl"] = controller->getCurrentCupFlow(); // scale-derived cup flow (g/s)
 
     float weight = 0.0f;
     if (BLEScales.isConnected()) {
@@ -235,6 +237,7 @@ void WebUIPlugin::loop() {
         doc["bw"] = bleConnected ? this->currentBluetoothWeight : 0; // current bluetooth weight
         doc["cw"] = bleConnected ? this->currentBluetoothWeight : 0; // Use 'currentWeight' for forward compatbility
         doc["bc"] = bleConnected;                                    // bluetooth scale connected status
+        doc["sfl"] = bleConnected ? controller->getCurrentCupFlow() : 0; // scale-derived cup flow (g/s)
         // Scale battery — only surfaced when the driver reports one and the
         // value isn't the UNKNOWN sentinel (255). UI omits the battery pill
         // entirely when `sbat` is absent, so disconnected/unknown scales don't
@@ -638,6 +641,8 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
             settings->setTempProbeFilterEnabled(request->hasArg("tempProbeFilterEnabled"));
             if (request->hasArg("tempProbeFilterAlpha"))
                 settings->setTempProbeFilterAlpha(request->arg("tempProbeFilterAlpha").toFloat());
+            if (request->hasArg("cupFlowSmoothing"))
+                settings->setCupFlowSmoothingSec(request->arg("cupFlowSmoothing").toFloat());
             if (request->hasArg("pressureScaling"))
                 settings->setPressureScaling(request->arg("pressureScaling").toFloat());
             if (request->hasArg("pid"))
@@ -810,6 +815,7 @@ void WebUIPlugin::handleSettings(AsyncWebServerRequest *request) const {
     doc["temperatureOffset"] = String(settings.getTemperatureOffset());
     doc["tempProbeFilterEnabled"] = settings.isTempProbeFilterEnabled();
     doc["tempProbeFilterAlpha"] = settings.getTempProbeFilterAlpha();
+    doc["cupFlowSmoothing"] = settings.getCupFlowSmoothingSec();
     doc["pressureScaling"] = String(settings.getPressureScaling());
     doc["boilerFillActive"] = settings.isBoilerFillActive();
     doc["startupFillTime"] = settings.getStartupFillTime() / 1000;

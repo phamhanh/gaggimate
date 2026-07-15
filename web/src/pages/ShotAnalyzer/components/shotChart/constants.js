@@ -89,7 +89,7 @@ export const LEGEND_THIN_LINE_LABELS = new Set([
   'Target F',
   'Puck Flow',
   'Weight',
-  'Weight Flow',
+  'Cup Flow',
 ]);
 
 export const TOOLTIP_WATER_LABELS = new Set([WATER_DRAWN_PHASE_LABEL, WATER_DRAWN_TOTAL_LABEL]);
@@ -104,7 +104,7 @@ export const LEGEND_ORDER = [
   'Target F',
   'Puck Flow',
   'Weight',
-  'Weight Flow',
+  'Cup Flow',
   'Temp',
   'Target T',
 ];
@@ -117,7 +117,7 @@ export const TOOLTIP_ORDER = [
   'Flow',
   'Target F',
   'Puck Flow',
-  'Weight Flow',
+  'Cup Flow',
   'Weight',
   WATER_DRAWN_PHASE_LABEL,
   WATER_DRAWN_TOTAL_LABEL,
@@ -137,7 +137,7 @@ export const TOOLTIP_GROUP_BY_LABEL = {
   'Target F': 'flow',
   'Puck Flow': 'flow',
   Weight: 'weight',
-  'Weight Flow': 'weight',
+  'Cup Flow': 'weight',
   [WATER_DRAWN_PHASE_LABEL]: 'water',
   [WATER_DRAWN_TOTAL_LABEL]: 'water',
   Temp: 'temp',
@@ -155,7 +155,7 @@ export const VISIBILITY_KEY_BY_LABEL = {
   'Target F': 'targetFlow',
   'Puck Flow': 'puckFlow',
   Weight: 'weight',
-  'Weight Flow': 'weightFlow',
+  'Cup Flow': 'weightFlow',
 };
 
 export const INITIAL_VISIBILITY = {
@@ -182,7 +182,7 @@ export const UNIT_BY_LABEL = {
   'Target F': 'ml/s',
   'Puck Flow': 'ml/s',
   Weight: 'g',
-  'Weight Flow': 'g/s',
+  'Cup Flow': 'g/s',
   [WATER_DRAWN_PHASE_LABEL]: 'ml',
   [WATER_DRAWN_TOTAL_LABEL]: 'ml',
 };

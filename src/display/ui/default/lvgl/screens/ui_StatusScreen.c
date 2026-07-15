@@ -28,6 +28,8 @@ lv_obj_t *ui_StatusScreen_brewBar = NULL;
 lv_obj_t *ui_StatusScreen_labelContainer = NULL;
 lv_obj_t *ui_StatusScreen_brewLabel = NULL;
 lv_obj_t *ui_StatusScreen_brewVolume = NULL;
+// Fork addition: live scale readout (weight + cup flow) during a shot
+lv_obj_t *ui_StatusScreen_scaleInfo = NULL;
 // event funtions
 void ui_event_StatusScreen(lv_event_t *e) {
     lv_event_code_t event_code = lv_event_get_code(e);
@@ -273,6 +275,23 @@ void ui_StatusScreen_screen_init(void) {
     lv_obj_set_style_text_align(ui_StatusScreen_brewVolume, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_StatusScreen_brewVolume, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    // Fork addition: live scale readout (weight + cup flow) shown under the
+    // progress bar while a shot runs with a connected BLE scale.
+    ui_StatusScreen_scaleInfo = lv_label_create(ui_StatusScreen_contentPanel2);
+    lv_obj_set_width(ui_StatusScreen_scaleInfo, 320);
+    lv_obj_set_height(ui_StatusScreen_scaleInfo, 20);
+    lv_obj_set_x(ui_StatusScreen_scaleInfo, 0);
+    lv_obj_set_y(ui_StatusScreen_scaleInfo, 44);
+    lv_obj_set_align(ui_StatusScreen_scaleInfo, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_StatusScreen_scaleInfo, "");
+    lv_obj_add_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
+    ui_object_set_themeable_style_property(ui_StatusScreen_scaleInfo, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_TEXT_COLOR,
+                                           _ui_theme_color_NiceWhite);
+    ui_object_set_themeable_style_property(ui_StatusScreen_scaleInfo, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_TEXT_OPA,
+                                           _ui_theme_alpha_NiceWhite);
+    lv_obj_set_style_text_align(ui_StatusScreen_scaleInfo, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_StatusScreen_scaleInfo, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
     lv_obj_add_event_cb(ui_StatusScreen_ImgButton8, ui_event_StatusScreen_ImgButton8, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_StatusScreen_pauseButton, ui_event_StatusScreen_pauseButton, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_StatusScreen, ui_event_StatusScreen, LV_EVENT_ALL, NULL);
@@ -312,4 +331,5 @@ void ui_StatusScreen_screen_destroy(void) {
     ui_StatusScreen_labelContainer = NULL;
     ui_StatusScreen_brewLabel = NULL;
     ui_StatusScreen_brewVolume = NULL;
+    ui_StatusScreen_scaleInfo = NULL;
 }

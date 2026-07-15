@@ -219,7 +219,7 @@ function SingleShotChart({ shotData, results }) {
     const key = VISIBILITY_KEY_BY_LABEL[label];
     if (!key) return;
     if (label === 'Weight' && !hasWeightData) return;
-    if (label === 'Weight Flow' && !hasWeightFlowData) return;
+    if (label === 'Cup Flow' && !hasWeightFlowData) return;
     setVisibility(prev => ({ ...prev, [key]: !prev[key] }));
   };
 

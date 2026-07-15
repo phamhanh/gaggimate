@@ -549,6 +549,12 @@ void Controller::loop() {
             }
         }
 
+        // Decay the cup-flow signal when BLE weight samples stop arriving
+        // (scale off / dropped) so consumers don't act on a frozen value.
+        if (!isCupFlowLive()) {
+            currentCupFlow = 0.0f;
+        }
+
         // Handle current process
         if (currentProcess != nullptr) {
             updateLastAction();
@@ -556,6 +562,8 @@ void Controller::loop() {
                 auto brewProcess = static_cast<BrewProcess *>(currentProcess);
                 brewProcess->updatePressure(pressure);
                 brewProcess->updateFlow(currentPumpFlow);
+                brewProcess->updatePuckFlow(currentPuckFlow);
+                brewProcess->updateCupFlow(currentCupFlow, isCupFlowLive() && isBluetoothScaleHealthy());
             }
             currentProcess->progress();
             if (!isActive()) {
@@ -1048,6 +1056,38 @@ void Controller::onProfileSaveAsNew() {
     profileManager->addFavoritedProfile(profile.id);
 }
 
+void Controller::updateCupFlowFromWeight(const float weight) {
+    const unsigned long now = millis();
+    if (lastCupWeightTime == 0) {
+        // First sample after boot — establish the baseline only.
+        lastCupWeight = weight;
+        lastCupWeightTime = now;
+        return;
+    }
+    const float dt = static_cast<float>(now - lastCupWeightTime) / 1000.0f;
+    if (dt < 0.02f) {
+        return; // duplicate/burst notification; too small for a stable derivative
+    }
+    const float raw = (weight - lastCupWeight) / dt;
+    lastCupWeight = weight;
+    lastCupWeightTime = now;
+
+    // Spike rejection: cup bumps, tare, or cup removal produce implausible
+    // rates (espresso output is < ~6 g/s). Reject the sample but keep the new
+    // baseline, so a step change costs one sample and then recovers.
+    constexpr float CUP_FLOW_MAX_PLAUSIBLE = 12.0f;
+    constexpr float CUP_FLOW_MIN_PLAUSIBLE = -1.0f;
+    if (raw > CUP_FLOW_MAX_PLAUSIBLE || raw < CUP_FLOW_MIN_PLAUSIBLE) {
+        return;
+    }
+
+    // EMA with configurable time constant (Settings → cup flow smoothing).
+    const float tau = std::max(0.2f, settings.getCupFlowSmoothingSec());
+    const float alpha = std::clamp(dt / tau, 0.0f, 1.0f);
+    // Clamp tiny negatives from scale noise to zero for a stable readout.
+    currentCupFlow = std::max(0.0f, currentCupFlow + alpha * (raw - currentCupFlow));
+}
+
 void Controller::onVolumetricMeasurement(double measurement, VolumetricMeasurementSource source) {
     pluginManager->trigger(source == VolumetricMeasurementSource::FLOW_ESTIMATION
                                ? F("controller:volumetric-measurement:estimation:change")
@@ -1055,6 +1095,7 @@ void Controller::onVolumetricMeasurement(double measurement, VolumetricMeasureme
                            "value", static_cast<float>(measurement));
     if (source == VolumetricMeasurementSource::BLUETOOTH) {
         lastBluetoothMeasurement = millis();
+        updateCupFlowFromWeight(static_cast<float>(measurement));
     }
 
     if (currentVolumetricSource != source) {

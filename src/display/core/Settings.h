@@ -70,6 +70,7 @@ class Settings {
     int getTemperatureOffset() const { return temperatureOffset; }
     bool isTempProbeFilterEnabled() const { return tempProbeFilterEnabled; }
     float getTempProbeFilterAlpha() const { return tempProbeFilterAlpha; }
+    float getCupFlowSmoothingSec() const { return cupFlowSmoothingSec; }
     float getPressureScaling() const { return pressureScaling; }
     double getTargetGrindVolume() const { return targetGrindVolume; }
     int getTargetGrindDuration() const { return targetGrindDuration; }
@@ -129,6 +130,7 @@ class Settings {
     void setTemperatureOffset(int temperature_offset);
     void setTempProbeFilterEnabled(bool enabled);
     void setTempProbeFilterAlpha(float alpha);
+    void setCupFlowSmoothingSec(float seconds);
     void setPressureScaling(float pressure_scaling);
     void setTargetGrindVolume(double target_grind_volume);
     void setTargetGrindDuration(int target_duration);
@@ -230,6 +232,10 @@ class Settings {
     int temperatureOffset = DEFAULT_TEMPERATURE_OFFSET;
     bool tempProbeFilterEnabled = true;
     float tempProbeFilterAlpha = 0.05f;
+    // EMA time constant for the scale-derived cup-flow signal (seconds).
+    // Larger = smoother but laggier; used for display, stop targets and the
+    // cup-flow control loop.
+    float cupFlowSmoothingSec = 1.5f;
     float pressureScaling = DEFAULT_PRESSURE_SCALING;
     double targetGrindVolume = 18;
     int targetGrindDuration = 25000;

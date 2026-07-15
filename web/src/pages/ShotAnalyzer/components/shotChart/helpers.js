@@ -271,7 +271,7 @@ export function getLegendColorByLabel(colors) {
     'Target F': colors.flow,
     'Puck Flow': colors.puckFlow,
     Weight: colors.weight,
-    'Weight Flow': colors.weightFlow,
+    'Cup Flow': colors.weightFlow,
   };
 }
 
@@ -293,7 +293,7 @@ export function getVisibleLegendItemsForExport({
   // including data-dependent series such as weight and weight flow.
   return LEGEND_ORDER.reduce((items, label) => {
     if (label === 'Weight' && !hasWeightData) return items;
-    if (label === 'Weight Flow' && !hasWeightFlowData) return items;
+    if (label === 'Cup Flow' && !hasWeightFlowData) return items;
 
     const key = VISIBILITY_KEY_BY_LABEL[label];
     if (key && !visibility[key]) return items;
@@ -599,7 +599,7 @@ function getReplayDatasetStrategy(label) {
     case 'Pressure':
     case 'Flow':
     case 'Puck Flow':
-    case 'Weight Flow':
+    case 'Cup Flow':
       return 'extrema';
     default:
       return 'carry';

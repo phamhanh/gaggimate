@@ -167,7 +167,7 @@ export function createShotChartConfigs({
       hidden: !showWeightSeries || !visibility.weight,
     },
     {
-      label: 'Weight Flow',
+      label: 'Cup Flow',
       data: model.series.weightFlow,
       borderColor: colors.weightFlow,
       backgroundColor: colors.weightFlow,

@@ -117,8 +117,8 @@ const DETAIL_CHARTS = [
   },
   {
     id: 'weight-flow',
-    title: 'Weight Flow',
-    tooltipBaseLabel: 'Weight Flow',
+    title: 'Cup Flow',
+    tooltipBaseLabel: 'Cup Flow',
     targetTooltipBaseLabel: null,
     visibleKey: 'weightFlow',
     targetVisibleKey: null,
@@ -812,8 +812,8 @@ function buildMainWeightDatasetSpecs({
       : null,
     showWeightFlowInMainChart && visibility.weightFlow && model.series.weightFlow.length > 0
       ? {
-          label: `${entry.label} Weight Flow`,
-          compareTooltipBaseLabel: 'Weight Flow',
+          label: `${entry.label} Cup Flow`,
+          compareTooltipBaseLabel: 'Cup Flow',
           data: model.series.weightFlow,
           axisScaleMode: 'weightFlow',
           borderColor: applyColorAlpha(colors.weightFlow, shotStyle.opacity),
@@ -1541,12 +1541,12 @@ export function CompareShotCharts({
       'Target F': 'targetFlow',
       'Puck Flow': 'puckFlow',
       Weight: 'weight',
-      'Weight Flow': 'weightFlow',
+      'Cup Flow': 'weightFlow',
     }[label];
 
     if (!key) return;
     if (label === 'Weight' && !hasWeightData) return;
-    if (label === 'Weight Flow' && !hasWeightFlowData) return;
+    if (label === 'Cup Flow' && !hasWeightFlowData) return;
     setVisibility(prevVisibility => ({ ...prevVisibility, [key]: !prevVisibility[key] }));
   };
 

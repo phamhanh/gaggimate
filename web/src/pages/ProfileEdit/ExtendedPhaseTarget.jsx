@@ -34,16 +34,40 @@ export const TargetTypes = [
     unit: 'bar',
   },
   {
-    label: 'Flow above',
+    label: 'Pump flow above',
     type: 'flow',
     operator: 'gte',
     unit: 'ml/s',
   },
   {
-    label: 'Flow below',
+    label: 'Pump flow below',
     type: 'flow',
     operator: 'lte',
     unit: 'ml/s',
+  },
+  {
+    label: 'Puck flow above',
+    type: 'puck_flow',
+    operator: 'gte',
+    unit: 'ml/s',
+  },
+  {
+    label: 'Puck flow below',
+    type: 'puck_flow',
+    operator: 'lte',
+    unit: 'ml/s',
+  },
+  {
+    label: 'Cup flow above',
+    type: 'cup_flow',
+    operator: 'gte',
+    unit: 'g/s',
+  },
+  {
+    label: 'Cup flow below',
+    type: 'cup_flow',
+    operator: 'lte',
+    unit: 'g/s',
   },
 ];
 

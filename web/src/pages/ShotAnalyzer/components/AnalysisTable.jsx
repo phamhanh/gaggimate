@@ -974,7 +974,7 @@ function CellContent({ phase, col, results, isTotal = false }) {
       unit = 'g';
       break;
 
-    // Weight Flow Details (clamp to 0)
+    // Cup Flow Details (clamp to 0)
     case 'wf_se':
       mainValue = `${sf(Math.max(0, stats?.wf?.start ?? 0))}/${sf(Math.max(0, stats?.wf?.end ?? 0))}`;
       break;

@@ -23,7 +23,7 @@ const ICON_BY_LABEL = {
   'Target F': faBullseye,
   'Puck Flow': faFilter,
   Weight: faScaleBalanced,
-  'Weight Flow': faScaleBalanced,
+  'Cup Flow': faScaleBalanced,
   [WATER_DRAWN_PHASE_LABEL]: faDroplet,
   [WATER_DRAWN_TOTAL_LABEL]: faDroplet,
 };

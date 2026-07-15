@@ -90,21 +90,21 @@ export const columnConfig = [
   // --- WEIGHT FLOW ---
   {
     id: 'wf_se',
-    label: 'Weight Flow (g/s)',
+    label: 'Cup Flow (g/s)',
     type: 'se',
     group: 'weightflow',
     default: false,
   },
   {
     id: 'wf_mm',
-    label: 'Weight Flow (g/s)',
+    label: 'Cup Flow (g/s)',
     type: 'mm',
     group: 'weightflow',
     default: false,
   },
   {
     id: 'wf_avg',
-    label: 'Weight Flow (g/s)',
+    label: 'Cup Flow (g/s)',
     type: 'avg',
     group: 'weightflow',
     default: false,
@@ -332,7 +332,7 @@ export const groups = {
   temp: 'Temperature (℃)',
   target_temp: 'Target Temp (℃)',
   weight: 'Weight (g)',
-  weightflow: 'Weight Flow (g/s)',
+  weightflow: 'Cup Flow (g/s)',
   system: 'System Info',
 };
 

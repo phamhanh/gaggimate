@@ -121,6 +121,7 @@ Settings::Settings() {
     temperatureOffset = preferences.getInt("to", DEFAULT_TEMPERATURE_OFFSET);
     tempProbeFilterEnabled = preferences.getBool("tpf_en", true);
     tempProbeFilterAlpha = preferences.getFloat("tpf_a", 0.05f);
+    cupFlowSmoothingSec = preferences.getFloat("cf_tau", 1.5f);
     pressureScaling = preferences.getFloat("ps", DEFAULT_PRESSURE_SCALING);
     pid = preferences.getString("pid", DEFAULT_PID);
     pumpModelCoeffs = preferences.getString("pmc", DEFAULT_PUMP_MODEL_COEFFS);
@@ -268,6 +269,11 @@ void Settings::setTempProbeFilterEnabled(const bool enabled) {
 
 void Settings::setTempProbeFilterAlpha(const float alpha) {
     tempProbeFilterAlpha = std::clamp(alpha, 0.01f, 1.0f);
+    save();
+}
+
+void Settings::setCupFlowSmoothingSec(const float seconds) {
+    cupFlowSmoothingSec = std::clamp(seconds, 0.2f, 10.0f);
     save();
 }
 
@@ -685,6 +691,7 @@ void Settings::doSave() {
     preferences.putInt("to", temperatureOffset);
     preferences.putBool("tpf_en", tempProbeFilterEnabled);
     preferences.putFloat("tpf_a", tempProbeFilterAlpha);
+    preferences.putFloat("cf_tau", cupFlowSmoothingSec);
     preferences.putFloat("ps", pressureScaling);
     preferences.putString("pid", pid);
     preferences.putString("pmc", pumpModelCoeffs);

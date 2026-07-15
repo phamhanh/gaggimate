@@ -8,8 +8,10 @@ enum class TargetType {
     TARGET_TYPE_WEIGHT,
     TARGET_TYPE_PREDICTED_WEIGHT,
     TARGET_TYPE_PRESSURE,
-    TARGET_TYPE_FLOW,
-    TARGET_TYPE_PUMPED
+    TARGET_TYPE_FLOW,      // pump flow (controller pump model) — historical name kept for profile compat
+    TARGET_TYPE_PUMPED,
+    TARGET_TYPE_PUCK_FLOW, // controller's coffee-through-puck estimate
+    TARGET_TYPE_CUP_FLOW   // scale-derived cup flow (needs connected scale)
 };
 enum class TargetOperator { LTE, GTE };
 enum class PumpTarget {
@@ -36,6 +38,10 @@ struct PumpAdvanced {
     PumpTarget target; // "pressure" | "flow"
     float pressure;
     float flow;
+    // Cup-flow setpoint (g/s into the cup, scale-derived). 0 = ignore. When >0
+    // and a scale is live, an outer loop trims the pump-flow command so the
+    // measured cup flow holds this value; `flow` acts as the command ceiling.
+    float cupFlow = 0.0f;
 };
 
 struct Transition {
@@ -114,7 +120,8 @@ struct Phase {
     }
 
     bool isFinished(bool enableVolumetric, float scale_volume, float predicted_volume, float time_in_phase,
-                    float current_flow, float current_pressure, float water_pumped, String type) const {
+                    float current_flow, float current_pressure, float water_pumped, String type, float current_puck_flow = 0.0f,
+                    float current_cup_flow = 0.0f, bool cup_flow_live = false) const {
         bool weightTested = false;
         for (const auto &target : targets) {
             switch (target.type) {
@@ -137,6 +144,18 @@ struct Phase {
                 break;
             case TargetType::TARGET_TYPE_FLOW:
                 if (target.isReached(current_flow)) {
+                    return true;
+                }
+                break;
+            case TargetType::TARGET_TYPE_PUCK_FLOW:
+                if (target.isReached(current_puck_flow)) {
+                    return true;
+                }
+                break;
+            case TargetType::TARGET_TYPE_CUP_FLOW:
+                // Only meaningful with live scale data — otherwise a 0 reading
+                // would instantly satisfy any "below" condition.
+                if (cup_flow_live && target.isReached(current_cup_flow)) {
                     return true;
                 }
                 break;
@@ -289,6 +308,7 @@ inline bool parseProfile(const JsonObject &obj, Profile &profile) {
                 pump["target"].as<String>() == "pressure" ? PumpTarget::PUMP_TARGET_PRESSURE : PumpTarget::PUMP_TARGET_FLOW;
             phase.pumpAdvanced.pressure = pump["pressure"].as<float>();
             phase.pumpAdvanced.flow = pump["flow"].as<float>();
+            phase.pumpAdvanced.cupFlow = pump["cupFlow"].is<float>() ? pump["cupFlow"].as<float>() : 0.0f;
         }
 
         if (p["transition"].is<JsonObject>()) {
@@ -329,6 +349,10 @@ inline bool parseProfile(const JsonObject &obj, Profile &profile) {
                     target.type = TargetType::TARGET_TYPE_PRESSURE;
                 } else if (type == "flow") {
                     target.type = TargetType::TARGET_TYPE_FLOW;
+                } else if (type == "puck_flow") {
+                    target.type = TargetType::TARGET_TYPE_PUCK_FLOW;
+                } else if (type == "cup_flow") {
+                    target.type = TargetType::TARGET_TYPE_CUP_FLOW;
                 } else if (type == "pumped") {
                     target.type = TargetType::TARGET_TYPE_PUMPED;
                 } else {
@@ -397,6 +421,9 @@ inline void writeProfile(JsonObject &obj, const Profile &profile) {
             pump["target"] = phase.pumpAdvanced.target == PumpTarget::PUMP_TARGET_PRESSURE ? "pressure" : "flow";
             pump["pressure"] = phase.pumpAdvanced.pressure;
             pump["flow"] = phase.pumpAdvanced.flow;
+            if (phase.pumpAdvanced.cupFlow > 0.0f) {
+                pump["cupFlow"] = phase.pumpAdvanced.cupFlow;
+            }
         }
 
         if (!phase.targets.empty()) {
@@ -415,6 +442,12 @@ inline void writeProfile(JsonObject &obj, const Profile &profile) {
                     break;
                 case TargetType::TARGET_TYPE_FLOW:
                     tObj["type"] = "flow";
+                    break;
+                case TargetType::TARGET_TYPE_PUCK_FLOW:
+                    tObj["type"] = "puck_flow";
+                    break;
+                case TargetType::TARGET_TYPE_CUP_FLOW:
+                    tObj["type"] = "cup_flow";
                     break;
                 case TargetType::TARGET_TYPE_PUMPED:
                     tObj["type"] = "pumped";

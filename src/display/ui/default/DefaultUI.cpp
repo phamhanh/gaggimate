@@ -1296,6 +1296,16 @@ void DefaultUI::updateStatusScreen() const {
         }
     }
 
+    // Live scale readout: weight + cup flow whenever the scale streams,
+    // regardless of volumetric mode or weight targets.
+    if (controller->isCupFlowLive()) {
+        lv_label_set_text_fmt(ui_StatusScreen_scaleInfo, "%.1f g  |  %.2f g/s", bluetoothWeight,
+                              controller->getCurrentCupFlow());
+        lv_obj_clear_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
+    }
+
     lv_label_set_text(ui_StatusScreen_stepLabel, phase.phase == PhaseType::PHASE_TYPE_BREW ? "BREW" : "INFUSION");
     String phaseText = "Finished";
     if (process->isActive()) {

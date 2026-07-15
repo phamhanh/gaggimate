@@ -21,6 +21,9 @@ class BrewProcess : public Process {
     unsigned long finished = 0;
     double currentVolume = 0; // most recent volume pushed
     float currentFlow = 0.0f;
+    float currentPuckFlow = 0.0f;
+    float currentCupFlow = 0.0f;
+    bool cupFlowLive = false;
     float currentPressure = 0.0f;
     float waterPumped = 0.0f;
     VolumetricRateCalculator volumetricRateCalculator{PREDICTIVE_TIME};
@@ -46,6 +49,43 @@ class BrewProcess : public Process {
 
     void updateFlow(float flow) { currentFlow = flow; }
 
+    void updatePuckFlow(float flow) { currentPuckFlow = flow; }
+
+    // Feed the scale-derived cup flow and run the outer trim loop: when the
+    // current phase has a cup-flow setpoint and the scale is live, integrate
+    // the error into a (non-positive) trim on the pump-flow command. The
+    // pump-flow field stays the ceiling; losing the scale mid-phase freezes
+    // control back to the plain pump-flow target (trim decays to 0).
+    void updateCupFlow(float flow, bool live) {
+        currentCupFlow = flow;
+        cupFlowLive = live;
+        const unsigned long now = millis();
+        if (lastCupTrimUpdate == 0) {
+            lastCupTrimUpdate = now;
+            return;
+        }
+        const float dt = static_cast<float>(now - lastCupTrimUpdate) / 1000.0f;
+        lastCupTrimUpdate = now;
+        if (processPhase != ProcessPhase::RUNNING || currentPhase.pumpIsSimple) {
+            cupFlowTrim = 0.0f;
+            return;
+        }
+        const float setpoint = currentPhase.pumpAdvanced.cupFlow;
+        if (setpoint <= 0.0f || !live) {
+            // Decay any leftover trim so a scale drop degrades smoothly to the
+            // plain pump-flow target instead of stepping.
+            cupFlowTrim *= std::max(0.0f, 1.0f - 2.0f * dt);
+            return;
+        }
+        const float error = setpoint - flow; // g/s; negative = cup running too fast
+        cupFlowTrim += CUP_FLOW_TRIM_GAIN * error * dt;
+        // Trim may only reduce the command below the ceiling, never above it,
+        // and must leave a minimum command so the pump keeps metering.
+        const float ceiling = getPumpFlowCeiling();
+        const float maxReduction = std::max(0.0f, ceiling - CUP_FLOW_MIN_COMMAND);
+        cupFlowTrim = std::clamp(cupFlowTrim, -maxReduction, 0.0f);
+    }
+
     unsigned long getTotalDuration() const { return profile.getTotalDuration() * 1000L; }
 
     unsigned long getPhaseDuration() const { return static_cast<long>(currentPhase.duration) * 1000L; }
@@ -63,7 +103,8 @@ class BrewProcess : public Process {
         }
         float timeInPhase = static_cast<float>(millis() - currentPhaseStarted) / 1000.0f;
         return currentPhase.isFinished(target == ProcessTarget::VOLUMETRIC, currentVolume, predicted_volume, timeInPhase,
-                                       currentFlow, currentPressure, waterPumped, profile.type);
+                                       currentFlow, currentPressure, waterPumped, profile.type, currentPuckFlow,
+                                       currentCupFlow, cupFlowLive);
     }
 
     bool isUtility() const { return profile.utility; }
@@ -116,13 +157,33 @@ class BrewProcess : public Process {
         return startVal + (endVal - startVal) * a;
     }
 
-    float getPumpFlow() const {
+    // Transitioned pump-flow command before cup-flow trim — acts as the
+    // ceiling while cup-flow control is active.
+    float getPumpFlowCeiling() const {
         if (!isAdvancedPump())
             return 0.0f;
         const float startVal = phaseStartFlow;
         const float endVal = effectiveFlow;
         const float a = transitionAlpha();
         return startVal + (endVal - startVal) * a;
+    }
+
+    float getPumpFlow() const {
+        const float base = getPumpFlowCeiling();
+        if (!isAdvancedPump())
+            return base;
+        const float setpoint = currentPhase.pumpAdvanced.cupFlow;
+        if (setpoint > 0.0f) {
+            if (cupFlowLive) {
+                return std::clamp(base + cupFlowTrim, CUP_FLOW_MIN_COMMAND, base);
+            }
+            if (currentPhase.pumpAdvanced.flow <= 0.0f) {
+                // No scale and no pump-flow field: fall back to the cup value
+                // as a plain pump-flow target (conservative, shot completes).
+                return std::min(base, setpoint);
+            }
+        }
+        return base;
     }
 
     float getTemperature() const {
@@ -165,6 +226,16 @@ class BrewProcess : public Process {
     int getType() override { return MODE_BREW; }
 
   private:
+    // Cup-flow outer loop tuning. The cup responds to pump changes with
+    // multi-second lag (puck transit), so the integrator is deliberately slow;
+    // the measurement-side EMA (Settings → cup flow smoothing) adds stability.
+    static constexpr float CUP_FLOW_TRIM_GAIN = 0.4f;   // (g/s command) per (g/s error) per second
+    static constexpr float CUP_FLOW_MIN_COMMAND = 0.2f; // never trim the pump command below this
+    static constexpr float CUP_FLOW_DEFAULT_CEILING = 6.0f; // ceiling when no pump-flow field is set
+
+    float cupFlowTrim = 0.0f; // additive, clamped to [-(ceiling-min), 0]
+    unsigned long lastCupTrimUpdate = 0;
+
     float phaseStartPressure = 0.0f;
     float phaseStartFlow = 0.0f;
 
@@ -207,11 +278,20 @@ class BrewProcess : public Process {
         effectivePressure =
             (currentPhase.pumpAdvanced.pressure == -1.0f) ? phaseStartPressure : currentPhase.pumpAdvanced.pressure;
         effectiveFlow = (currentPhase.pumpAdvanced.flow == -1.0f) ? phaseStartFlow : currentPhase.pumpAdvanced.flow;
+        if (currentPhase.pumpAdvanced.cupFlow > 0.0f && effectiveFlow <= 0.0f) {
+            // Cup-flow phase without a pump-flow field: give the trim loop a
+            // sane ceiling to work under.
+            effectiveFlow = CUP_FLOW_DEFAULT_CEILING;
+        }
         if (currentPhase.pumpAdvanced.target == PumpTarget::PUMP_TARGET_FLOW) {
             phaseStartPressure = effectivePressure;
         } else {
             phaseStartFlow = effectiveFlow;
         }
+        // Each phase starts with a fresh trim — stale corrections from the
+        // previous puck state would mis-command the new phase.
+        cupFlowTrim = 0.0f;
+        lastCupTrimUpdate = 0;
     }
 
     float transitionAlpha() const {

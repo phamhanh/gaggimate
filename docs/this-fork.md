@@ -150,6 +150,15 @@ Requires brew-by-weight mode and a connected scale (same as upstream volumetric)
 
 **Migration:** Open each profile in the web editor and save once — `volumetric` is upgraded to `predicted_weight` in memory on load. Edit phases that should wait on the real scale (ramps, drops) to **`weight`**. Schema detail: [`schema/profile.json`](../schema/profile.json).
 
+## Cup flow — measured flow as a first-class signal
+
+The machine's "flow" numbers are pump-model estimates (often ~20 % off on my kit); the only *measured* flow is the scale. This fork makes scale-derived **cup flow** — smoothed d(weight)/dt with hard spike rejection (a knock on the cup is discarded, not smoothed) — a shared signal used everywhere:
+
+- **Profile control** — flow-mode phases get a **Cup Flow (0 = Ignore)** field next to Target Pump Flow. When set and the scale is live, a slow integrator trims the pump-flow command so the *measured* flow into the cup holds the setpoint; the pump-flow field stays the ceiling. My use: pre-infusion limits pump flow (cup at 0), ramp/extraction hold cup flow. Falls back to the plain pump-flow target when the scale drops (or to the cup value as pump target if no ceiling is set).
+- **Stop conditions** — the old "Flow above/below" is relabeled **Pump flow** (unchanged behavior for existing profiles); new **Puck flow** (controller's coffee-flow estimate) and **Cup flow** stop types join it. Cup-flow stops only fire with live scale data, so a disconnected scale can't instantly satisfy a "below" condition.
+- **Everywhere visible** — `sfl` in `evt:status` + `/api/status`, a Cup Flow line on the live chart, the shot-log `vf` channel now uses the same filter (labels renamed "Weight Flow" → "Cup Flow"), and the on-device shot screen shows `weight | cup flow` live whenever the scale streams — previously the display showed nothing from the scale mid-shot unless a weight target was active.
+- **Tunable filter** — Settings → **Cup flow smoothing** (EMA time constant, default 1.5 s) since the right trade-off between calm control and reaction speed depends on the scale's sample rate.
+
 ## Pressure between shots
 
 On my boiler, pressure rises at startup and between shots as heat expands leftover air or as water boils. I should use **Flush**, but I often do not, so I added **brew idle pressure vent**: in brew mode, when idle and **stable**, the firmware opens the 3-way valve (pump off) until pressure drops.

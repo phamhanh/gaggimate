@@ -53,6 +53,11 @@ class Controller {
     virtual float getCurrentPressure() const { return pressure; }
     virtual float getCurrentPuckFlow() const { return currentPuckFlow; }
     virtual float getCurrentPumpFlow() const { return currentPumpFlow; }
+    /** Scale-derived cup flow (g/s): EMA-smoothed d(weight)/dt with spike
+     *  rejection; 0 when no recent BLE weight samples. */
+    virtual float getCurrentCupFlow() const { return currentCupFlow; }
+    /** True while BLE weight samples arrive recently enough for cup flow to be usable. */
+    bool isCupFlowLive() const { return lastCupWeightTime != 0 && millis() - lastCupWeightTime < CUP_FLOW_STALE_MS; }
     /** Pump duty 0–100 % (from controller BLE telemetry). */
     virtual float getCurrentPumpPower() const { return currentPumpPower; }
     /** Heater duty 0–1000 (from controller BLE telemetry). */
@@ -185,6 +190,12 @@ class Controller {
     float targetPressure = 0.0f;
     float currentPuckFlow = 0.0f;
     float currentPumpFlow = 0.0f;
+    // Cup-flow signal (scale-derived). See updateCupFlowFromWeight().
+    static constexpr unsigned long CUP_FLOW_STALE_MS = 2000;
+    float currentCupFlow = 0.0f;
+    float lastCupWeight = 0.0f;
+    unsigned long lastCupWeightTime = 0;
+    void updateCupFlowFromWeight(float weight);
     float currentPumpPower = 0.0f;
     float currentHeaterPower = 0.0f;
     float pidLiveP = 0.0f;

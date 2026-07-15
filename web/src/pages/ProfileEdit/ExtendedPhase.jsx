@@ -315,7 +315,7 @@ export function ExtendedPhase({ phase, index, onChange, onRemove, pressureAvaila
           {mode !== 'hold-flow' && (
             <div className='form-control'>
               <label htmlFor={`phase-${index}-flow`} className='mb-2 block text-sm font-medium'>
-                {mode === 'flow' ? 'Target' : 'Maximum'} Flow{' '}
+                {mode === 'flow' ? 'Target' : 'Maximum'} Pump Flow{' '}
                 {mode === 'pressure' && '(0 = Ignore)'}
               </label>
               <div className='input-group'>
@@ -329,12 +329,40 @@ export function ExtendedPhase({ phase, index, onChange, onRemove, pressureAvaila
                     onChange={e =>
                       onFieldChange('pump', { ...phase.pump, flow: parseFloat(e.target.value) })
                     }
-                    aria-label='Flow rate in grams per second'
+                    aria-label='Pump flow rate in grams per second'
                     min={mode === 'flow' ? '0.1' : '0'}
                   />
                   <span aria-label='grams per second'>g/s</span>
                 </label>
               </div>
+            </div>
+          )}
+          {(mode === 'flow' || mode === 'hold-flow') && (
+            <div className='form-control'>
+              <label htmlFor={`phase-${index}-cupflow`} className='mb-2 block text-sm font-medium'>
+                Cup Flow (0 = Ignore)
+              </label>
+              <div className='input-group'>
+                <label htmlFor={`phase-${index}-cupflow`} className='input w-full'>
+                  <input
+                    id={`phase-${index}-cupflow`}
+                    className='grow'
+                    type='number'
+                    step='0.01'
+                    value={(phase.pump?.cupFlow || 0).toString()}
+                    onChange={e =>
+                      onFieldChange('pump', { ...phase.pump, cupFlow: parseFloat(e.target.value) })
+                    }
+                    aria-label='Cup flow rate in grams per second, measured by the scale'
+                    min='0'
+                  />
+                  <span aria-label='grams per second'>g/s</span>
+                </label>
+              </div>
+              <span className='text-base-content/60 mt-1 text-xs'>
+                Holds the scale-measured flow into the cup; pump flow acts as the ceiling. Needs a
+                connected scale (falls back to pump flow without one).
+              </span>
             </div>
           )}
         </div>

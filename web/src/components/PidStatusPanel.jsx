@@ -106,7 +106,8 @@ export function PidStatusPanel({ pidSettings = null }) {
       <StatGroup title='Context'>
         <StatRow label='Mode' value={modeLabel(status.mode)} />
         <StatRow label='Pressure' value={`${fmt(status.currentPressure, 2)} bar`} />
-        <StatRow label='Flow' value={`${fmt(status.currentFlow, 2)} g/s`} />
+        <StatRow label='Pump flow' value={`${fmt(status.currentFlow, 2)} g/s`} />
+        <StatRow label='Cup flow' value={`${fmt(status.cupFlow, 2)} g/s`} />
         <StatRow label='Weight' value={`${fmt(status.currentWeight, 1)} g`} />
       </StatGroup>
     </div>

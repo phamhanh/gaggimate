@@ -115,6 +115,7 @@ export function Settings() {
       settingsWithToggle.incomingWaterTempC = fetchedSettings.incomingWaterTempC ?? 23;
       settingsWithToggle.tempProbeFilterEnabled = fetchedSettings.tempProbeFilterEnabled ?? true;
       settingsWithToggle.tempProbeFilterAlpha = fetchedSettings.tempProbeFilterAlpha ?? 0.05;
+      settingsWithToggle.cupFlowSmoothing = fetchedSettings.cupFlowSmoothing ?? 1.5;
       settingsWithToggle.pidBandBelowC = fetchedSettings.pidBandBelowC ?? 0.3;
       settingsWithToggle.pidBandAboveC = fetchedSettings.pidBandAboveC ?? 0.5;
       settingsWithToggle.pidStab = fetchedSettings.pidStab ?? '';
@@ -338,6 +339,10 @@ export function Settings() {
       if (formData.tempProbeFilterAlpha !== undefined) {
         const alpha = Math.min(1, Math.max(0.01, Number(formData.tempProbeFilterAlpha)));
         formDataToSubmit.set('tempProbeFilterAlpha', String(alpha));
+      }
+      if (formData.cupFlowSmoothing !== undefined) {
+        const tau = Math.min(10, Math.max(0.2, Number(formData.cupFlowSmoothing)));
+        formDataToSubmit.set('cupFlowSmoothing', String(tau));
       }
 
       const flow1Bar = formDataToSubmit.get('pumpFlow1Bar');
@@ -1205,6 +1210,32 @@ export function Settings() {
                 />
               </div>
             )}
+            <div className='form-control mb-4'>
+              <label htmlFor='cupFlowSmoothing' className='mb-2 block text-sm font-medium'>
+                Cup flow smoothing
+              </label>
+              <div className='input-group'>
+                <label htmlFor='cupFlowSmoothing' className='input w-full'>
+                  <input
+                    id='cupFlowSmoothing'
+                    name='cupFlowSmoothing'
+                    type='number'
+                    step='0.1'
+                    min='0.2'
+                    max='10'
+                    className='grow'
+                    value={formData.cupFlowSmoothing ?? 1.5}
+                    onChange={onChange('cupFlowSmoothing')}
+                  />
+                  <span aria-label='seconds'>s</span>
+                </label>
+              </div>
+              <p className='mt-2 text-xs opacity-70'>
+                Time constant for the scale-derived cup flow (display, stop conditions and
+                cup-flow control). Higher = calmer but slower to react; a knock on the cup is
+                also rejected outright. Default <strong>1.5 s</strong>.
+              </p>
+            </div>
             <div className='form-control mb-4'>
               <label htmlFor='temperatureOffset' className='mb-2 block text-sm font-medium'>
                 Temperature Offset (°C)

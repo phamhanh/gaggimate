@@ -121,7 +121,7 @@ export function ShotChartControls({
           {LEGEND_ORDER.map(label => {
             if (hiddenLegendLabels.includes(label)) return null;
             if (label === 'Weight' && !hasWeightData) return null;
-            if (label === 'Weight Flow' && !hasWeightFlowData) return null;
+            if (label === 'Cup Flow' && !hasWeightFlowData) return null;
             const key = VISIBILITY_KEY_BY_LABEL[label];
             const isVisible = key ? visibility[key] : false;
             const swatchColor = legendColorByLabel[label] || '#94a3b8';

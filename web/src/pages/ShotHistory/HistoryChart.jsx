@@ -205,7 +205,7 @@ function getChartData(shot) {
         ...(hasWeightFlow
           ? [
               {
-                label: 'Weight Flow',
+                label: 'Cup Flow',
                 borderColor: '#4b2e8dff',
                 pointStyle: false,
                 yAxisID: 'y1',
