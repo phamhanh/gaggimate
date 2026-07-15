@@ -53,6 +53,7 @@ void BLEScalePlugin::setup(Controller *controller, PluginManager *manager) {
     }
 
     this->controller = controller;
+    this->pluginManager = manager;
     this->pluginRegistry = RemoteScalesPluginRegistry::getInstance();
 
     // Apply scale plugins with error checking
@@ -151,6 +152,10 @@ void BLEScalePlugin::update() {
                     scanner->initializeAsyncScan();
                 }
             }
+        } else {
+            // Poll slow-changing metadata (battery). Runs at the 1 Hz update
+            // cadence; the change event only fires when the value moves.
+            pollScaleMetadata();
         }
     } else if (controller->getSettings().getSavedScale() != "" && scanner != nullptr) {
         // Protected scanner access with null checks
@@ -205,6 +210,9 @@ void BLEScalePlugin::disconnect() {
         uuid = "";
         doConnect = false;
         reconnectionTries = 0;
+        // Reset the battery cache so a newly connected scale (possibly a
+        // different model) re-emits its level.
+        lastBatteryLevel = REMOTE_SCALES_BATTERY_UNKNOWN;
     }
 }
 
@@ -217,6 +225,22 @@ void BLEScalePlugin::onProcessStart() const {
         // Check if scale is still connected before second tare
         if (scale != nullptr && scale->isConnected()) {
             scale->tare();
+        }
+    }
+}
+
+void BLEScalePlugin::pollScaleMetadata() {
+    if (scale == nullptr || !scale->isConnected() || pluginManager == nullptr) {
+        return;
+    }
+    // Battery % — fire event only on change so consumers can subscribe without
+    // being hammered at 1 Hz with duplicate values. (Battery-only subset of
+    // upstream 21f6d914.)
+    if (scale->hasBatteryLevel()) {
+        const uint8_t pct = scale->getBatteryLevel();
+        if (pct != lastBatteryLevel && pct != REMOTE_SCALES_BATTERY_UNKNOWN) {
+            lastBatteryLevel = pct;
+            pluginManager->trigger("scale:battery:change", "value", static_cast<int>(pct));
         }
     }
 }

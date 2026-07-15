@@ -45,9 +45,17 @@ class BLEScalePlugin : public Plugin {
     std::vector<DiscoveredDevice> getDiscoveredScales() const;
     void tare() const;
 
+    // Battery accessors (subset of upstream 21f6d914 — battery only). Returns
+    // the UNKNOWN sentinel when the driver doesn't report a level.
+    uint8_t getBatteryLevel() const {
+        return scale != nullptr && scale->hasBatteryLevel() ? scale->getBatteryLevel() : REMOTE_SCALES_BATTERY_UNKNOWN;
+    }
+    bool hasBatteryLevel() const { return scale != nullptr && scale->hasBatteryLevel(); }
+
   private:
     void update();
     void onProcessStart() const;
+    void pollScaleMetadata();
 
     void establishConnection();
 
@@ -58,11 +66,16 @@ class BLEScalePlugin : public Plugin {
     unsigned long lastUpdate = 0;
     unsigned int reconnectionTries = 0;
 
+    // Cached battery value so the change event only fires when it moves.
+    // Reset on disconnect so a newly connected scale re-emits.
+    uint8_t lastBatteryLevel = REMOTE_SCALES_BATTERY_UNKNOWN;
+
     // Rate limiting for callbacks
     mutable unsigned long lastMeasurementTime = 0;
     static constexpr unsigned long MIN_MEASUREMENT_INTERVAL_MS = 10; // Max 100 measurements per second
 
     Controller *controller = nullptr;
+    PluginManager *pluginManager = nullptr;
     RemoteScalesPluginRegistry *pluginRegistry = nullptr;
     RemoteScalesScanner *scanner = nullptr;
     std::unique_ptr<RemoteScales> scale = nullptr;
