@@ -1296,15 +1296,16 @@ void DefaultUI::updateStatusScreen() const {
         }
     }
 
-    // Live scale readout: weight + cup flow whenever the scale streams,
-    // regardless of volumetric mode or weight targets.
+    // Live flow readout, always visible during a shot: weight + cup flow when
+    // the scale streams; the pump-model flow otherwise (marked as such so the
+    // two are never confused).
     if (controller->isCupFlowLive()) {
         lv_label_set_text_fmt(ui_StatusScreen_scaleInfo, "%.1f g  |  %.2f g/s", bluetoothWeight,
                               controller->getCurrentCupFlow());
-        lv_obj_clear_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
     } else {
-        lv_obj_add_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text_fmt(ui_StatusScreen_scaleInfo, "%.2f g/s (pump)", controller->getCurrentPumpFlow());
     }
+    lv_obj_clear_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
 
     lv_label_set_text(ui_StatusScreen_stepLabel, phase.phase == PhaseType::PHASE_TYPE_BREW ? "BREW" : "INFUSION");
     String phaseText = "Finished";
