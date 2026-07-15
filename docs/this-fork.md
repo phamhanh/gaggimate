@@ -175,6 +175,7 @@ The cup sits high on the panel (`LV_ALIGN_CENTER`, y = −104), and the `control
 - **Profile editor** — insert a phase **after the current one** (pre-infusion splits).
 - **PID telemetry API** — live `pidLive` (P/I/D/Kff/out/frozen) on `evt:status` and `GET /api/status`; WebSocket `req:set-pid` and `req:set-target-temp` for Plan 2 tuning agents. Contract: [pid-telemetry-api.md](pid-telemetry-api.md).
 - **3-zone idle PID** — replaces near-target P/D softening and overshoot P/D mute with explicit **heating / stabilizing / cooling** gain zones (three full Kp,Ki,Kd triplets + band thresholds). One shared integrator with bumpless Ki transitions; integral can unwind in cooling so overshoot bleeds off. Web Settings → **3-zone idle PID**; NVS + BLE PID tokens 9–16; `pidLive.zone` / `kiActive` on status. See [pid-telemetry-api.md](pid-telemetry-api.md).
+- **Timemore Black Mirror Dot scale** — cherry-picked upstream's Dot support, but with `esp-arduino-ble-scales` **pinned to `67e0aa19`** where upstream tracks the library unpinned. Later library commits move to NimBLE 2.5 / esp-nimble-cpp, which this fork's older base (NimBLE-Arduino 1.4.x) can't build against. The pin trades away the Dot battery-level readout (added post-pin) for a scale that connects without pulling the whole platform upgrade.
 
 ## Two dead heater elements
 
