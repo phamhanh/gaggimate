@@ -1296,15 +1296,22 @@ void DefaultUI::updateStatusScreen() const {
         }
     }
 
-    // Live flow readout, always visible during a shot: weight + cup flow when
-    // the scale streams; the pump-model flow otherwise (marked as such so the
-    // two are never confused).
-    if (controller->isCupFlowLive()) {
-        lv_label_set_text_fmt(ui_StatusScreen_scaleInfo, "%.1f g  |  %.2f g/s", bluetoothWeight,
-                              controller->getCurrentCupFlow());
+    // Live flow readout, always visible during a shot. Big flow label left of
+    // the timer shows cup flow while the scale streams, pump flow otherwise;
+    // big weight label right of the timer only while the scale streams. The
+    // small row underneath always reports the pump-model flow so it stays
+    // available even when the big label shows cup flow.
+    const bool cupFlowLive = controller->isCupFlowLive();
+    lv_label_set_text_fmt(ui_StatusScreen_flowLive, "%.1f g/s",
+                          cupFlowLive ? controller->getCurrentCupFlow() : controller->getCurrentPumpFlow());
+    lv_obj_clear_flag(ui_StatusScreen_flowLive, LV_OBJ_FLAG_HIDDEN);
+    if (cupFlowLive) {
+        lv_label_set_text_fmt(ui_StatusScreen_weightLive, "%.1f g", bluetoothWeight);
+        lv_obj_clear_flag(ui_StatusScreen_weightLive, LV_OBJ_FLAG_HIDDEN);
     } else {
-        lv_label_set_text_fmt(ui_StatusScreen_scaleInfo, "%.2f g/s (pump)", controller->getCurrentPumpFlow());
+        lv_obj_add_flag(ui_StatusScreen_weightLive, LV_OBJ_FLAG_HIDDEN);
     }
+    lv_label_set_text_fmt(ui_StatusScreen_scaleInfo, "pump %.1f g/s", controller->getCurrentPumpFlow());
     lv_obj_clear_flag(ui_StatusScreen_scaleInfo, LV_OBJ_FLAG_HIDDEN);
 
     lv_label_set_text(ui_StatusScreen_stepLabel, phase.phase == PhaseType::PHASE_TYPE_BREW ? "BREW" : "INFUSION");

@@ -33,8 +33,11 @@ extern lv_obj_t *ui_StatusScreen_brewBar;
 extern lv_obj_t *ui_StatusScreen_labelContainer;
 extern lv_obj_t *ui_StatusScreen_brewLabel;
 extern lv_obj_t *ui_StatusScreen_brewVolume;
-// Fork addition: live scale readout (weight + cup flow) during a shot
+// Fork addition: small pump-flow readout row during a shot
 extern lv_obj_t *ui_StatusScreen_scaleInfo;
+// Fork addition: big live flow (left of timer) and scale weight (right of timer)
+extern lv_obj_t *ui_StatusScreen_flowLive;
+extern lv_obj_t *ui_StatusScreen_weightLive;
 // CUSTOM VARIABLES
 extern lv_obj_t *uic_StatusScreen_dials_tempGauge;
 extern lv_obj_t *uic_StatusScreen_dials_tempTarget;
